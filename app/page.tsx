@@ -1,11 +1,11 @@
-// app/page.tsx
-export default function Home() {
+"use client";
+
+export default function HomePage() {
   return (
-    <div className="p-10 text-[var(--text)]">
-      <h1 className="text-4xl font-bold mb-4">BillyBot</h1>
-      <p className="text-lg opacity-80">
-        Welcome. Use the sidebar to open the Chat.
-      </p>
+    <div className="flex items-center justify-center h-full p-10 text-[var(--text)]">
+      <h1 className="text-4xl font-semibold">
+        Welcome to BillyBot
+      </h1>
     </div>
   );
 }
