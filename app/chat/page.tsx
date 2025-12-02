@@ -1,10 +1,17 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
-const supabase = createSupabaseBrowser();
+// FIX: Don't create Supabase on the server
+function getSupabase() {
+  if (typeof window === "undefined") return null;
+  return createSupabaseBrowser();
+}
 
 type DbMessage = {
   id: string;
