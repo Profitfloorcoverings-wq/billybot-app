@@ -3,13 +3,9 @@
 import "./globals.css";
 import { Inter } from "next/font/google";
 import Sidebar from "@/app/chat/components/Sidebar";
+import React from "react";
 
 const inter = Inter({ subsets: ["latin"] });
-
-export const metadata = {
-  title: "BillyBot™",
-  description: "AI Assistant for Flooring Businesses",
-};
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -25,4 +21,3 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
-
