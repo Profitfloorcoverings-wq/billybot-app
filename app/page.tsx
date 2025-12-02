@@ -1,5 +1,8 @@
 "use client";
 
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 import { useState, useEffect, useCallback, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
