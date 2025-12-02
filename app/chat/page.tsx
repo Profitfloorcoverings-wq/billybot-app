@@ -1,0 +1,158 @@
+"use client";
+
+import { useState, useEffect, KeyboardEvent } from "react";
+import ReactMarkdown from "react-markdown";
+
+type Message = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+};
+
+export default function ChatPage() {
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  // Load conversation history on mount
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
+        });
+
+        const data = await res.json();
+
+        if (data?.messages?.length) {
+          const formatted = data.messages.map((m: any) => ({
+            id: Date.now() + Math.random(),
+            role: m.role as "user" | "assistant",
+            content: m.content as string,
+          }));
+          setMessages(formatted);
+        }
+      } catch (err) {
+        console.error("Error loading history:", err);
+      }
+    }
+
+    loadHistory();
+  }, []);
+
+  async function sendMessage() {
+    if (!input.trim()) return;
+
+    const userText = input;
+    setInput("");
+
+    // Instantly show user message
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now(), role: "user", content: userText },
+    ]);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText }),
+      });
+
+      const data = await res.json();
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: "assistant",
+          content: data.reply || "BillyBot didn't respond.",
+        },
+      ]);
+    } catch (err) {
+      console.error("Chat error:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now() + 1,
+          role: "assistant",
+          content: "Error: Could not reach BillyBot.",
+        },
+      ]);
+    }
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  return (
+    <div className="flex h-full flex-col gap-4 p-5">
+      {/* HEADER */}
+      <div>
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
+          Chat
+        </h1>
+      </div>
+
+      {/* MESSAGES */}
+      <div className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.85)] p-4">
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className={`flex ${
+              m.role === "user" ? "justify-end" : "justify-start"
+            }`}
+          >
+            <div
+              className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm shadow-sm whitespace-pre-wrap leading-relaxed 
+                ${
+                  m.role === "user"
+                    ? "bg-[var(--brand1)] text-white rounded-br-none"
+                    : "bg-[#1f2937] text-[var(--text)] border border-[var(--line)] rounded-bl-none"
+                }
+              `}
+              style={{
+                padding: "8px 12px",
+                lineHeight: "1.35",
+                fontSize: "0.9rem",
+              }}
+            >
+<div className="prose prose-invert max-w-none whitespace-pre-wrap">
+  <ReactMarkdown>
+    {m.content}
+  </ReactMarkdown>
+</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* INPUT BAR */}
+      <div className="rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-3 py-2">
+        <div className="flex items-end gap-2">
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={1}
+            placeholder="Message BillyBot…"
+            className="flex-1 resize-none bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none"
+          />
+
+          <button
+            onClick={sendMessage}
+            disabled={!input.trim()}
+            className="inline-flex items-center justify-center rounded-full bg-[var(--brand1)] px-4 py-2 text-sm font-medium text-white shadow-md shadow-[rgba(235,139,37,0.4)] hover:bg-[var(--brand2)] disabled:opacity-40"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
