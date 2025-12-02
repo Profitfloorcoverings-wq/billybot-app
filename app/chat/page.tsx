@@ -1,11 +1,11 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-export const fetchCache = "force-no-store";
-
 import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
+
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
 
 const supabase = createSupabaseBrowser();
 
