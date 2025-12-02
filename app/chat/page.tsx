@@ -34,7 +34,7 @@ export default function ChatPage() {
   const [isSending, setIsSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  // 1) Load existing history from /api/chat
+  // Load history
   useEffect(() => {
     async function loadHistory() {
       try {
@@ -49,7 +49,6 @@ export default function ChatPage() {
         if (Array.isArray(data?.messages)) {
           const dbMessages = data.messages as DbMessage[];
 
-          // map into strictly typed UI messages
           setMessages(
             dbMessages.map((m) => ({
               id: m.id,
@@ -58,7 +57,6 @@ export default function ChatPage() {
             }))
           );
 
-          // grab conversation_id for Realtime
           const firstConvo = dbMessages[0]?.conversation_id;
           if (firstConvo) setConversationId(firstConvo);
         }
@@ -70,9 +68,10 @@ export default function ChatPage() {
     loadHistory();
   }, []);
 
-  // 2) Supabase Realtime for new messages in this conversation
+  // Realtime subscription
   useEffect(() => {
     if (!conversationId) return;
+    if (!supabase) return; // fix for Vercel/TS
 
     const channel = supabase
       .channel(`chat-messages-${conversationId}`)
@@ -88,31 +87,24 @@ export default function ChatPage() {
           const row = payload.new as DbMessage;
 
           setMessages((prev) => {
-            // avoid duplicates if we already have this id
             if (prev.some((m) => m.id === row.id)) return prev;
-
-            return [
-              ...prev,
-              { id: row.id, role: row.role, content: row.content ?? "" },
-            ];
+            return [...prev, { id: row.id, role: row.role, content: row.content ?? "" }];
           });
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase?.removeChannel(channel);
     };
   }, [conversationId]);
 
-  // 3) Auto-scroll when messages change
+  // Scroll on new messages
   useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  // 4) Send a message via /api/chat (n8n + system route still work)
+  // Send message
   async function sendMessage() {
     const text = input.trim();
     if (!text) return;
@@ -120,7 +112,6 @@ export default function ChatPage() {
     setInput("");
     setIsSending(true);
 
-    // optimistic user bubble
     const tempId = `local-${Date.now()}`;
     setMessages((prev) => [...prev, { id: tempId, role: "user", content: text }]);
 
@@ -134,11 +125,8 @@ export default function ChatPage() {
       const data = await res.json();
 
       const replyText =
-        typeof data.reply === "string"
-          ? data.reply
-          : "BillyBot didn't respond.";
+        typeof data.reply === "string" ? data.reply : "BillyBot didn't respond.";
 
-      // optimistic assistant bubble – Realtime will also insert the “real” row
       setMessages((prev) => [
         ...prev,
         {
@@ -171,14 +159,12 @@ export default function ChatPage() {
 
   return (
     <div className="flex h-full flex-col gap-4 p-5">
-      {/* HEADER */}
       <div>
         <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
           Chat
         </h1>
       </div>
 
-      {/* MESSAGES */}
       <div className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.85)] p-4">
         {messages.map((m) => (
           <div
@@ -209,7 +195,6 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* INPUT BAR */}
       <div className="rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-3 py-2">
         <div className="flex items-end gap-2">
           <textarea
