@@ -1,23 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState, KeyboardEvent } from "react";
+import { useState, useEffect, useRef, KeyboardEvent, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
-import { createSupabaseBrowser } from "@/lib/supabase-browser";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// Only run on client
-function getSupabase() {
-  if (typeof window === "undefined") return null;
-  return createSupabaseBrowser();
-}
+// ---------- Browser Supabase Client ----------
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Global but client-safe
-const supabase = getSupabase();
+// This runs safely in the browser only
+const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
 type DbMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  conversation_id: string | null;
+  conversation_id: string;
   created_at: string;
 };
 
@@ -32,49 +30,52 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  // Load history
-  useEffect(() => {
-    async function loadHistory() {
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
-        });
+  // ---------- Load chat history ----------
+  const loadHistory = useCallback(async () => {
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
+      });
 
-        const data = await res.json();
+      if (!res.ok) return;
 
-        if (Array.isArray(data?.messages)) {
-          const dbMessages = data.messages as DbMessage[];
+      const data = await res.json();
+      const rows = (data?.messages ?? []) as DbMessage[];
 
-          setMessages(
-            dbMessages.map((m) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content ?? "",
-            }))
-          );
-
-          const firstConvo = dbMessages[0]?.conversation_id;
-          if (firstConvo) setConversationId(firstConvo);
+      if (rows.length) {
+        if (!conversationId) {
+          setConversationId(rows[0].conversation_id);
         }
-      } catch (err) {
-        console.error("Error loading history", err);
+
+        const formatted: UiMessage[] = rows.map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+        }));
+
+        setMessages(formatted);
       }
+    } catch (err) {
+      console.error("History load error:", err);
     }
+  }, [conversationId]);
 
+  // Initial load
+  useEffect(() => {
     loadHistory();
-  }, []);
+  }, [loadHistory]);
 
-  // Realtime subscription
+  // ---------- Supabase Realtime ----------
   useEffect(() => {
     if (!conversationId) return;
-    if (!supabase) return; // fix for Vercel/TS
 
     const channel = supabase
-      .channel(`chat-messages-${conversationId}`)
+      .channel(`chat-${conversationId}`)
       .on(
         "postgres_changes",
         {
@@ -83,37 +84,48 @@ export default function ChatPage() {
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload) => {
-          const row = payload.new as DbMessage;
+        (payload: { new: DbMessage }) => {
+          const row = payload.new;
 
+          // Assistant only (user messages are optimistic)
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
-            return [...prev, { id: row.id, role: row.role, content: row.content ?? "" }];
+            return [
+              ...prev,
+              {
+                id: row.id,
+                role: row.role,
+                content: row.content ?? "",
+              },
+            ];
           });
         }
       )
       .subscribe();
 
     return () => {
-      supabase?.removeChannel(channel);
+      supabase.removeChannel(channel);
     };
   }, [conversationId]);
 
-  // Scroll on new messages
+  // ---------- Auto-scroll ----------
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  // Send message
+  // ---------- Send Message ----------
   async function sendMessage() {
     const text = input.trim();
-    if (!text) return;
+    if (!text || isSending) return;
 
     setInput("");
     setIsSending(true);
 
-    const tempId = `local-${Date.now()}`;
-    setMessages((prev) => [...prev, { id: tempId, role: "user", content: text }]);
+    // optimistic UI
+    setMessages((prev) => [
+      ...prev,
+      { id: `local-${Date.now()}`, role: "user", content: text },
+    ]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -122,19 +134,15 @@ export default function ChatPage() {
         body: JSON.stringify({ message: text }),
       });
 
-      const data = await res.json();
+      if (!res.ok) {
+        console.error("Send failed", await res.text());
+        return;
+      }
 
-      const replyText =
-        typeof data.reply === "string" ? data.reply : "BillyBot didn't respond.";
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `local-${Date.now() + 1}`,
-          role: "assistant",
-          content: replyText,
-        },
-      ]);
+      // If first message ever, load history to get conversation_id
+      if (!conversationId) {
+        await loadHistory();
+      }
     } catch (err) {
       console.error("Chat error:", err);
       setMessages((prev) => [
@@ -157,6 +165,7 @@ export default function ChatPage() {
     }
   }
 
+  // ---------- UI ----------
   return (
     <div className="flex h-full flex-col gap-4 p-5">
       <div>
@@ -174,17 +183,12 @@ export default function ChatPage() {
             }`}
           >
             <div
-              className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm shadow-sm whitespace-pre-wrap leading-relaxed 
+              className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm shadow-sm whitespace-pre-wrap leading-relaxed
                 ${
                   m.role === "user"
                     ? "bg-[var(--brand1)] text-white rounded-br-none"
                     : "bg-[#1f2937] text-[var(--text)] border border-[var(--line)] rounded-bl-none"
                 }`}
-              style={{
-                padding: "8px 12px",
-                lineHeight: "1.35",
-                fontSize: "0.9rem",
-              }}
             >
               <div className="prose prose-invert max-w-none whitespace-pre-wrap">
                 <ReactMarkdown>{m.content}</ReactMarkdown>
@@ -209,7 +213,7 @@ export default function ChatPage() {
           <button
             onClick={sendMessage}
             disabled={!input.trim() || isSending}
-            className="inline-flex items-center justify-center rounded-full bg-[var(--brand1)] px-4 py-2 text-sm font-medium text-white shadow-md shadow-[rgba(235,139,37,0.4)] hover:bg-[var(--brand2)] disabled:opacity-40"
+            className="inline-flex items-center justify-center rounded-full bg-[var(--brand1)] px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-[var(--brand2)] disabled:opacity-40"
           >
             {isSending ? "Sending…" : "Send"}
           </button>
