@@ -2,69 +2,71 @@
 
 import { useEffect, useState, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
-import { createClient } from "@supabase/supabase-js";
+import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
 type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  conversation_id: string;
   created_at: string;
 };
 
 export default function ChatPage() {
+  const supabase = createSupabaseBrowser();
+
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Supabase browser client (uses NEXT_PUBLIC_ keys)
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  // Load history
+  // Load history and conversation id on mount
   useEffect(() => {
     async function loadHistory() {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
+        body: JSON.stringify({ message: "__LOAD_HISTORY__" })
       });
 
       const data = await res.json();
 
       if (data?.messages?.length) {
-        setMessages(data.messages);
-        setConversationId(data.messages[0].conversation_id);
+        const convoId = data.messages[0].conversation_id;
+        setConversationId(convoId);
+
+        const formatted = data.messages.map((m: any) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          created_at: m.created_at
+        }));
+
+        setMessages(formatted);
       }
+
+      setLoading(false);
     }
 
     loadHistory();
   }, []);
 
-  // Realtime subscription
+  // Subscribe to realtime messages for this conversation
   useEffect(() => {
     if (!conversationId) return;
 
     const channel = supabase
-      .channel("chat_realtime")
+      .channel("chat-stream")
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
+          filter: `conversation_id=eq.${conversationId}`
         },
         (payload) => {
           const m = payload.new as Message;
-
-          setMessages((prev) => {
-            // avoid duplicates
-            if (prev.some((x) => x.id === m.id)) return prev;
-            return [...prev, m];
-          });
+          setMessages((prev) => [...prev, m]);
         }
       )
       .subscribe();
@@ -74,35 +76,29 @@ export default function ChatPage() {
     };
   }, [conversationId]);
 
-  // Sending user message
   async function sendMessage() {
     if (!input.trim()) return;
-    const text = input;
+    const userText = input;
     setInput("");
 
-    // Optimistic local render
-    const temp: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: text,
-      conversation_id: conversationId || "",
-      created_at: new Date().toISOString(),
-    };
-    setMessages((p) => [...p, temp]);
+    // UI instant update
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: Math.random().toString(),
+        role: "user",
+        content: userText,
+        created_at: new Date().toISOString()
+      }
+    ]);
 
-    // Send to backend
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ message: userText })
     });
 
-    const data = await res.json();
-
-    // The bot reply will come through Supabase Realtime automatically
-    if (data.conversation_id && !conversationId) {
-      setConversationId(data.conversation_id);
-    }
+    // The reply will arrive through realtime subscription
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -112,28 +108,24 @@ export default function ChatPage() {
     }
   }
 
+  if (loading) return <div className="p-6 text-white">Loading chat…</div>;
+
   return (
     <div className="flex h-full flex-col gap-4 p-5">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
-          Chat
-        </h1>
-      </div>
+      <h1 className="text-3xl font-semibold text-white">Chat</h1>
 
-      {/* MESSAGES */}
-      <div className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.85)] p-4">
+      {/* Messages */}
+      <div className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-gray-700 bg-[rgba(15,23,42,0.85)] p-4">
         {messages.map((m) => (
           <div
             key={m.id}
-            className={`flex ${
-              m.role === "user" ? "justify-end" : "justify-start"
-            }`}
+            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm shadow-sm whitespace-pre-wrap leading-relaxed ${
+              className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm shadow-sm whitespace-pre-wrap ${
                 m.role === "user"
-                  ? "bg-[var(--brand1)] text-white rounded-br-none"
-                  : "bg-[#1f2937] text-[var(--text)] border border-[var(--line)] rounded-bl-none"
+                  ? "bg-blue-600 text-white rounded-br-none"
+                  : "bg-gray-700 text-gray-200 border border-gray-600 rounded-bl-none"
               }`}
             >
               <ReactMarkdown>{m.content}</ReactMarkdown>
@@ -142,8 +134,8 @@ export default function ChatPage() {
         ))}
       </div>
 
-      {/* INPUT BAR */}
-      <div className="rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-3 py-2">
+      {/* Input */}
+      <div className="rounded-2xl border border-gray-700 bg-[rgba(15,23,42,0.9)] px-3 py-2">
         <div className="flex items-end gap-2">
           <textarea
             value={input}
@@ -151,13 +143,13 @@ export default function ChatPage() {
             onKeyDown={handleKeyDown}
             rows={1}
             placeholder="Message BillyBot…"
-            className="flex-1 resize-none bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none"
+            className="flex-1 resize-none bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none"
           />
 
           <button
             onClick={sendMessage}
             disabled={!input.trim()}
-            className="inline-flex items-center justify-center rounded-full bg-[var(--brand1)] px-4 py-2 text-sm font-medium text-white shadow-md shadow-[rgba(235,139,37,0.4)] hover:bg-[var(--brand2)] disabled:opacity-40"
+            className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-blue-700 disabled:opacity-40"
           >
             Send
           </button>
