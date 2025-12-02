@@ -1,34 +1,36 @@
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 "use client";
 
-import { useState, useEffect, useRef, KeyboardEvent } from "react";
+import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { createSupabaseBrowser } from "@/lib/supabase-browser";
 
-export const dynamic = "force-dynamic";
+const supabase = createSupabaseBrowser();
 
 type DbMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
-  conversation_id: string;
+  conversation_id: string | null;
   created_at: string;
 };
 
+type UiMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
+
 export default function ChatPage() {
-  const supabase = createSupabaseBrowser();
-
   const [input, setInput] = useState("");
-  const [isSending, setIsSending] = useState(false);
-
-  // ✅ Give messages a real type, fixes the "never[]" error
-  const [messages, setMessages] = useState<DbMessage[]>([]);
+  const [messages, setMessages] = useState<UiMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
-
+  const [isSending, setIsSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  // ------------------------------------------------------------
-  // 1) Load existing history via /api/chat
-  // ------------------------------------------------------------
+  // 1) Load existing history from /api/chat
   useEffect(() => {
     async function loadHistory() {
       try {
@@ -38,52 +40,38 @@ export default function ChatPage() {
           body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
         });
 
-        if (!res.ok) {
-          console.error("History load failed:", await res.text());
-          return;
-        }
-
         const data = await res.json();
 
-        const history: DbMessage[] = (data?.messages || []).map((m: any) => ({
-          id: m.id ?? `${Date.now()}-${Math.random()}`,
-          role: m.role ?? "assistant",
-          content: m.content ?? "",
-          conversation_id: m.conversation_id ?? "",
-          created_at: m.created_at ?? new Date().toISOString(),
-        }));
+        if (Array.isArray(data?.messages)) {
+          const dbMessages = data.messages as DbMessage[];
 
-        setMessages(history);
+          // map into strictly typed UI messages
+          setMessages(
+            dbMessages.map((m) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content ?? "",
+            }))
+          );
 
-        if (history.length > 0) {
-          setConversationId(history[0].conversation_id);
+          // grab conversation_id for Realtime
+          const firstConvo = dbMessages[0]?.conversation_id;
+          if (firstConvo) setConversationId(firstConvo);
         }
       } catch (err) {
-        console.error("Error loading history:", err);
+        console.error("Error loading history", err);
       }
     }
 
     loadHistory();
   }, []);
 
-  // ------------------------------------------------------------
-  // 2) Scroll to bottom when messages change
-  // ------------------------------------------------------------
-  useEffect(() => {
-    if (bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
-
-  // ------------------------------------------------------------
-  // 3) Supabase Realtime subscription for new messages
-  //    (e.g. n8n replies inserted via /api/chat/system)
-  // ------------------------------------------------------------
+  // 2) Supabase Realtime for new messages in this conversation
   useEffect(() => {
     if (!conversationId) return;
 
     const channel = supabase
-      .channel(`messages-${conversationId}`)
+      .channel(`chat-messages-${conversationId}`)
       .on(
         "postgres_changes",
         {
@@ -92,47 +80,45 @@ export default function ChatPage() {
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
-        payload => {
-          const m: any = payload.new;
+        (payload) => {
+          const row = payload.new as DbMessage;
 
-          const newMessage: DbMessage = {
-            id: m.id ?? `${Date.now()}-${Math.random()}`,
-            role: m.role ?? "assistant",
-            content: m.content ?? "",
-            conversation_id: m.conversation_id ?? conversationId,
-            created_at: m.created_at ?? new Date().toISOString(),
-          };
+          setMessages((prev) => {
+            // avoid duplicates if we already have this id
+            if (prev.some((m) => m.id === row.id)) return prev;
 
-          setMessages(prev => [...prev, newMessage]);
+            return [
+              ...prev,
+              { id: row.id, role: row.role, content: row.content ?? "" },
+            ];
+          });
         }
-      );
-
-    channel.subscribe();
+      )
+      .subscribe();
 
     return () => {
-      channel.unsubscribe();
+      supabase.removeChannel(channel);
     };
-  }, [conversationId, supabase]);
+  }, [conversationId]);
 
-  // ------------------------------------------------------------
-  // 4) Send message via /api/chat
-  // ------------------------------------------------------------
+  // 3) Auto-scroll when messages change
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages.length]);
+
+  // 4) Send a message via /api/chat (n8n + system route still work)
   async function sendMessage() {
-    if (!input.trim() || isSending) return;
-
     const text = input.trim();
+    if (!text) return;
+
     setInput("");
     setIsSending(true);
 
-    // Optimistic user bubble
-    const tempMessage: DbMessage = {
-      id: `${Date.now()}-${Math.random()}`,
-      role: "user",
-      content: text,
-      conversation_id: conversationId ?? "",
-      created_at: new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, tempMessage]);
+    // optimistic user bubble
+    const tempId = `local-${Date.now()}`;
+    setMessages((prev) => [...prev, { id: tempId, role: "user", content: text }]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -141,19 +127,32 @@ export default function ChatPage() {
         body: JSON.stringify({ message: text }),
       });
 
-      if (!res.ok) {
-        console.error("Chat send failed:", await res.text());
-      } else {
-        const data = await res.json();
+      const data = await res.json();
 
-        // If backend ever returns conversation_id, capture it
-        if (data?.conversation_id && !conversationId) {
-          setConversationId(data.conversation_id as string);
-        }
-        // Assistant reply will come in via Realtime, so no need to append here
-      }
+      const replyText =
+        typeof data.reply === "string"
+          ? data.reply
+          : "BillyBot didn't respond.";
+
+      // optimistic assistant bubble – Realtime will also insert the “real” row
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `local-${Date.now() + 1}`,
+          role: "assistant",
+          content: replyText,
+        },
+      ]);
     } catch (err) {
       console.error("Chat error:", err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `error-${Date.now()}`,
+          role: "assistant",
+          content: "Error: Could not reach BillyBot.",
+        },
+      ]);
     } finally {
       setIsSending(false);
     }
@@ -166,20 +165,18 @@ export default function ChatPage() {
     }
   }
 
-  // ------------------------------------------------------------
-  // 5) UI
-  // ------------------------------------------------------------
   return (
     <div className="flex h-full flex-col gap-4 p-5">
+      {/* HEADER */}
       <div>
         <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
           Chat
         </h1>
       </div>
 
-      {/* Messages */}
+      {/* MESSAGES */}
       <div className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.85)] p-4">
-        {messages.map(m => (
+        {messages.map((m) => (
           <div
             key={m.id}
             className={`flex ${
@@ -208,12 +205,12 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input bar */}
+      {/* INPUT BAR */}
       <div className="rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-3 py-2">
         <div className="flex items-end gap-2">
           <textarea
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             rows={1}
             placeholder="Message BillyBot…"
