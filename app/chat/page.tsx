@@ -239,7 +239,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="chat-page h-[calc(100vh-80px)] overflow-hidden">
+    <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
       <header className="rounded-3xl border border-[var(--line)] bg-[rgba(13,19,35,0.85)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
         <div className="flex items-center justify-between gap-3">
           <div>
