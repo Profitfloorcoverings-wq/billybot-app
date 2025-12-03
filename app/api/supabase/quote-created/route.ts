@@ -17,11 +17,14 @@ export async function POST(req: Request) {
 
     // Supabase can optionally send an X-Supabase-Signature header, but this
     // project does not configure signing. Capture and intentionally ignore it
-    // so webhook deliveries are not rejected when no secret is set.
     void req.headers.get("x-supabase-signature");
 
     const payload = await req.json();
-    const record = payload?.record ?? payload?.new ?? payload?.data?.new ?? payload;
+    const record =
+      payload?.record ??
+      payload?.new ??
+      payload?.data?.new ??
+      payload;
 
     const id = record?.id as string | undefined;
     const quote_reference = record?.quote_reference as string | undefined;
@@ -44,6 +47,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (conversationErr) throw conversationErr;
+
     const conversationId = conversation?.id ?? null;
 
     if (!conversationId) {
@@ -66,6 +70,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: "ok" });
   } catch (err: unknown) {
     console.error("Quote webhook error:", err);
+
     return NextResponse.json(
       {
         error:
