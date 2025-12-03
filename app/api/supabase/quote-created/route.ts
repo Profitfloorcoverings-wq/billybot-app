@@ -48,6 +48,20 @@ export async function POST(req: Request) {
       throw convoErr;
     }
 
+    const { data: existingMessage, error: existingErr } = await supabase
+      .from("messages")
+      .select("id")
+      .eq("conversation_id", conversation.id)
+      .eq("quote_reference", quoteReference)
+      .limit(1)
+      .maybeSingle();
+
+    if (existingErr) throw existingErr;
+
+    if (existingMessage) {
+      return NextResponse.json({ status: "ok" });
+    }
+
     const { error: insertErr } = await supabase.from("messages").insert({
       conversation_id: conversation.id,
       role: "assistant",
