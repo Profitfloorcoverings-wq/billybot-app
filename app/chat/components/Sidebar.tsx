@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 const navItems = [
   { label: "Chat", href: "/chat" },
   { label: "Quotes", href: "/quotes", watchQuotes: true },
+  { label: "Pricing", href: "/pricing" },
   { label: "Jobs", href: "/jobs" },
   { label: "Settings", href: "/settings" },
 ];
