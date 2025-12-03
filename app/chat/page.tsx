@@ -229,13 +229,11 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
+    <div className="chat-page h-[calc(100vh-80px)] overflow-hidden">
       <header className="rounded-3xl border border-[var(--line)] bg-[rgba(13,19,35,0.85)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">BillyBot™</p>
-            <h1 className="mt-2 text-3xl font-black text-white">Chat with BillyBot</h1>
-            <p className="mt-1 text-sm text-[var(--muted)]">Ask BillyBot to perform a task for you</p>
+            <h1 className="text-3xl font-black text-white">Chat with BillyBot</h1>
           </div>
           <div className="hidden sm:flex items-center gap-3 rounded-2xl bg-[rgba(37,99,235,0.12)] px-4 py-3 text-[var(--text)] border border-[var(--line)]">
             <span className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
@@ -272,7 +270,7 @@ export default function ChatPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={1}
-              placeholder="Tell BillyBot what you need—measurements, materials, or customer notes"
+              placeholder="Tell BillyBot what you need."
               className="chat-input resize-none"
             />
           </div>

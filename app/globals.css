@@ -154,8 +154,8 @@ a {
   display: flex;
   flex-direction: column;
   gap: 20px;
-  height: calc(100vh - 140px);
-  min-height: 520px;
+  height: calc(100vh - 80px);
+  min-height: 640px;
   overflow: hidden;
 }
 
