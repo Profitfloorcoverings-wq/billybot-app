@@ -94,7 +94,6 @@ export default function ChatPage() {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
           const newMessage = payload.new as Message & { conversation_id?: string };
