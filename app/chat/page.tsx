@@ -229,15 +229,13 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="chat-page">
+    <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
       <header className="rounded-3xl border border-[var(--line)] bg-[rgba(13,19,35,0.85)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">BillyBot™ for Trades</p>
-            <h1 className="mt-2 text-3xl font-black text-white">Fast Quotes & Job Chat</h1>
-            <p className="mt-1 text-sm text-[var(--muted)]">
-              Get instant AI replies, pull up quotes, invoices, and job sheets without leaving the field.
-            </p>
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">BillyBot™</p>
+            <h1 className="mt-2 text-3xl font-black text-white">Chat with BillyBot</h1>
+            <p className="mt-1 text-sm text-[var(--muted)]">Ask BillyBot to perform a task for you</p>
           </div>
           <div className="hidden sm:flex items-center gap-3 rounded-2xl bg-[rgba(37,99,235,0.12)] px-4 py-3 text-[var(--text)] border border-[var(--line)]">
             <span className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
@@ -246,10 +244,10 @@ export default function ChatPage() {
         </div>
       </header>
 
-      <div className="chat-panel">
+      <div className="chat-panel min-h-0">
         <div className="flex items-center justify-between rounded-2xl bg-[rgba(255,255,255,0.04)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
           <span>Conversation</span>
-          <span>{loading ? "Syncing…" : "Realtime on"}</span>
+          <span>{loading ? "Syncing…" : "Live"}</span>
         </div>
 
         <div className="chat-messages rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] p-4 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">

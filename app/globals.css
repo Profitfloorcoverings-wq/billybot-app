@@ -154,6 +154,9 @@ a {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  height: calc(100vh - 140px);
+  min-height: 520px;
+  overflow: hidden;
 }
 
 .chat-header {
@@ -199,6 +202,7 @@ a {
   border: 1px solid rgba(148, 163, 184, 0.35);
   box-shadow: var(--shadow-soft);
   padding: 18px 18px 16px;
+  min-height: 0;
 }
 
 .chat-messages {
