@@ -5,12 +5,23 @@ import ReactMarkdown from "react-markdown";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ---------- Browser Supabase Client ----------
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 function createBrowserSupabaseClient(): SupabaseClient | null {
   if (typeof window === "undefined") return null;
-  return createClient(supabaseUrl, supabaseAnonKey);
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Missing Supabase env vars; skipping realtime client init");
+    return null;
+  }
+
+  try {
+    return createClient(supabaseUrl, supabaseAnonKey);
+  } catch (err) {
+    console.error("Supabase client init error:", err);
+    return null;
+  }
 }
 
 type DbMessage = {
@@ -87,6 +98,13 @@ export default function ChatPage() {
 
       const data = await res.json();
       const rows = (data?.messages ?? []) as DbMessage[];
+      const formattedRows: UiMessage[] = rows.map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content ?? "",
+        type: m.type ?? undefined,
+        quote_reference: m.quote_reference ?? undefined,
+      }));
 
       const existingConvIdFromRows =
         rows.length > 0 ? rows[0].conversation_id : null;
@@ -96,6 +114,10 @@ export default function ChatPage() {
 
       const resolvedConversationId =
         existingConvIdFromRows ?? existingConvIdFromPayload;
+
+      if (formattedRows.length > 0) {
+        setMessages(formattedRows);
+      }
 
       if (resolvedConversationId) {
         setConversationId(resolvedConversationId);
@@ -107,10 +129,14 @@ export default function ChatPage() {
   }, [loadMessagesFromSupabase]);
 
   useEffect(() => {
-    if (supabaseClient) {
-      initializeConversation();
+    initializeConversation();
+  }, [initializeConversation]);
+
+  useEffect(() => {
+    if (conversationId && supabaseClient) {
+      loadMessagesFromSupabase(conversationId);
     }
-  }, [supabaseClient, initializeConversation]);
+  }, [conversationId, supabaseClient, loadMessagesFromSupabase]);
 
   // ---------- Realtime subscription ----------
   useEffect(() => {
@@ -180,7 +206,14 @@ export default function ChatPage() {
         console.error("Send failed", await res.text());
       }
 
-      if (!conversationId) {
+      const data = await res.json().catch(() => null);
+      const newConversationId =
+        typeof data?.conversation_id === "string" ? data.conversation_id : null;
+
+      if (newConversationId && newConversationId !== conversationId) {
+        setConversationId(newConversationId);
+        await loadMessagesFromSupabase(newConversationId);
+      } else if (!conversationId) {
         await initializeConversation();
       }
     } catch (err) {
