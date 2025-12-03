@@ -1,24 +1,52 @@
 "use client";
 
-import { useState, useEffect, KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 type Message = {
   id: number;
   role: "user" | "assistant";
   content: string;
+  type?: string | null;
+  quote_reference?: string | null;
+  created_at?: string;
 };
 
-type StoredMessage = {
-  role: Message["role"];
-  content: string;
+type HistoryResponse = {
+  conversation_id: string;
+  messages: Message[];
+};
+
+type SendResponse = {
+  reply: string;
+  conversation_id: string;
+  userMessage?: Message;
+  assistantMessage?: Message;
 };
 
 export default function ChatPage() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
-  // Load conversation history on mount
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const seenIdsRef = useRef<Set<number>>(new Set());
+
+  const supabase: SupabaseClient | null = useMemo(() => {
+    if (!supabaseUrl || !supabaseAnonKey) return null;
+    return createClient(supabaseUrl, supabaseAnonKey);
+  }, []);
+
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
   useEffect(() => {
     async function loadHistory() {
       try {
@@ -28,35 +56,68 @@ export default function ChatPage() {
           body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
         });
 
-        const data = await res.json();
+        const data = (await res.json()) as HistoryResponse;
+        if (data?.conversation_id) {
+          setConversationId(data.conversation_id);
+        }
 
-          if (data?.messages?.length) {
-            const formatted = (data.messages as StoredMessage[]).map((m, idx) => ({
-              id: Date.now() + idx + Math.random(),
-              role: m.role,
-              content: m.content,
-            }));
-            setMessages(formatted);
-          }
+        if (Array.isArray(data?.messages)) {
+          setMessages(data.messages);
+          const nextSeen = new Set<number>();
+          data.messages.forEach((m) => {
+            if (typeof m.id === "number") nextSeen.add(m.id);
+          });
+          seenIdsRef.current = nextSeen;
+        }
       } catch (err) {
         console.error("Error loading history:", err);
+      } finally {
+        setLoading(false);
+        scrollToBottom("auto");
       }
     }
 
     loadHistory();
   }, []);
 
+  useEffect(() => {
+    if (!supabase || !conversationId) return;
+
+    const channel = supabase
+      .channel(`messages-conversation-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+          if (typeof newMessage.id === "number" && seenIdsRef.current.has(newMessage.id)) {
+            return;
+          }
+          if (typeof newMessage.id === "number") {
+            seenIdsRef.current.add(newMessage.id);
+          }
+          setMessages((prev) => [...prev, newMessage]);
+          scrollToBottom();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, conversationId]);
+
   async function sendMessage() {
-    if (!input.trim()) return;
+    if (!input.trim() || sending) return;
 
-    const userText = input;
+    setSending(true);
+    const userText = input.trim();
     setInput("");
-
-    // Instantly show user message
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now(), role: "user", content: userText },
-    ]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -65,26 +126,56 @@ export default function ChatPage() {
         body: JSON.stringify({ message: userText }),
       });
 
-      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(`Request failed: ${res.status}`);
+      }
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now() + 1,
+      const data = (await res.json()) as SendResponse;
+
+      if (data?.conversation_id && !conversationId) {
+        setConversationId(data.conversation_id);
+      }
+
+      const incoming: Message[] = [];
+      if (data?.userMessage) {
+        const msg = data.userMessage;
+        if (typeof msg.id === "number") {
+          seenIdsRef.current.add(msg.id);
+        }
+        incoming.push(msg);
+      }
+      if (data?.assistantMessage) {
+        const msg = data.assistantMessage;
+        if (typeof msg.id === "number") {
+          seenIdsRef.current.add(msg.id);
+        }
+        incoming.push(msg);
+      } else if (data?.reply) {
+        incoming.push({
+          id: Date.now(),
           role: "assistant",
-          content: data.reply || "BillyBot didn't respond.",
-        },
-      ]);
+          content: data.reply,
+          type: "text",
+        });
+      }
+
+      if (incoming.length) {
+        setMessages((prev) => [...prev, ...incoming]);
+        scrollToBottom();
+      }
     } catch (err) {
       console.error("Chat error:", err);
       setMessages((prev) => [
         ...prev,
         {
-          id: Date.now() + 1,
+          id: Date.now(),
           role: "assistant",
           content: "Error: Could not reach BillyBot.",
+          type: "text",
         },
       ]);
+    } finally {
+      setSending(false);
     }
   }
 
@@ -95,66 +186,93 @@ export default function ChatPage() {
     }
   }
 
-  return (
-    <div className="flex h-full flex-col gap-4 p-5">
-      {/* HEADER */}
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
-          Chat
-        </h1>
-      </div>
-
-      {/* MESSAGES */}
-      <div className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.85)] p-4">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${
-              m.role === "user" ? "justify-end" : "justify-start"
-            }`}
+  const renderMessage = (m: Message) => {
+    if (m.type === "quote") {
+      const label = m.quote_reference ? `Quote ${m.quote_reference}` : "Quote";
+      return (
+        <div className="space-y-1">
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{label}</div>
+          <a
+            className="flex items-center gap-2 rounded-2xl border border-[var(--line)] bg-[rgba(37,99,235,0.12)] px-4 py-3 text-[var(--text)] shadow-md transition hover:border-[var(--brand2)] hover:bg-[rgba(59,130,246,0.16)]"
+            href={m.content}
+            target="_blank"
+            rel="noreferrer"
           >
-            <div
-              className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm shadow-sm whitespace-pre-wrap leading-relaxed 
-                ${
-                  m.role === "user"
-                    ? "bg-[var(--brand1)] text-white rounded-br-none"
-                    : "bg-[#1f2937] text-[var(--text)] border border-[var(--line)] rounded-bl-none"
-                }
-              `}
-              style={{
-                padding: "8px 12px",
-                lineHeight: "1.35",
-                fontSize: "0.9rem",
-              }}
-            >
-<div className="prose prose-invert max-w-none whitespace-pre-wrap">
-  <ReactMarkdown>
-    {m.content}
-  </ReactMarkdown>
-</div>
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand1)] text-white shadow-lg">
+              PDF
+            </span>
+            <div className="flex flex-col">
+              <span className="font-semibold">{label} is ready</span>
+              <span className="text-sm text-[var(--muted)]">Tap to open the download</span>
             </div>
-          </div>
-        ))}
+          </a>
+        </div>
+      );
+    }
+
+    return (
+      <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+        <ReactMarkdown>{m.content}</ReactMarkdown>
       </div>
+    );
+  };
 
-      {/* INPUT BAR */}
-      <div className="rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-3 py-2">
-        <div className="flex items-end gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            placeholder="Message BillyBot…"
-            className="flex-1 resize-none bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none"
-          />
+  return (
+    <div className="chat-page">
+      <header className="rounded-3xl border border-[var(--line)] bg-[rgba(13,19,35,0.85)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.24em] text-[var(--muted)]">BillyBot™ for Trades</p>
+            <h1 className="mt-2 text-3xl font-black text-white">Fast Quotes & Job Chat</h1>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              Get instant AI replies, pull up quotes, invoices, and job sheets without leaving the field.
+            </p>
+          </div>
+          <div className="hidden sm:flex items-center gap-3 rounded-2xl bg-[rgba(37,99,235,0.12)] px-4 py-3 text-[var(--text)] border border-[var(--line)]">
+            <span className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
+            <div className="text-sm font-semibold">Live updates enabled</div>
+          </div>
+        </div>
+      </header>
 
+      <div className="chat-panel">
+        <div className="flex items-center justify-between rounded-2xl bg-[rgba(255,255,255,0.04)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+          <span>Conversation</span>
+          <span>{loading ? "Syncing…" : "Realtime on"}</span>
+        </div>
+
+        <div className="chat-messages rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] p-4 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`chat-bubble ${m.role === "user" ? "chat-bubble-user" : "chat-bubble-bot"}`}
+            >
+              <div className={`chat-badge ${m.role === "user" ? "chat-badge-user" : ""}`}>
+                {m.role === "user" ? "You" : "BillyBot"}
+              </div>
+              {renderMessage(m)}
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="chat-input-row">
+          <div className="chat-input-shell">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder="Tell BillyBot what you need—measurements, materials, or customer notes"
+              className="chat-input resize-none"
+            />
+          </div>
           <button
             onClick={sendMessage}
-            disabled={!input.trim()}
-            className="inline-flex items-center justify-center rounded-full bg-[var(--brand1)] px-4 py-2 text-sm font-medium text-white shadow-md shadow-[rgba(235,139,37,0.4)] hover:bg-[var(--brand2)] disabled:opacity-40"
+            disabled={!input.trim() || sending}
+            className="chat-send-btn"
           >
-            Send
+            {sending ? "Sending…" : "Send"}
           </button>
         </div>
       </div>
