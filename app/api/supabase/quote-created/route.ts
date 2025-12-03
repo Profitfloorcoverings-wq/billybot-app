@@ -57,34 +57,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Avoid duplicate quote messages when Supabase webhooks fire more than once
-    const { data: existingMessage, error: existingErr } = await supabase
-      .from("messages")
-      .select("id")
-      .eq("conversation_id", conversationId)
-      .eq("quote_reference", quote_reference)
-      .maybeSingle();
+    // Insert new assistant quote message
+    const { error: insertErr } = await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      role: "assistant",
+      type: "quote",
+      content: pdf_url,
+      quote_reference
+    });
 
-    if (existingErr) throw existingErr;
-
-    if (existingMessage) {
-      const { error: updateErr } = await supabase
-        .from("messages")
-        .update({ content: pdf_url, role: "assistant", type: "quote" })
-        .eq("id", existingMessage.id);
-
-      if (updateErr) throw updateErr;
-    } else {
-      const { error: insertErr } = await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        type: "quote",
-        content: pdf_url,
-        quote_reference
-      });
-
-      if (insertErr) throw insertErr;
-    }
+    if (insertErr) throw insertErr;
 
     return NextResponse.json({ status: "ok" });
   } catch (err: unknown) {
