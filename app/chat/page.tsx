@@ -38,6 +38,7 @@ export default function ChatPage() {
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
+  const initialLoadRef = useRef(true);
 
   const supabase: SupabaseClient | null = useMemo(() => {
     if (!supabaseUrl || !supabaseAnonKey) return null;
@@ -82,6 +83,15 @@ export default function ChatPage() {
 
     loadHistory();
   }, []);
+
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      // Avoid jumpy behavior on the very first render; history load already scrolls.
+      initialLoadRef.current = false;
+      return;
+    }
+    scrollToBottom();
+  }, [messages]);
 
   useEffect(() => {
     if (!supabase || !conversationId) return;
@@ -279,7 +289,14 @@ export default function ChatPage() {
             disabled={!input.trim() || sending}
             className="chat-send-btn"
           >
-            {sending ? "Sending…" : "Send"}
+            {sending ? (
+              <span className="flex items-center gap-2">
+                <span className="chat-send-loader" aria-hidden />
+                <span className="text-sm font-semibold">Working…</span>
+              </span>
+            ) : (
+              "Send"
+            )}
           </button>
         </div>
       </div>
