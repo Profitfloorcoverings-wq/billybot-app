@@ -8,10 +8,11 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 type Message = {
-  id: number;
+  id: number | string;
   role: "user" | "assistant";
   content: string;
   type?: string | null;
+  conversation_id?: string;
   quote_reference?: string | null;
   created_at?: string;
 };
@@ -36,7 +37,7 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const seenIdsRef = useRef<Set<number>>(new Set());
+  const seenIdsRef = useRef<Set<string>>(new Set());
 
   const supabase: SupabaseClient | null = useMemo(() => {
     if (!supabaseUrl || !supabaseAnonKey) return null;
@@ -63,9 +64,11 @@ export default function ChatPage() {
 
         if (Array.isArray(data?.messages)) {
           setMessages(data.messages);
-          const nextSeen = new Set<number>();
+          const nextSeen = new Set<string>();
           data.messages.forEach((m) => {
-            if (typeof m.id === "number") nextSeen.add(m.id);
+            if (typeof m.id === "number" || typeof m.id === "string") {
+              nextSeen.add(String(m.id));
+            }
           });
           seenIdsRef.current = nextSeen;
         }
@@ -91,17 +94,26 @@ export default function ChatPage() {
           event: "INSERT",
           schema: "public",
           table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
           const newMessage = payload.new as Message & { conversation_id?: string };
-          if (newMessage.conversation_id !== conversationId) return;
-          if (typeof newMessage.id === "number" && seenIdsRef.current.has(newMessage.id)) {
+          const eventConversationId = newMessage.conversation_id
+            ? String(newMessage.conversation_id)
+            : null;
+          if (!eventConversationId || eventConversationId !== String(conversationId)) return;
+
+          const idKey =
+            typeof newMessage.id === "number" || typeof newMessage.id === "string"
+              ? String(newMessage.id)
+              : null;
+          if (idKey && seenIdsRef.current.has(idKey)) {
             return;
           }
-          if (typeof newMessage.id === "number") {
-            seenIdsRef.current.add(newMessage.id);
+          if (idKey) {
+            seenIdsRef.current.add(idKey);
           }
-          setMessages((prev) => [...prev, newMessage]);
+          setMessages((prev) => [...prev, { ...newMessage, conversation_id: eventConversationId }]);
           scrollToBottom();
         }
       )
@@ -139,15 +151,15 @@ export default function ChatPage() {
       const incoming: Message[] = [];
       if (data?.userMessage) {
         const msg = data.userMessage;
-        if (typeof msg.id === "number") {
-          seenIdsRef.current.add(msg.id);
+        if (typeof msg.id === "number" || typeof msg.id === "string") {
+          seenIdsRef.current.add(String(msg.id));
         }
         incoming.push(msg);
       }
       if (data?.assistantMessage) {
         const msg = data.assistantMessage;
-        if (typeof msg.id === "number") {
-          seenIdsRef.current.add(msg.id);
+        if (typeof msg.id === "number" || typeof msg.id === "string") {
+          seenIdsRef.current.add(String(msg.id));
         }
         incoming.push(msg);
       } else if (data?.reply) {
