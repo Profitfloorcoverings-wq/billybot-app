@@ -4,8 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Supabase DB webhooks for this project are not signed; ignore any signature
-// headers and accept the payload as-is.
+// Supabase DB webhooks for this project are not signed; ignore any signature headers.
 export async function POST(req: Request) {
   try {
     if (!supabaseUrl || !supabaseServiceKey) {
@@ -15,13 +14,16 @@ export async function POST(req: Request) {
       );
     }
 
-    // Supabase can optionally send an X-Supabase-Signature header, but this
-    // project does not configure signing. Capture and intentionally ignore it
-    // so webhook deliveries are not rejected when no secret is set.
+    // Capture and ignore signature header (not used)
     void req.headers.get("x-supabase-signature");
 
+    // Parse Supabase payload in all possible formats
     const payload = await req.json();
-    const record = payload?.record ?? payload?.new ?? payload?.data?.new ?? payload;
+    const record =
+      payload?.record ??
+      payload?.new ??
+      payload?.data?.new ??
+      payload;
 
     const id = record?.id as string | undefined;
     const quote_reference = record?.quote_reference as string | undefined;
@@ -37,6 +39,7 @@ export async function POST(req: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ✅ Use profile_id instead of client_id
     const { data: conversation, error: conversationErr } = await supabase
       .from("conversations")
       .select("id")
@@ -44,6 +47,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (conversationErr) throw conversationErr;
+
     const conversationId = conversation?.id ?? null;
 
     if (!conversationId) {
@@ -58,7 +62,7 @@ export async function POST(req: Request) {
       role: "assistant",
       type: "quote",
       content: pdf_url,
-      quote_reference,
+      quote_reference
     });
 
     if (insertErr) throw insertErr;
@@ -66,6 +70,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: "ok" });
   } catch (err: unknown) {
     console.error("Quote webhook error:", err);
+
     return NextResponse.json(
       {
         error:
