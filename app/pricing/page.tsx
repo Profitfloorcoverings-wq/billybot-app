@@ -1,15 +1,16 @@
 "use client";
 
-import type React from "react";
 import { useEffect, useMemo, useState } from "react";
+import type React from "react";
 
-// ----------------------
-// Types & config
-// ----------------------
+// Types & configuration
+// ---------------------
 type ServiceConfig = { key: string; label: string; defaultOn?: boolean };
 type RateConfig = { key: string; label: string; defaultValue: number; services?: string[]; always?: boolean };
 type MarkupConfig = { key: string; label: string; defaultValue: number };
 type MarkupValue = { value: number; unit: "percent" | "per_m2" };
+
+type TabId = "services" | "base" | "materials" | "labour" | "vat" | "advanced";
 
 export type PricingFormState = {
   services: Record<string, boolean>;
@@ -23,8 +24,6 @@ export type PricingFormState = {
   vat_status: "registered" | "exempt";
   labour_split: "split" | "no_split";
 };
-
-type TabId = "services" | "base" | "materials" | "labour" | "vat" | "advanced";
 
 const SERVICES: ServiceConfig[] = [
   { key: "service_domestic_carpets", label: "Domestic carpets", defaultOn: true },
@@ -159,9 +158,8 @@ function mergeForm(prev: PricingFormState, next: Partial<PricingFormState>) {
   };
 }
 
-// ----------------------
 // UI primitives
-// ----------------------
+// -------------
 function PricingTabs({ tabs, active, onChange }: { tabs: { id: TabId; label: string }[]; active: TabId; onChange: (id: TabId) => void }) {
   return (
     <div className="flex flex-wrap gap-2 rounded-xl border border-white/10 bg-white/5 p-2">
@@ -170,10 +168,8 @@ function PricingTabs({ tabs, active, onChange }: { tabs: { id: TabId; label: str
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={`rounded-full px-3 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-orange-400/60 ${
-            active === tab.id
-              ? "bg-orange-500 text-white shadow-sm"
-              : "bg-transparent text-white/75 hover:bg-white/10"
+          className={`rounded-full px-3 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-orange-400/50 ${
+            active === tab.id ? "bg-orange-500 text-white" : "bg-transparent text-white/70 hover:bg-white/10"
           }`}
         >
           {tab.label}
@@ -183,12 +179,12 @@ function PricingTabs({ tabs, active, onChange }: { tabs: { id: TabId; label: str
   );
 }
 
-function SectionCard({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
+function Card({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-white/10 bg-[#0D1117] p-6 shadow-sm">
-      <div className="mb-4 flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-white">{title}</h2>
-        {description ? <p className="text-sm text-white/60">{description}</p> : null}
+      <div className="mb-3 flex flex-col gap-1">
+        <h2 className="text-base font-semibold text-white">{title}</h2>
+        {description ? <p className="text-xs text-white/50">{description}</p> : null}
       </div>
       <div className="flex flex-col gap-4">{children}</div>
     </section>
@@ -198,23 +194,19 @@ function SectionCard({ title, description, children }: { title: string; descript
 function Switch({ checked }: { checked: boolean }) {
   return (
     <span
-      className={`relative inline-flex h-5 w-9 items-center rounded-full border border-white/15 transition-colors ${
-        checked ? "bg-orange-500" : "bg-white/10"
-      }`}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full border border-white/15 transition-colors ${checked ? "bg-orange-500" : "bg-white/10"}`}
     >
-      <span
-        className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-4" : "translate-x-1"}`}
-      />
+      <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${checked ? "translate-x-4" : "translate-x-1"}`} />
     </span>
   );
 }
 
 function FieldRow({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-1 items-center gap-2 text-sm text-white md:grid-cols-[220px_1fr]">
+    <div className="grid grid-cols-1 items-center gap-2 md:grid-cols-[260px_1fr]">
       <div className="flex flex-col gap-1">
-        <span className="font-medium text-white">{label}</span>
-        {hint ? <span className="text-xs text-white/60">{hint}</span> : null}
+        <span className="text-sm font-medium text-white/90">{label}</span>
+        {hint ? <span className="text-xs text-white/50">{hint}</span> : null}
       </div>
       <div className="w-full">{children}</div>
     </div>
@@ -229,7 +221,7 @@ function NumberInput({ value, onChange, step = 0.1 }: { value: number; onChange:
       step={step}
       min={0}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-white shadow-inner focus:border-orange-400 focus:outline-none"
+      className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-white outline-none transition focus:border-orange-400"
     />
   );
 }
@@ -237,7 +229,7 @@ function NumberInput({ value, onChange, step = 0.1 }: { value: number; onChange:
 function TextArea({ value, onChange, placeholder }: { value: string; onChange: (val: string) => void; placeholder?: string }) {
   return (
     <textarea
-      className="min-h-[120px] w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-white focus:border-orange-400 focus:outline-none"
+      className="min-h-[120px] w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-white outline-none transition focus:border-orange-400"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
@@ -245,33 +237,33 @@ function TextArea({ value, onChange, placeholder }: { value: string; onChange: (
   );
 }
 
-function RadioRow({ label, name, value, checked, onChange }: { label: string; name: string; value: string; checked: boolean; onChange: () => void }) {
+function Select({ value, onChange, options }: { value: string; onChange: (val: string) => void; options: { value: string; label: string }[] }) {
   return (
-    <label className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white">
-      <span>{label}</span>
-      <input
-        type="radio"
-        name={name}
-        value={value}
-        checked={checked}
-        onChange={onChange}
-        className="h-4 w-4 accent-orange-500"
-      />
-    </label>
+    <select
+      className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-white outline-none transition focus:border-orange-400"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value} className="bg-[#0D1117] text-white">
+          {opt.label}
+        </option>
+      ))}
+    </select>
   );
 }
 
 function SaveBar({ saving, status }: { saving: boolean; status: string | null }) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-20 flex justify-center bg-gradient-to-t from-black/50 to-transparent pb-4 pt-8">
-      <div className="flex w-full max-w-4xl items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#0D1117] px-4 py-3 shadow-lg">
-        <div className="text-xs text-white/70">Save applies to all pricing settings</div>
+    <div className="fixed bottom-0 left-0 right-0 z-20 bg-black/40 backdrop-blur">
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 border-t border-white/10 px-4 py-3">
+        <span className="text-xs text-white/60">Changes apply across all pricing settings.</span>
         <div className="flex items-center gap-3 text-sm text-emerald-300">
           {status ? <span>{status}</span> : null}
           <button
             type="submit"
             disabled={saving}
-            className="flex items-center gap-2 rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex items-center gap-2 rounded-md bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {saving ? (
               <>
@@ -288,142 +280,139 @@ function SaveBar({ saving, status }: { saving: boolean; status: string | null })
   );
 }
 
-// ----------------------
 // Sections
-// ----------------------
+// ---------
 function ServicesSection({ form, onToggle }: { form: PricingFormState; onToggle: (key: string) => void }) {
   return (
-    <SectionCard title="Services" description="Toggle the work you take on. BillyBot quotes only for enabled services.">
+    <Card title="Services" description="Choose the work you handle. BillyBot will quote only for enabled items.">
       <div className="grid gap-3 sm:grid-cols-2">
         {SERVICES.map((svc) => (
           <button
             key={svc.key}
             type="button"
             onClick={() => onToggle(svc.key)}
-            className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-white transition hover:border-orange-400/60 hover:bg-white/10"
+            className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-orange-400/60 hover:bg-white/10"
           >
             <div className="flex flex-col gap-0.5">
-              <span className="font-medium">{svc.label}</span>
-              <span className="text-xs text-white/60">{form.services[svc.key] ? "On" : "Off"}</span>
+              <span className="text-sm font-semibold text-white">{svc.label}</span>
+              <span className="text-xs text-white/50">{form.services[svc.key] ? "On" : "Off"}</span>
             </div>
             <Switch checked={!!form.services[svc.key]} />
           </button>
         ))}
       </div>
-    </SectionCard>
+    </Card>
   );
 }
 
 function BaseRatesSection({
   form,
+  activeServices,
   onNumberChange,
   onMarkupChange,
-  activeServices,
   onBreakpointsChange,
 }: {
   form: PricingFormState;
+  activeServices: Set<string>;
   onNumberChange: (key: "min_job_charge" | "day_rate_per_fitter", value: number) => void;
   onMarkupChange: (key: string, value: Partial<MarkupValue>) => void;
-  activeServices: Set<string>;
   onBreakpointsChange: (value: "yes" | "no", text?: string) => void;
 }) {
-  const markups = MARKUP_CONFIG.filter((cfg) => activeServices.has(cfg.key));
+  const markupsToShow = MARKUP_CONFIG.filter((cfg) => activeServices.has(cfg.key) || defaultServices[cfg.key]);
 
   return (
-    <SectionCard title="Base rates" description="Minimums and markups that apply across your work.">
+    <Card title="Base rates" description="Core charges, day rates, and material markups.">
       <div className="flex flex-col gap-4">
-        <div className="grid gap-3">
-          <FieldRow label="Minimum charge per job" hint="Cover your time even on tiny jobs.">
+        <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
+          <FieldRow label="Minimum charge" hint="Applied to small jobs automatically">
             <NumberInput value={form.min_job_charge} onChange={(v) => onNumberChange("min_job_charge", v)} step={1} />
           </FieldRow>
-          <FieldRow label="Day rate per fitter" hint="Baseline for full-day work.">
+          <FieldRow label="Day rate per fitter">
             <NumberInput value={form.day_rate_per_fitter} onChange={(v) => onNumberChange("day_rate_per_fitter", v)} step={1} />
           </FieldRow>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-white/5 bg-white/5 p-4">
-          <div className="flex items-center justify-between text-sm text-white">
-            <span className="font-semibold">Markups</span>
-            <span className="text-xs text-white/60">Percent or £/m²</span>
-          </div>
-          {markups.length === 0 ? (
-            <p className="text-xs text-white/60">Enable a service to edit its markup.</p>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {markups.map((cfg) => {
-                const entry = form.markups[cfg.key] ?? { value: cfg.defaultValue, unit: "percent" };
-                return (
-                  <div key={cfg.key} className="grid grid-cols-1 gap-3 md:grid-cols-[220px_1fr_160px]">
-                    <span className="text-sm text-white">{cfg.label}</span>
-                    <NumberInput value={entry.value} onChange={(v) => onMarkupChange(cfg.key, { value: v })} />
-                    <select
-                      className="w-full rounded-md border border-white/20 bg-white/5 px-3 py-2 text-sm text-white focus:border-orange-400 focus:outline-none"
-                      value={entry.unit}
-                      onChange={(e) =>
-                        onMarkupChange(cfg.key, { unit: e.target.value === "per_m2" ? "per_m2" : "percent" })
-                      }
-                    >
-                      <option value="percent">%</option>
-                      <option value="per_m2">£/m²</option>
-                    </select>
+        <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
+          <div className="text-sm font-semibold text-white">Service markups</div>
+          <div className="flex flex-col divide-y divide-white/5">
+            {markupsToShow.map((cfg) => (
+              <div key={cfg.key} className="py-3 first:pt-0 last:pb-0">
+                <FieldRow label={cfg.label} hint="Adjust margin by % or £/m²">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px]">
+                    <NumberInput value={form.markups[cfg.key]?.value ?? cfg.defaultValue} onChange={(value) => onMarkupChange(cfg.key, { value })} />
+                    <Select
+                      value={form.markups[cfg.key]?.unit ?? "percent"}
+                      onChange={(unit) => onMarkupChange(cfg.key, { unit: unit as MarkupValue["unit"] })}
+                      options={[
+                        { value: "percent", label: "%" },
+                        { value: "per_m2", label: "£/m²" },
+                      ]}
+                    />
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </FieldRow>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-white/5 bg-white/5 p-4">
-          <div className="flex items-center justify-between text-sm text-white">
-            <span className="font-semibold">Breakpoints</span>
-            <span className="text-xs text-white/60">Optional rules for tiny or huge jobs.</span>
-          </div>
-          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-            <RadioRow
-              label="No breakpoints"
-              name="use_breakpoints"
-              value="no"
-              checked={form.use_breakpoints === "no"}
-              onChange={() => onBreakpointsChange("no")}
-            />
-            <RadioRow
-              label="Use breakpoints"
-              name="use_breakpoints"
-              value="yes"
-              checked={form.use_breakpoints === "yes"}
-              onChange={() => onBreakpointsChange("yes")}
-            />
+        <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
+          <div className="text-sm font-semibold text-white">Breakpoints</div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => onBreakpointsChange("no")}
+              className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
+                form.use_breakpoints === "no"
+                  ? "border-orange-400/60 bg-orange-500/20 text-white"
+                  : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
+              }`}
+            >
+              <span>No breakpoints</span>
+              <Switch checked={form.use_breakpoints === "no"} />
+            </button>
+            <button
+              type="button"
+              onClick={() => onBreakpointsChange("yes")}
+              className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
+                form.use_breakpoints === "yes"
+                  ? "border-orange-400/60 bg-orange-500/20 text-white"
+                  : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
+              }`}
+            >
+              <span>Use breakpoints</span>
+              <Switch checked={form.use_breakpoints === "yes"} />
+            </button>
           </div>
           {form.use_breakpoints === "yes" ? (
-            <TextArea
-              value={form.breakpoint_text}
-              onChange={(val) => onBreakpointsChange("yes", val)}
-              placeholder="Example: Under 10m² increase labour, over 60m² reduce materials by 10%."
-            />
+            <FieldRow label="Breakpoint rules" hint="Describe how rates change for small or large jobs">
+              <TextArea
+                value={form.breakpoint_text}
+                onChange={(val) => onBreakpointsChange("yes", val)}
+                placeholder="Example: Under 10m² increase labour, over 60m² reduce materials by 10%."
+              />
+            </FieldRow>
           ) : null}
         </div>
       </div>
-    </SectionCard>
+    </Card>
   );
 }
 
 function MaterialsSection({ form, activeServices, onRateChange }: { form: PricingFormState; activeServices: Set<string>; onRateChange: (key: string, value: number) => void }) {
-  const materialList = MATERIAL_CONFIG.filter(
-    (cfg) => cfg.always || (cfg.services && cfg.services.some((svc) => activeServices.has(svc)))
-  );
+  const materialList = MATERIAL_CONFIG.filter((cfg) => cfg.always || (cfg.services && cfg.services.some((svc) => activeServices.has(svc))));
 
   return (
-    <SectionCard title="Materials" description="Per-unit material pricing across services.">
-      <div className="flex flex-col divide-y divide-white/5 rounded-lg border border-white/5 bg-white/5">
+    <Card title="Materials" description="Per-unit material pricing across your services.">
+      <div className="flex flex-col divide-y divide-white/5 rounded-lg border border-white/10 bg-white/5">
         {materialList.map((cfg) => (
-          <div key={cfg.key} className="p-4">
+          <div key={cfg.key} className="p-4 first:rounded-t-lg last:rounded-b-lg">
             <FieldRow label={cfg.label}>
               <NumberInput value={form.materials[cfg.key] ?? cfg.defaultValue} onChange={(v) => onRateChange(cfg.key, v)} />
             </FieldRow>
           </div>
         ))}
       </div>
-    </SectionCard>
+    </Card>
   );
 }
 
@@ -441,10 +430,10 @@ function LabourSection({
   const labourList = LABOUR_CONFIG.filter((cfg) => cfg.always || (cfg.services && cfg.services.some((svc) => activeServices.has(svc))));
 
   return (
-    <SectionCard title="Labour" description="Labour rates and how they appear on quotes.">
-      <div className="flex flex-col divide-y divide-white/5 rounded-lg border border-white/5 bg-white/5">
+    <Card title="Labour" description="Labour rates and how they appear on quotes.">
+      <div className="flex flex-col divide-y divide-white/5 rounded-lg border border-white/10 bg-white/5">
         {labourList.map((cfg) => (
-          <div key={cfg.key} className="p-4">
+          <div key={cfg.key} className="p-4 first:rounded-t-lg last:rounded-b-lg">
             <FieldRow label={cfg.label}>
               <NumberInput value={form.labour[cfg.key] ?? cfg.defaultValue} onChange={(v) => onRateChange(cfg.key, v)} />
             </FieldRow>
@@ -452,61 +441,102 @@ function LabourSection({
         ))}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-lg border border-white/5 bg-white/5 p-4">
-        <div className="text-sm font-semibold text-white">Labour display</div>
-        <RadioRow
-          label="Split labour into notes (no VAT on labour)"
-          name="labour_split"
-          value="split"
-          checked={form.labour_split === "split"}
-          onChange={() => onLabourSplitChange("split")}
-        />
-        <RadioRow
-          label="Keep labour on main quote lines"
-          name="labour_split"
-          value="no_split"
-          checked={form.labour_split === "no_split"}
-          onChange={() => onLabourSplitChange("no_split")}
-        />
+      <div className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/5 p-4">
+        <span className="text-sm font-semibold text-white">Labour display</span>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <label
+            className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
+              form.labour_split === "split"
+                ? "border-orange-400/60 bg-orange-500/20 text-white"
+                : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
+            }`}
+          >
+            <span>Split labour into notes (no VAT on labour)</span>
+            <input
+              type="radio"
+              className="h-4 w-4 accent-orange-500"
+              name="labour_split"
+              value="split"
+              checked={form.labour_split === "split"}
+              onChange={() => onLabourSplitChange("split")}
+            />
+          </label>
+          <label
+            className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
+              form.labour_split === "no_split"
+                ? "border-orange-400/60 bg-orange-500/20 text-white"
+                : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
+            }`}
+          >
+            <span>Keep labour on main quote lines</span>
+            <input
+              type="radio"
+              className="h-4 w-4 accent-orange-500"
+              name="labour_split"
+              value="no_split"
+              checked={form.labour_split === "no_split"}
+              onChange={() => onLabourSplitChange("no_split")}
+            />
+          </label>
+        </div>
       </div>
-    </SectionCard>
+    </Card>
   );
 }
 
-function VATSection({ form, onChange }: { form: PricingFormState; onChange: (value: "registered" | "exempt") => void }) {
+function VatSection({ form, onChange }: { form: PricingFormState; onChange: (value: "registered" | "exempt") => void }) {
   return (
-    <SectionCard title="VAT" description="Tell BillyBot how to treat tax on quotes.">
-      <div className="flex flex-col gap-3 rounded-lg border border-white/5 bg-white/5 p-4">
-        <RadioRow
-          label="VAT registered"
-          name="vat_status"
-          value="registered"
-          checked={form.vat_status === "registered"}
-          onChange={() => onChange("registered")}
-        />
-        <RadioRow
-          label="Not VAT registered / VAT exempt"
-          name="vat_status"
-          value="exempt"
-          checked={form.vat_status === "exempt"}
-          onChange={() => onChange("exempt")}
-        />
+    <Card title="VAT" description="Tell BillyBot how to handle tax on quotes.">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label
+          className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
+            form.vat_status === "registered"
+              ? "border-orange-400/60 bg-orange-500/20 text-white"
+              : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
+          }`}
+        >
+          <span>VAT registered</span>
+          <input
+            type="radio"
+            name="vat_status"
+            value="registered"
+            className="h-4 w-4 accent-orange-500"
+            checked={form.vat_status === "registered"}
+            onChange={() => onChange("registered")}
+          />
+        </label>
+        <label
+          className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
+            form.vat_status === "exempt"
+              ? "border-orange-400/60 bg-orange-500/20 text-white"
+              : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
+          }`}
+        >
+          <span>Not VAT registered / VAT exempt</span>
+          <input
+            type="radio"
+            name="vat_status"
+            value="exempt"
+            className="h-4 w-4 accent-orange-500"
+            checked={form.vat_status === "exempt"}
+            onChange={() => onChange("exempt")}
+          />
+        </label>
       </div>
-    </SectionCard>
+    </Card>
   );
 }
 
 function AdvancedSection() {
   return (
-    <SectionCard title="Advanced" description="Extra controls will land here soon.">
+    <Card title="Advanced" description="Extra controls will appear here soon.">
       <p className="text-sm text-white/70">No advanced options yet.</p>
-    </SectionCard>
+    </Card>
   );
 }
 
-// ----------------------
 // Main page
-// ----------------------
+// ---------
 export default function PricingPage() {
   const [form, setForm] = useState<PricingFormState>(DEFAULT_FORM);
   const [loading, setLoading] = useState(true);
@@ -631,20 +661,13 @@ export default function PricingPage() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 pb-24">
-      <header className="rounded-xl border border-white/10 bg-[#0D1117] p-6 shadow-sm">
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-xs uppercase tracking-[0.12em] text-white/50">Pricing</p>
-              <h1 className="text-2xl font-semibold text-white">Pricing settings</h1>
-              <p className="text-sm text-white/65">Keep services, rates, VAT, and labour rules in sync.</p>
-            </div>
-            <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white">
-              <span className="h-2 w-2 rounded-full bg-emerald-400" /> Live
-            </div>
-          </div>
-          <PricingTabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
+      <header className="flex flex-col gap-3 rounded-xl border border-white/10 bg-[#0D1117] p-6 shadow-sm">
+        <div className="flex flex-col gap-1">
+          <p className="text-xs uppercase tracking-[0.14em] text-white/50">Pricing</p>
+          <h1 className="text-xl font-semibold text-white">Pricing settings</h1>
+          <p className="text-sm text-white/60">Keep services, rates, VAT, and labour rules aligned.</p>
         </div>
+        <PricingTabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
       </header>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -657,21 +680,18 @@ export default function PricingPage() {
         ) : null}
 
         {!loading && activeTab === "services" ? <ServicesSection form={form} onToggle={handleServiceToggle} /> : null}
-
         {!loading && activeTab === "base" ? (
           <BaseRatesSection
             form={form}
+            activeServices={activeServices}
             onNumberChange={handleNumberChange}
             onMarkupChange={handleMarkupChange}
-            activeServices={activeServices}
             onBreakpointsChange={handleBreakpointsChange}
           />
         ) : null}
-
         {!loading && activeTab === "materials" ? (
           <MaterialsSection form={form} activeServices={activeServices} onRateChange={(key, v) => handleRateChange("materials", key, v)} />
         ) : null}
-
         {!loading && activeTab === "labour" ? (
           <LabourSection
             form={form}
@@ -680,9 +700,7 @@ export default function PricingPage() {
             onLabourSplitChange={handleLabourSplitChange}
           />
         ) : null}
-
-        {!loading && activeTab === "vat" ? <VATSection form={form} onChange={handleVatChange} /> : null}
-
+        {!loading && activeTab === "vat" ? <VatSection form={form} onChange={handleVatChange} /> : null}
         {!loading && activeTab === "advanced" ? <AdvancedSection /> : null}
 
         <SaveBar saving={saving} status={status} />
