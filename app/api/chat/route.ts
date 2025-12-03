@@ -69,7 +69,10 @@ export async function POST(req: Request) {
 
       if (histErr) throw histErr;
 
-      return NextResponse.json({ messages: history ?? [] });
+      return NextResponse.json({
+        conversation_id: conversationId,
+        messages: history ?? [],
+      });
     }
 
     // ---------------------------
@@ -131,7 +134,7 @@ export async function POST(req: Request) {
 
     if (botMsgErr) throw botMsgErr;
 
-    return NextResponse.json({ reply: botReply });
+    return NextResponse.json({ conversation_id: conversationId, reply: botReply });
   } catch (err: unknown) {
     console.error("Chat route error:", err);
     return NextResponse.json(

@@ -180,7 +180,14 @@ export default function ChatPage() {
         console.error("Send failed", await res.text());
       }
 
-      if (!conversationId) {
+      const data = await res.json().catch(() => null);
+      const newConversationId =
+        typeof data?.conversation_id === "string" ? data.conversation_id : null;
+
+      if (newConversationId && newConversationId !== conversationId) {
+        setConversationId(newConversationId);
+        await loadMessagesFromSupabase(newConversationId);
+      } else if (!conversationId) {
         await initializeConversation();
       }
     } catch (err) {
