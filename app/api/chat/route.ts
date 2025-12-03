@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     // ---------------------------
     // 1. Find or create conversation
     // ---------------------------
-    let { data: convos, error: convoSelectErr } = await supabase
+    const { data: convos, error: convoSelectErr } = await supabase
       .from("conversations")
       .select("*")
       .eq("profile_id", profileId)
@@ -132,10 +132,15 @@ export async function POST(req: Request) {
     if (botMsgErr) throw botMsgErr;
 
     return NextResponse.json({ reply: botReply });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Chat route error:", err);
     return NextResponse.json(
-      { error: err.message || "Server error" },
+      {
+        error:
+          err && typeof err === "object" && "message" in err
+            ? String((err as { message?: string }).message)
+            : "Server error",
+      },
       { status: 500 }
     );
   }
