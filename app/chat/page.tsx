@@ -5,16 +5,25 @@ import ReactMarkdown from "react-markdown";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ---------- Browser Supabase Client ----------
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// This runs safely in the browser only
-const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+function createBrowserSupabaseClient(): SupabaseClient | null {
+  if (typeof window === "undefined") return null;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Supabase env vars are missing in the browser.");
+    return null;
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey);
+}
 
 type DbMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  type?: "quote" | null;
+  quote_reference?: string | null;
   conversation_id: string;
   created_at: string;
 };
@@ -23,6 +32,8 @@ type UiMessage = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  type?: "quote" | null;
+  quote_reference?: string | null;
 };
 
 export default function ChatPage() {
@@ -30,6 +41,13 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(
+    null
+  );
+
+  useEffect(() => {
+    setSupabaseClient(createBrowserSupabaseClient());
+  }, []);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -56,6 +74,8 @@ export default function ChatPage() {
           id: m.id,
           role: m.role,
           content: m.content,
+          type: m.type ?? undefined,
+          quote_reference: m.quote_reference ?? undefined,
         }));
 
         setMessages(formatted);
@@ -72,9 +92,9 @@ export default function ChatPage() {
 
   // ---------- Supabase Realtime ----------
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !supabaseClient) return;
 
-    const channel = supabase
+    const channel = supabaseClient
       .channel(`chat-${conversationId}`)
       .on(
         "postgres_changes",
@@ -96,6 +116,8 @@ export default function ChatPage() {
                 id: row.id,
                 role: row.role,
                 content: row.content ?? "",
+                type: row.type ?? undefined,
+                quote_reference: row.quote_reference ?? undefined,
               },
             ];
           });
@@ -104,9 +126,9 @@ export default function ChatPage() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabaseClient.removeChannel(channel);
     };
-  }, [conversationId]);
+  }, [conversationId, supabaseClient]);
 
   // ---------- Auto-scroll ----------
   useEffect(() => {
@@ -190,9 +212,25 @@ export default function ChatPage() {
                     : "bg-[#1f2937] text-[var(--text)] border border-[var(--line)] rounded-bl-none"
                 }`}
             >
-              <div className="prose prose-invert max-w-none whitespace-pre-wrap">
-                <ReactMarkdown>{m.content}</ReactMarkdown>
-              </div>
+              {m.type === "quote" ? (
+                <a
+                  href={m.content}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex flex-col gap-1 rounded-lg bg-[rgba(255,255,255,0.05)] px-3 py-2 text-left text-[var(--text)] hover:bg-[rgba(255,255,255,0.08)]"
+                >
+                  <span className="text-sm font-semibold">
+                    {m.quote_reference
+                      ? `Quote ${m.quote_reference} is ready`
+                      : "Quote is ready"}
+                  </span>
+                  <span className="text-xs text-[var(--muted)]">Tap to open</span>
+                </a>
+              ) : (
+                <div className="prose prose-invert max-w-none whitespace-pre-wrap">
+                  <ReactMarkdown>{m.content}</ReactMarkdown>
+                </div>
+              )}
             </div>
           </div>
         ))}
