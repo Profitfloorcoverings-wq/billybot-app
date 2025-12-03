@@ -232,7 +232,7 @@ export default function ChatPage() {
     }
 
     return (
-      <div className="prose prose-invert max-w-none whitespace-pre-wrap text-sm leading-relaxed">
+      <div className="prose prose-invert max-w-none text-sm leading-normal [&_p]:my-1 [&_li]:my-0 [&_ul]:my-1">
         <ReactMarkdown>{m.content}</ReactMarkdown>
       </div>
     );
@@ -258,7 +258,7 @@ export default function ChatPage() {
           <span>{loading ? "Syncing…" : "Live"}</span>
         </div>
 
-        <div className="chat-messages rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] p-4 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
+        <div className="chat-messages flex flex-col gap-2 rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] p-4 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
           {messages.map((m) => (
             <div
               key={m.id}
