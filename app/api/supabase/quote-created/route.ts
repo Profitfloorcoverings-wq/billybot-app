@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     if (!conversationId) {
       return NextResponse.json(
-        { error: "Could not resolve conversation for quote" },
+        { error: "Conversation not found for client" },
         { status: 404 }
       );
     }
