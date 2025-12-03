@@ -110,6 +110,13 @@ a {
   transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
 }
 
+.sidebar-link-inner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
 .sidebar-link:hover {
   background: rgba(15, 23, 42, 0.9);
   color: var(--text);
@@ -129,6 +136,7 @@ a {
   background: var(--accent1);
   box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.55);
   animation: sidebarPulse 1.4s ease-in-out infinite;
+  margin-left: auto;
 }
 
 .sidebar-footer {
@@ -217,19 +225,19 @@ a {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 4px 12px;
+  padding: 6px 4px 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 /* Bubbles */
 .chat-bubble {
   max-width: 80%;
-  padding: 10px 12px;
-  border-radius: 14px;
+  padding: 8px 10px;
+  border-radius: 12px;
   font-size: 14px;
-  line-height: 1.35;
+  line-height: 1.3;
   position: relative;
   animation: fadeInUp 0.18s ease-out;
 }
@@ -252,7 +260,7 @@ a {
   text-transform: uppercase;
   letter-spacing: 0.16em;
   opacity: 0.7;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .chat-badge-user {

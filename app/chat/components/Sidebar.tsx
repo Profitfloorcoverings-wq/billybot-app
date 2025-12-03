@@ -88,8 +88,8 @@ export default function Sidebar() {
                 }
               }}
             >
-              <span className="flex items-center gap-2">
-                {item.label}
+              <span className="sidebar-link-inner">
+                <span>{item.label}</span>
                 {showNew ? <span className="sidebar-new-dot" aria-hidden="true" /> : null}
               </span>
             </Link>
