@@ -62,6 +62,8 @@ export async function POST(req: Request) {
     }
 
     const conversationId: string = conversation.id;
+    const conversationProfileId: string =
+      (conversation as { profile_id?: string }).profile_id || profileId;
 
     if (message === "__LOAD_HISTORY__") {
       const { data: history, error: histErr } = await supabase
@@ -85,7 +87,7 @@ export async function POST(req: Request) {
         role: "user",
         type: "text",
         content: message,
-        profile_id: profileId,
+        profile_id: conversationProfileId,
       })
       .select()
       .single();
@@ -130,7 +132,7 @@ export async function POST(req: Request) {
         role: "assistant",
         type: "text",
         content: botReply,
-        profile_id: profileId,
+        profile_id: conversationProfileId,
       })
       .select()
       .single();
