@@ -90,7 +90,7 @@ export default function Sidebar() {
             >
               <span className="flex items-center gap-2">
                 {item.label}
-                {showNew ? <span className="sidebar-new">New quote</span> : null}
+                {showNew ? <span className="sidebar-new-dot" aria-hidden="true" /> : null}
               </span>
             </Link>
           );

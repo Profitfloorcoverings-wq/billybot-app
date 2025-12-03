@@ -125,7 +125,6 @@ export default function QuotesPage() {
                   >
                     Open PDF
                   </a>
-                  <span className="quote-client">Client ID: {quote.client_id ?? "Unknown"}</span>
                 </div>
               </article>
             );
