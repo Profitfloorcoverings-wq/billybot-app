@@ -22,9 +22,9 @@ export async function POST(req: Request) {
     const quoteId = quote?.id;
     const quoteReference = quote?.quote_reference;
     const pdfUrl = quote?.pdf_url;
-    const profileId = quote?.client_id;
+    const clientid = quote?.client_id;
 
-    if (!quoteId || !pdfUrl || !quoteReference || !profileId) {
+    if (!quoteId || !pdfUrl || !quoteReference || !clientid) {
       return NextResponse.json(
         { error: "Missing quote fields" },
         { status: 400 }
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const { data: conversation, error: convoErr } = await supabase
       .from("conversations")
       .select("id")
-      .eq("profile_id", profileId)
+      .eq("profile_id", clientid)
       .order("created_at", { ascending: true })
       .limit(1)
       .single();
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
 
     const { error: insertErr } = await supabase.from("messages").insert({
       conversation_id: conversation.id,
-      profile_id: profileId,
+      profile_id: clientid,
       role: "assistant",
       type: "quote",
       content: pdfUrl,
