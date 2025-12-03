@@ -64,6 +64,7 @@ export async function POST(req: Request) {
 
     const { error: insertErr } = await supabase.from("messages").insert({
       conversation_id: conversation.id,
+      profile_id: clientId,
       role: "assistant",
       type: "quote",
       content: pdfUrl,
