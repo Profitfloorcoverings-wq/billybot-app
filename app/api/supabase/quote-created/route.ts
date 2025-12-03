@@ -1,13 +1,30 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Supabase DB webhooks for this project are not signed; ignore any signature
+// headers and accept the payload as-is.
 export async function POST(req: Request) {
   try {
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json(
+        { error: "Supabase environment variables are not configured" },
+        { status: 500 }
+      );
+    }
+
+    // Supabase can optionally send an X-Supabase-Signature header, but this
+    // project does not configure signing. Capture and intentionally ignore it
+    void req.headers.get("x-supabase-signature");
+
     const payload = await req.json();
-    const record = payload?.record ?? payload?.new ?? payload?.data?.new ?? payload;
+    const record =
+      payload?.record ??
+      payload?.new ??
+      payload?.data?.new ??
+      payload;
 
     const id = record?.id as string | undefined;
     const quote_reference = record?.quote_reference as string | undefined;
@@ -30,11 +47,12 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (conversationErr) throw conversationErr;
+
     const conversationId = conversation?.id ?? null;
 
     if (!conversationId) {
       return NextResponse.json(
-        { error: "Could not resolve conversation for quote" },
+        { error: "Conversation not found for client" },
         { status: 404 }
       );
     }
@@ -52,6 +70,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: "ok" });
   } catch (err: unknown) {
     console.error("Quote webhook error:", err);
+
     return NextResponse.json(
       {
         error:
