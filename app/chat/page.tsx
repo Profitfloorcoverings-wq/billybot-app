@@ -5,16 +5,11 @@ import ReactMarkdown from "react-markdown";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ---------- Browser Supabase Client ----------
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 function createBrowserSupabaseClient(): SupabaseClient | null {
   if (typeof window === "undefined") return null;
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Supabase env vars are missing in the browser.");
-    return null;
-  }
-
   return createClient(supabaseUrl, supabaseAnonKey);
 }
 
@@ -41,18 +36,46 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
-  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(
-    null
-  );
+  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
 
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // Init browser client
   useEffect(() => {
     setSupabaseClient(createBrowserSupabaseClient());
   }, []);
 
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-
   // ---------- Load chat history ----------
-  const loadHistory = useCallback(async () => {
+  const loadMessagesFromSupabase = useCallback(
+    async (conversation_id: string) => {
+      if (!supabaseClient) return;
+
+      const { data, error } = await supabaseClient
+        .from("messages")
+        .select("id, role, content, type, quote_reference, created_at")
+        .eq("conversation_id", conversation_id)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error("Supabase history error:", error);
+        return;
+      }
+
+      const formatted: UiMessage[] = (data ?? []).map((m) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content ?? "",
+        type: m.type ?? undefined,
+        quote_reference: m.quote_reference ?? undefined,
+      }));
+
+      setMessages(formatted);
+    },
+    [supabaseClient]
+  );
+
+  // ---------- Load or create conversation ----------
+  const initializeConversation = useCallback(async () => {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -65,32 +88,31 @@ export default function ChatPage() {
       const data = await res.json();
       const rows = (data?.messages ?? []) as DbMessage[];
 
-      if (rows.length) {
-        if (!conversationId) {
-          setConversationId(rows[0].conversation_id);
-        }
+      const existingConvIdFromRows =
+        rows.length > 0 ? rows[0].conversation_id : null;
 
-        const formatted: UiMessage[] = rows.map((m) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          type: m.type ?? undefined,
-          quote_reference: m.quote_reference ?? undefined,
-        }));
+      const existingConvIdFromPayload =
+        typeof data?.conversation_id === "string" ? data.conversation_id : null;
 
-        setMessages(formatted);
+      const resolvedConversationId =
+        existingConvIdFromRows ?? existingConvIdFromPayload;
+
+      if (resolvedConversationId) {
+        setConversationId(resolvedConversationId);
+        await loadMessagesFromSupabase(resolvedConversationId);
       }
     } catch (err) {
       console.error("History load error:", err);
     }
-  }, [conversationId]);
+  }, [loadMessagesFromSupabase]);
 
-  // Initial load
   useEffect(() => {
-    loadHistory();
-  }, [loadHistory]);
+    if (supabaseClient) {
+      initializeConversation();
+    }
+  }, [supabaseClient, initializeConversation]);
 
-  // ---------- Supabase Realtime ----------
+  // ---------- Realtime subscription ----------
   useEffect(() => {
     if (!conversationId || !supabaseClient) return;
 
@@ -104,18 +126,18 @@ export default function ChatPage() {
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload: { new: DbMessage }) => {
-          const row = payload.new;
+        (payload) => {
+          const row = payload.new as DbMessage;
 
-          // Assistant only (user messages are optimistic)
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
+
             return [
               ...prev,
               {
                 id: row.id,
                 role: row.role,
-                content: row.content ?? "",
+                content: row.content,
                 type: row.type ?? undefined,
                 quote_reference: row.quote_reference ?? undefined,
               },
@@ -144,10 +166,8 @@ export default function ChatPage() {
     setIsSending(true);
 
     // optimistic UI
-    setMessages((prev) => [
-      ...prev,
-      { id: `local-${Date.now()}`, role: "user", content: text },
-    ]);
+    const localId = `local-${Date.now()}`;
+    setMessages((prev) => [...prev, { id: localId, role: "user", content: text }]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -158,12 +178,10 @@ export default function ChatPage() {
 
       if (!res.ok) {
         console.error("Send failed", await res.text());
-        return;
       }
 
-      // If first message ever, load history to get conversation_id
       if (!conversationId) {
-        await loadHistory();
+        await initializeConversation();
       }
     } catch (err) {
       console.error("Chat error:", err);
@@ -190,11 +208,9 @@ export default function ChatPage() {
   // ---------- UI ----------
   return (
     <div className="flex h-full flex-col gap-4 p-5">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
-          Chat
-        </h1>
-      </div>
+      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
+        Chat
+      </h1>
 
       <div className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.85)] p-4">
         {messages.map((m) => (
@@ -234,7 +250,8 @@ export default function ChatPage() {
             </div>
           </div>
         ))}
-        <div ref={bottomRef} />
+
+        <div ref={bottomRef}></div>
       </div>
 
       <div className="rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-3 py-2">

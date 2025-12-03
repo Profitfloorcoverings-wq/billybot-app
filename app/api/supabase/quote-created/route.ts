@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Find conversation using profile_id
+    // Find conversation using profile_id (client_id from webhook)
     const { data: conversation, error: conversationErr } = await supabase
       .from("conversations")
       .select("id")
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Insert assistant quote message
+    // Insert new assistant quote message
     const { error: insertErr } = await supabase.from("messages").insert({
       conversation_id: conversationId,
       role: "assistant",
@@ -71,7 +71,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: "ok" });
   } catch (err: unknown) {
     console.error("Quote webhook error:", err);
-
     return NextResponse.json(
       {
         error:
