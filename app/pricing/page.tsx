@@ -244,7 +244,7 @@ export default function PricingPage() {
         }
         const data = (await res.json()) as { data?: Partial<PricingFormState> | null };
         if (data?.data) {
-          setForm((prev) => mergeForm(prev, data.data));
+          setForm((prev) => mergeForm(prev, data.data ?? {}));
         }
       } catch (err) {
         console.error("Pricing load error", err);
