@@ -14,7 +14,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Capture and ignore signature header (not used)
+    // Ignore optional signature header
     void req.headers.get("x-supabase-signature");
 
     // Parse Supabase payload in all possible formats
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // ✅ Use profile_id instead of client_id
+    // Find conversation using profile_id
     const { data: conversation, error: conversationErr } = await supabase
       .from("conversations")
       .select("id")
@@ -57,6 +57,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Insert assistant quote message
     const { error: insertErr } = await supabase.from("messages").insert({
       conversation_id: conversationId,
       role: "assistant",
