@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Supabase DB webhooks for this project are not signed; ignore any signature
 // headers and accept the payload as-is.
 export async function POST(req: Request) {
   try {
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json(
+        { error: "Supabase environment variables are not configured" },
+        { status: 500 }
+      );
+    }
+
     // Supabase can optionally send an X-Supabase-Signature header, but this
     // project does not configure signing. Capture and intentionally ignore it
     // so webhook deliveries are not rejected when no secret is set.
