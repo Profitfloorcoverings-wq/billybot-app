@@ -4,8 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Supabase DB webhooks for this project are not signed; ignore any signature
-// headers and accept the payload as-is.
+// Supabase DB webhooks for this project are not signed; ignore any signature headers.
 export async function POST(req: Request) {
   try {
     if (!supabaseUrl || !supabaseServiceKey) {
@@ -15,10 +14,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Supabase can optionally send an X-Supabase-Signature header, but this
-    // project does not configure signing. Capture and intentionally ignore it
+    // Capture and ignore signature header (not used)
     void req.headers.get("x-supabase-signature");
 
+    // Parse Supabase payload in all possible formats
     const payload = await req.json();
     const record =
       payload?.record ??
@@ -40,10 +39,11 @@ export async function POST(req: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ✅ Use profile_id instead of client_id
     const { data: conversation, error: conversationErr } = await supabase
       .from("conversations")
       .select("id")
-      .eq("client_id", client_id)
+      .eq("profile_id", client_id)
       .maybeSingle();
 
     if (conversationErr) throw conversationErr;
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       role: "assistant",
       type: "quote",
       content: pdf_url,
-      quote_reference,
+      quote_reference
     });
 
     if (insertErr) throw insertErr;
