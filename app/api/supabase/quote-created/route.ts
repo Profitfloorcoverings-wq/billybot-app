@@ -17,21 +17,35 @@ export async function POST(req: Request) {
 
     const payload = await req.json();
 
-    const quote = payload?.record ?? payload?.new ?? payload;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const quoteId = quote?.id;
-    const quoteReference = quote?.quote_reference;
-    const pdfUrl = quote?.pdf_url;
-    const clientid = quote?.client_id;
+    const quotePayload = payload?.record ?? payload?.new ?? payload;
 
-    if (!quoteId || !pdfUrl || !quoteReference || !clientid) {
+    const quoteId = quotePayload?.id;
+
+    if (!quoteId) {
+      return NextResponse.json({ error: "Missing quote id" }, { status: 400 });
+    }
+
+    const { data: quoteRow, error: quoteFetchErr } = await supabase
+      .from("quotes")
+      .select("id, quote_reference, pdf_url, client_id")
+      .eq("id", quoteId)
+      .limit(1)
+      .single();
+
+    if (quoteFetchErr) throw quoteFetchErr;
+
+    const quoteReference = quoteRow?.quote_reference;
+    const pdfUrl = quoteRow?.pdf_url;
+    const clientid = quoteRow?.client_id;
+
+    if (!pdfUrl || !quoteReference || !clientid) {
       return NextResponse.json(
         { error: "Missing quote fields" },
         { status: 400 }
       );
     }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: conversation, error: convoErr } = await supabase
       .from("conversations")
