@@ -5,11 +5,18 @@ import ReactMarkdown from "react-markdown";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 // ---------- Browser Supabase Client ----------
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// This runs safely in the browser only
-const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+function createBrowserSupabaseClient(): SupabaseClient | null {
+  if (typeof window === "undefined") return null;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Supabase env vars are missing in the browser.");
+    return null;
+  }
+
+  return createClient(supabaseUrl, supabaseAnonKey);
+}
 
 type DbMessage = {
   id: string;
@@ -34,6 +41,13 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(
+    null
+  );
+
+  useEffect(() => {
+    setSupabaseClient(createBrowserSupabaseClient());
+  }, []);
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -78,9 +92,9 @@ export default function ChatPage() {
 
   // ---------- Supabase Realtime ----------
   useEffect(() => {
-    if (!conversationId) return;
+    if (!conversationId || !supabaseClient) return;
 
-    const channel = supabase
+    const channel = supabaseClient
       .channel(`chat-${conversationId}`)
       .on(
         "postgres_changes",
@@ -112,9 +126,9 @@ export default function ChatPage() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabaseClient.removeChannel(channel);
     };
-  }, [conversationId]);
+  }, [conversationId, supabaseClient]);
 
   // ---------- Auto-scroll ----------
   useEffect(() => {
