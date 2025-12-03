@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type React from "react";
 
 type ServiceConfig = { key: string; label: string; defaultOn?: boolean };
 type RateConfig = {
@@ -32,7 +33,7 @@ type PricingFormState = {
   labour_split: "split" | "no_split";
 };
 
-const SERVICES: ServiceConfig[] = [
+ const SERVICES: ServiceConfig[] = [
   { key: "service_domestic_carpets", label: "Domestic carpets", defaultOn: true },
   { key: "service_commercial_carpets", label: "Commercial carpets (glue-down)", defaultOn: true },
   { key: "service_carpet_tiles", label: "Carpet tiles", defaultOn: true },
@@ -45,7 +46,7 @@ const SERVICES: ServiceConfig[] = [
   { key: "service_ceramic", label: "Ceramic tiles" },
 ];
 
-const MARKUP_CONFIG: MarkupConfig[] = [
+ const MARKUP_CONFIG: MarkupConfig[] = [
   { key: "service_domestic_carpets", label: "Domestic carpet", defaultValue: 50 },
   { key: "service_commercial_carpets", label: "Commercial carpet", defaultValue: 50 },
   { key: "service_carpet_tiles", label: "Carpet tiles", defaultValue: 50 },
@@ -58,7 +59,7 @@ const MARKUP_CONFIG: MarkupConfig[] = [
   { key: "service_ceramic", label: "Ceramic tiles", defaultValue: 50 },
 ];
 
-const MATERIAL_CONFIG: RateConfig[] = [
+ const MATERIAL_CONFIG: RateConfig[] = [
   { key: "mat_lvt", label: "LVT per m² £", defaultValue: 26, services: ["service_lvt"] },
   { key: "mat_ceramic", label: "Ceramic tiles per m² £", defaultValue: 30, services: ["service_ceramic"] },
   {
@@ -100,7 +101,7 @@ const MATERIAL_CONFIG: RateConfig[] = [
   { key: "mat_matting", label: "Entrance matting per m² £", defaultValue: 35, always: true },
 ];
 
-const LABOUR_CONFIG: RateConfig[] = [
+ const LABOUR_CONFIG: RateConfig[] = [
   {
     key: "lab_carpet_domestic",
     label: "Labour carpet domestic per m² £",
@@ -131,27 +132,27 @@ const LABOUR_CONFIG: RateConfig[] = [
   { key: "lab_furniture", label: "Furniture removal per room £", defaultValue: 25, always: true },
 ];
 
-const defaultServices = SERVICES.reduce<Record<string, boolean>>((acc, svc) => {
+ const defaultServices = SERVICES.reduce<Record<string, boolean>>((acc, svc) => {
   acc[svc.key] = !!svc.defaultOn;
   return acc;
 }, {});
 
-const defaultMarkups = MARKUP_CONFIG.reduce<Record<string, MarkupValue>>((acc, cfg) => {
+ const defaultMarkups = MARKUP_CONFIG.reduce<Record<string, MarkupValue>>((acc, cfg) => {
   acc[cfg.key] = { value: cfg.defaultValue, unit: "percent" };
   return acc;
 }, {});
 
-const defaultMaterials = MATERIAL_CONFIG.reduce<Record<string, number>>((acc, cfg) => {
+ const defaultMaterials = MATERIAL_CONFIG.reduce<Record<string, number>>((acc, cfg) => {
   acc[cfg.key] = cfg.defaultValue;
   return acc;
 }, {});
 
-const defaultLabour = LABOUR_CONFIG.reduce<Record<string, number>>((acc, cfg) => {
+ const defaultLabour = LABOUR_CONFIG.reduce<Record<string, number>>((acc, cfg) => {
   acc[cfg.key] = cfg.defaultValue;
   return acc;
 }, {});
 
-const DEFAULT_FORM: PricingFormState = {
+ const DEFAULT_FORM: PricingFormState = {
   services: defaultServices,
   markups: defaultMarkups,
   materials: defaultMaterials,
@@ -164,12 +165,355 @@ const DEFAULT_FORM: PricingFormState = {
   labour_split: "split",
 };
 
-export default function PricingPage() {
+type ServicesSectionProps = {
+  form: PricingFormState;
+  onToggleService: (key: string) => void;
+  activeServices: Set<string>;
+};
+
+type BaseRatesSectionProps = {
+  form: PricingFormState;
+  activeServices: Set<string>;
+  onMarkupChange: (key: string, value: Partial<MarkupValue>) => void;
+  onRateChange: (collection: "materials" | "labour", key: string, value: number) => void;
+  onNumberChange: (key: "min_job_charge" | "day_rate_per_fitter", value: number) => void;
+};
+
+type BreakpointsSectionProps = {
+  form: PricingFormState;
+  onBreakpointsChange: (value: "yes" | "no", text?: string) => void;
+};
+
+type VatSectionProps = { form: PricingFormState; onVatChange: (value: "registered" | "exempt") => void };
+
+type LabourSectionProps = {
+  form: PricingFormState;
+  onLabourSplitChange: (value: "split" | "no_split") => void;
+};
+
+ function SectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/5 bg-[rgba(10,15,28,0.9)] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.35)]">
+      <div className="mb-4">
+        <h2 className="text-lg font-semibold text-white">{title}</h2>
+        {description ? <p className="text-sm text-white/60">{description}</p> : null}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+ function ToggleChip({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`inline-flex h-6 w-10 items-center rounded-full p-1 transition-colors duration-200 ${
+        active ? "bg-gradient-to-r from-orange-500 to-orange-400" : "bg-white/10"
+      }`}
+    >
+      <span
+        className={`h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${
+          active ? "translate-x-4" : "translate-x-0"
+        }`}
+      />
+    </span>
+  );
+}
+
+function ServicesSection({ form, onToggleService, activeServices }: ServicesSectionProps) {
+  return (
+    <SectionCard
+      title="Services"
+      description="Toggle the jobs you take on. Disabled services stay off quotes."
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        {SERVICES.map((svc) => (
+          <button
+            key={svc.key}
+            type="button"
+            onClick={() => onToggleService(svc.key)}
+            className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3 text-left text-sm text-white transition hover:border-orange-400/70 hover:bg-white/10"
+          >
+            <div>
+              <p className="font-semibold">{svc.label}</p>
+              <p className="text-xs text-white/60">{form.services[svc.key] ? "Included" : "Excluded"}</p>
+            </div>
+            <ToggleChip active={!!form.services[svc.key]} />
+          </button>
+        ))}
+      </div>
+      {activeServices.size === 0 ? (
+        <p className="mt-3 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-sm text-orange-100">
+          Turn on at least one service to unlock markups and base rates.
+        </p>
+      ) : null}
+    </SectionCard>
+  );
+}
+
+function BaseRatesSection({
+  form,
+  onMarkupChange,
+  onRateChange,
+  onNumberChange,
+  activeServices,
+}: BaseRatesSectionProps) {
+  const filtered = (config: RateConfig[]) => {
+    return config.filter((cfg) => cfg.always || (cfg.services && cfg.services.some((svc) => activeServices.has(svc))));
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionCard
+        title="Guardrails"
+        description="Set your minimum charge and day rate so small jobs still cover your time."
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-white">Minimum charge per job</span>
+            <input
+              type="number"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+              value={form.min_job_charge}
+              min={0}
+              step={1}
+              onChange={(e) => onNumberChange("min_job_charge", Number(e.target.value))}
+              required
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-white">Day rate per fitter</span>
+            <input
+              type="number"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+              value={form.day_rate_per_fitter}
+              min={0}
+              step={1}
+              onChange={(e) => onNumberChange("day_rate_per_fitter", Number(e.target.value))}
+              required
+            />
+          </label>
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Markup logic" description="Set material markups per service.">
+        <div className="space-y-3">
+          {MARKUP_CONFIG.filter((cfg) => activeServices.has(cfg.key)).map((cfg) => {
+            const entry = form.markups[cfg.key] ?? { value: cfg.defaultValue, unit: "percent" };
+            return (
+              <div key={cfg.key} className="grid items-center gap-3 sm:grid-cols-[1.2fr_0.8fr_0.6fr]">
+                <label className="text-sm font-semibold text-white">{cfg.label}</label>
+                <input
+                  type="number"
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                  value={entry.value}
+                  min={0}
+                  step={0.1}
+                  onChange={(e) => onMarkupChange(cfg.key, { value: Number(e.target.value) })}
+                  required
+                />
+                <select
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                  value={entry.unit}
+                  onChange={(e) =>
+                    onMarkupChange(cfg.key, {
+                      unit: e.target.value === "per_m2" ? "per_m2" : "percent",
+                    })
+                  }
+                >
+                  <option value="percent">%</option>
+                  <option value="per_m2">£/m²</option>
+                </select>
+              </div>
+            );
+          })}
+          {activeServices.size === 0 ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+              Enable a service to set its markup.
+            </div>
+          ) : null}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Base material rates" description="Materials per m² or per unit.">
+        <div className="space-y-3">
+          {filtered(MATERIAL_CONFIG).map((cfg) => (
+            <div key={cfg.key} className="grid items-center gap-3 sm:grid-cols-[1.3fr_0.7fr]">
+              <label className="text-sm font-semibold text-white">{cfg.label}</label>
+              <input
+                type="number"
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                value={form.materials[cfg.key] ?? cfg.defaultValue}
+                min={0}
+                step={0.1}
+                onChange={(e) => onRateChange("materials", cfg.key, Number(e.target.value))}
+                required
+              />
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Base labour rates" description="Labour per m² or per unit.">
+        <div className="space-y-3">
+          {filtered(LABOUR_CONFIG).map((cfg) => (
+            <div key={cfg.key} className="grid items-center gap-3 sm:grid-cols-[1.3fr_0.7fr]">
+              <label className="text-sm font-semibold text-white">{cfg.label}</label>
+              <input
+                type="number"
+                className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                value={form.labour[cfg.key] ?? cfg.defaultValue}
+                min={0}
+                step={0.1}
+                onChange={(e) => onRateChange("labour", cfg.key, Number(e.target.value))}
+                required
+              />
+            </div>
+          ))}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+function BreakpointsSection({ form, onBreakpointsChange }: BreakpointsSectionProps) {
+  return (
+    <SectionCard
+      title="Breakpoints"
+      description="Adjust pricing rules for tiny areas or massive projects."
+    >
+      <div className="space-y-4">
+        <div className="flex flex-wrap gap-3">
+          {["no", "yes"].map((value) => (
+            <label key={value} className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white">
+              <input
+                type="radio"
+                name="use_breakpoints"
+                className="accent-orange-500"
+                checked={form.use_breakpoints === value}
+                onChange={() => onBreakpointsChange(value as "yes" | "no")}
+              />
+              {value === "yes" ? "Use breakpoints" : "No breakpoints"}
+            </label>
+          ))}
+        </div>
+
+        {form.use_breakpoints === "yes" ? (
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-white">Describe your breakpoints</span>
+            <textarea
+              className="min-h-[140px] w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+              placeholder="Example: Under 10m² charge higher labour, over 60m² drop labour and materials by 10%."
+              value={form.breakpoint_text}
+              onChange={(e) => onBreakpointsChange("yes", e.target.value)}
+              required
+            />
+          </label>
+        ) : (
+          <p className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+            Keep base rates flat when you do not use breakpoints.
+          </p>
+        )}
+      </div>
+    </SectionCard>
+  );
+}
+
+function VatSection({ form, onVatChange }: VatSectionProps) {
+  return (
+    <SectionCard title="VAT setup" description="Tell BillyBot how to treat tax in your quotes.">
+      <div className="flex flex-wrap gap-3">
+        {[
+          { value: "registered", label: "VAT registered" },
+          { value: "exempt", label: "Not VAT registered / VAT exempt" },
+        ].map((opt) => (
+          <label
+            key={opt.value}
+            className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white"
+          >
+            <input
+              type="radio"
+              name="vat_status"
+              className="accent-orange-500"
+              checked={form.vat_status === opt.value}
+              onChange={() => onVatChange(opt.value as "registered" | "exempt")}
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+function LabourSection({ form, onLabourSplitChange }: LabourSectionProps) {
+  return (
+    <SectionCard
+      title="Labour display"
+      description="Choose how labour appears on quotes."
+    >
+      <div className="flex flex-wrap gap-3">
+        {[
+          { value: "split", label: "Split labour into notes (no VAT on labour)" },
+          { value: "no_split", label: "Keep labour on main quote lines" },
+        ].map((opt) => (
+          <label
+            key={opt.value}
+            className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-white"
+          >
+            <input
+              type="radio"
+              name="labour_split"
+              className="accent-orange-500"
+              checked={form.labour_split === opt.value}
+              onChange={() => onLabourSplitChange(opt.value as "split" | "no_split")}
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+    </SectionCard>
+  );
+}
+
+function AdvancedSection() {
+  return (
+    <SectionCard
+      title="Advanced options"
+      description="Extra controls and future automations live here."
+    >
+      <p className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/70">
+        No extra options right now. We will surface new controls here as they launch.
+      </p>
+    </SectionCard>
+  );
+}
+
+ const tabs = [
+  { id: "services", label: "Services" },
+  { id: "base", label: "Base rates" },
+  { id: "breakpoints", label: "Breakpoints" },
+  { id: "vat", label: "VAT setup" },
+  { id: "labour", label: "Labour display" },
+  { id: "advanced", label: "Advanced options" },
+] as const;
+
+ type TabId = (typeof tabs)[number]["id"];
+
+ export default function PricingPage() {
   const [form, setForm] = useState<PricingFormState>(DEFAULT_FORM);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabId>("services");
 
   const activeServices = useMemo(() => {
     return new Set(Object.keys(form.services).filter((key) => form.services[key]));
@@ -304,6 +648,22 @@ export default function PricingPage() {
     }));
   };
 
+  const handleBreakpointsChange = (value: "yes" | "no", text?: string) => {
+    setForm((prev) => ({
+      ...prev,
+      use_breakpoints: value,
+      breakpoint_text: text !== undefined ? text : value === "no" ? "" : prev.breakpoint_text,
+    }));
+  };
+
+  const handleVatChange = (value: "registered" | "exempt") => {
+    setForm((prev) => ({ ...prev, vat_status: value }));
+  };
+
+  const handleLabourSplitChange = (value: "split" | "no_split") => {
+    setForm((prev) => ({ ...prev, labour_split: value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -334,315 +694,107 @@ export default function PricingPage() {
     }
   };
 
-  const filteredRates = (config: RateConfig[]) => {
-    return config.filter((cfg) => cfg.always || (cfg.services && cfg.services.some((svc) => activeServices.has(svc))));
-  };
-
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-4 rounded-3xl border border-[var(--line)] bg-[rgba(13,19,35,0.85)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-        <div className="space-y-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Pricing</p>
-          <h1 className="text-3xl font-black text-white">Set your pricing logic</h1>
-          <p className="max-w-3xl text-sm text-[var(--muted)]">
-            Update the services you offer, set base rates, markups, VAT, and labour display. BillyBot will use these
-            settings instantly when quoting.
-          </p>
+      <header className="rounded-3xl border border-white/10 bg-[rgba(13,19,35,0.85)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-2">
+            <p className="text-xs uppercase tracking-[0.2em] text-white/60">Pricing</p>
+            <h1 className="text-3xl font-black text-white">Set your pricing logic</h1>
+            <p className="max-w-3xl text-sm text-white/70">
+              Configure services, markups, and pricing behaviour. BillyBot will apply these settings instantly when quoting.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white">
+            <span className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
+            Live pricing profile
+          </div>
         </div>
-        <div className="flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[rgba(37,99,235,0.12)] px-4 py-3 text-sm font-semibold text-[var(--text)]">
-          <span className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
-          Live pricing profile
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                activeTab === tab.id
+                  ? "border-orange-400 bg-gradient-to-r from-orange-500 to-orange-400 text-white shadow-[0_10px_30px_rgba(249,115,22,0.4)]"
+                  : "border-white/10 bg-white/5 text-white/80 hover:border-orange-400/70 hover:text-white"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </header>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-[var(--line)] bg-[rgba(10,15,28,0.9)] p-6 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-            <div className="flex items-center justify-between gap-3 pb-4">
-              <div>
-                <h2 className="text-xl font-bold text-white">Services</h2>
-                <p className="text-sm text-[var(--muted)]">Toggle the jobs you take on.</p>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {SERVICES.map((svc) => {
-                const on = form.services[svc.key];
-                return (
-                  <button
-                    key={svc.key}
-                    type="button"
-                    onClick={() => handleServiceToggle(svc.key)}
-                    className={`flex items-start justify-between rounded-2xl border px-4 py-3 text-left shadow-sm transition ${
-                      on
-                        ? "border-[rgba(249,115,22,0.5)] bg-[rgba(249,115,22,0.12)]"
-                        : "border-[var(--line)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
-                    }`}
-                  >
-                    <div>
-                      <div className="font-semibold text-white">{svc.label}</div>
-                      <div className="text-xs text-[var(--muted)]">{on ? "Active" : "Off"}</div>
-                    </div>
-                    <span
-                      className={`mt-1 inline-flex h-6 w-10 items-center rounded-full border px-1 transition ${
-                        on
-                          ? "border-[rgba(249,115,22,0.8)] bg-gradient-to-r from-[var(--accent1)] to-[var(--accent2)]"
-                          : "border-[var(--line)] bg-[rgba(255,255,255,0.04)]"
-                      }`}
-                    >
-                      <span
-                        className={`h-4 w-4 rounded-full bg-white shadow transition ${on ? "translate-x-4" : "translate-x-0"}`}
-                      />
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+      <form onSubmit={handleSubmit} className="pb-28">
+        {loading ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-sm text-white/70">
+            Loading pricing...
           </div>
+        ) : null}
 
-          <div className="rounded-3xl border border-[var(--line)] bg-[rgba(10,15,28,0.9)] p-6 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-            <div className="flex items-center justify-between gap-3 pb-4">
-              <div>
-                <h2 className="text-xl font-bold text-white">Markup logic</h2>
-                <p className="text-sm text-[var(--muted)]">Set material markups per service.</p>
-              </div>
-            </div>
+        {!loading && activeTab === "services" ? (
+          <ServicesSection
+            form={form}
+            activeServices={activeServices}
+            onToggleService={handleServiceToggle}
+          />
+        ) : null}
 
-            <div className="space-y-3">
-              {MARKUP_CONFIG.filter((cfg) => activeServices.has(cfg.key)).map((cfg) => {
-                const entry = form.markups[cfg.key] ?? { value: cfg.defaultValue, unit: "percent" };
-                return (
-                  <div key={cfg.key} className="grid items-center gap-3 sm:grid-cols-[1.3fr_0.7fr_0.7fr]">
-                    <label className="text-sm font-semibold text-white">{cfg.label}</label>
-                    <input
-                      type="number"
-                      className="rounded-xl border border-[var(--line)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-sm text-white"
-                      value={entry.value}
-                      min={0}
-                      step={0.1}
-                      onChange={(e) => handleMarkupChange(cfg.key, { value: Number(e.target.value) })}
-                      required
-                    />
-                    <select
-                      className="rounded-xl border border-[var(--line)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-sm text-white"
-                      value={entry.unit}
-                      onChange={(e) =>
-                        handleMarkupChange(cfg.key, {
-                          unit: e.target.value === "per_m2" ? "per_m2" : "percent",
-                        })
-                      }
-                    >
-                      <option value="percent">%</option>
-                      <option value="per_m2">£/m²</option>
-                    </select>
-                  </div>
-                );
-              })}
-              {activeServices.size === 0 ? (
-                <div className="rounded-2xl border border-[var(--line)] bg-[rgba(255,255,255,0.03)] px-4 py-3 text-sm text-[var(--muted)]">
-                  Turn on at least one service to set markups.
-                </div>
-              ) : null}
-            </div>
+        {!loading && activeTab === "base" ? (
+          <BaseRatesSection
+            form={form}
+            activeServices={activeServices}
+            onMarkupChange={handleMarkupChange}
+            onRateChange={handleRateChange}
+            onNumberChange={handleNumberChange}
+          />
+        ) : null}
+
+        {!loading && activeTab === "breakpoints" ? (
+          <BreakpointsSection form={form} onBreakpointsChange={handleBreakpointsChange} />
+        ) : null}
+
+        {!loading && activeTab === "vat" ? (
+          <VatSection form={form} onVatChange={handleVatChange} />
+        ) : null}
+
+        {!loading && activeTab === "labour" ? (
+          <LabourSection form={form} onLabourSplitChange={handleLabourSplitChange} />
+        ) : null}
+
+        {!loading && activeTab === "advanced" ? <AdvancedSection /> : null}
+
+        {error ? (
+          <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {error}
           </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-[var(--line)] bg-[rgba(10,15,28,0.9)] p-6 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-            <div className="flex items-center justify-between gap-3 pb-4">
-              <div>
-                <h2 className="text-xl font-bold text-white">Base material rates</h2>
-                <p className="text-sm text-[var(--muted)]">Set materials per m² or per unit.</p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {filteredRates(MATERIAL_CONFIG).map((cfg) => (
-                <div key={cfg.key} className="grid items-center gap-3 sm:grid-cols-[1.3fr_0.7fr]">
-                  <label className="text-sm font-semibold text-white">{cfg.label}</label>
-                  <input
-                    type="number"
-                    className="rounded-xl border border-[var(--line)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-sm text-white"
-                    value={form.materials[cfg.key] ?? cfg.defaultValue}
-                    min={0}
-                    step={0.1}
-                    onChange={(e) => handleRateChange("materials", cfg.key, Number(e.target.value))}
-                    required
-                  />
-                </div>
-              ))}
-            </div>
+        ) : null}
+        {status ? (
+          <div className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+            {status}
           </div>
+        ) : null}
 
-          <div className="rounded-3xl border border-[var(--line)] bg-[rgba(10,15,28,0.9)] p-6 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-            <div className="flex items-center justify-between gap-3 pb-4">
-              <div>
-                <h2 className="text-xl font-bold text-white">Base labour rates</h2>
-                <p className="text-sm text-[var(--muted)]">Set labour per m² or per unit.</p>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {filteredRates(LABOUR_CONFIG).map((cfg) => (
-                <div key={cfg.key} className="grid items-center gap-3 sm:grid-cols-[1.3fr_0.7fr]">
-                  <label className="text-sm font-semibold text-white">{cfg.label}</label>
-                  <input
-                    type="number"
-                    className="rounded-xl border border-[var(--line)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-sm text-white"
-                    value={form.labour[cfg.key] ?? cfg.defaultValue}
-                    min={0}
-                    step={0.1}
-                    onChange={(e) => handleRateChange("labour", cfg.key, Number(e.target.value))}
-                    required
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-[var(--line)] bg-[rgba(10,15,28,0.9)] p-6 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-            <h2 className="text-xl font-bold text-white">Safety nets</h2>
-            <p className="text-sm text-[var(--muted)]">Minimum job and day rates.</p>
-            <div className="mt-4 space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-white">Minimum charge per job</label>
-                <input
-                  type="number"
-                  className="w-full rounded-xl border border-[var(--line)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-sm text-white"
-                  value={form.min_job_charge}
-                  min={0}
-                  step={1}
-                  onChange={(e) => handleNumberChange("min_job_charge", Number(e.target.value))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-white">Day rate per fitter</label>
-                <input
-                  type="number"
-                  className="w-full rounded-xl border border-[var(--line)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-sm text-white"
-                  value={form.day_rate_per_fitter}
-                  min={0}
-                  step={1}
-                  onChange={(e) => handleNumberChange("day_rate_per_fitter", Number(e.target.value))}
-                  required
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-[var(--line)] bg-[rgba(10,15,28,0.9)] p-6 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-            <h2 className="text-xl font-bold text-white">Breakpoints</h2>
-            <p className="text-sm text-[var(--muted)]">Optional rate changes for big or small jobs.</p>
-            <div className="mt-4 space-y-3">
-              <div className="flex flex-wrap gap-2">
-                <label className={`pill-like ${form.use_breakpoints === "no" ? "pill-like-active" : ""}`}>
-                  <input
-                    type="radio"
-                    name="use_breakpoints"
-                    className="hidden"
-                    checked={form.use_breakpoints === "no"}
-                    onChange={() =>
-                      setForm((prev) => ({ ...prev, use_breakpoints: "no", breakpoint_text: prev.breakpoint_text }))
-                    }
-                  />
-                  <span>No breakpoints</span>
-                </label>
-                <label className={`pill-like ${form.use_breakpoints === "yes" ? "pill-like-active" : ""}`}>
-                  <input
-                    type="radio"
-                    name="use_breakpoints"
-                    className="hidden"
-                    checked={form.use_breakpoints === "yes"}
-                    onChange={() => setForm((prev) => ({ ...prev, use_breakpoints: "yes" }))}
-                  />
-                  <span>Yes - I use breakpoints</span>
-                </label>
-              </div>
-              {form.use_breakpoints === "yes" && (
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-white">Describe your breakpoints</label>
-                  <textarea
-                    className="min-h-[140px] w-full rounded-xl border border-[var(--line)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-sm text-white"
-                    value={form.breakpoint_text}
-                    onChange={(e) => setForm((prev) => ({ ...prev, breakpoint_text: e.target.value }))}
-                    placeholder={`Example:\n- If LVT is under 10m², charge £30/m² for labour.\n- Over 60m², drop labour and materials by 10%.\n- Over 100m², drop labour by £4/m² and materials by 15%.`}
-                    required
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-3xl border border-[var(--line)] bg-[rgba(10,15,28,0.9)] p-6 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-            <h2 className="text-xl font-bold text-white">VAT setup</h2>
-            <p className="text-sm text-[var(--muted)]">Tell BillyBot how to treat tax.</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <label className={`pill-like ${form.vat_status === "registered" ? "pill-like-active" : ""}`}>
-                <input
-                  type="radio"
-                  name="vat_status"
-                  className="hidden"
-                  checked={form.vat_status === "registered"}
-                  onChange={() => setForm((prev) => ({ ...prev, vat_status: "registered" }))}
-                />
-                <span>VAT registered</span>
-              </label>
-              <label className={`pill-like ${form.vat_status === "exempt" ? "pill-like-active" : ""}`}>
-                <input
-                  type="radio"
-                  name="vat_status"
-                  className="hidden"
-                  checked={form.vat_status === "exempt"}
-                  onChange={() => setForm((prev) => ({ ...prev, vat_status: "exempt" }))}
-                />
-                <span>Not VAT registered / VAT exempt</span>
-              </label>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-[var(--line)] bg-[rgba(10,15,28,0.9)] p-6 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-            <h2 className="text-xl font-bold text-white">Labour display</h2>
-            <p className="text-sm text-[var(--muted)]">Choose how labour appears on quotes.</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <label className={`pill-like ${form.labour_split === "split" ? "pill-like-active" : ""}`}>
-                <input
-                  type="radio"
-                  name="labour_split"
-                  className="hidden"
-                  checked={form.labour_split === "split"}
-                  onChange={() => setForm((prev) => ({ ...prev, labour_split: "split" }))}
-                />
-                <span>Split labour into notes (no VAT on labour)</span>
-              </label>
-              <label className={`pill-like ${form.labour_split === "no_split" ? "pill-like-active" : ""}`}>
-                <input
-                  type="radio"
-                  name="labour_split"
-                  className="hidden"
-                  checked={form.labour_split === "no_split"}
-                  onChange={() => setForm((prev) => ({ ...prev, labour_split: "no_split" }))}
-                />
-                <span>Keep labour on main quote lines</span>
-              </label>
-            </div>
-          </div>
-        </section>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-[var(--line)] bg-[rgba(10,15,28,0.9)] px-4 py-4 shadow-[0_16px_48px_rgba(0,0,0,0.45)]">
-          <div className="text-sm text-[var(--muted)]">
-            {loading ? "Loading your saved pricing…" : "Save to keep BillyBot quoting with the latest pricing."}
-            {status ? <span className="ml-2 text-emerald-400">{status}</span> : null}
-            {error ? <span className="ml-2 text-rose-400">{error}</span> : null}
-          </div>
-          <div className="flex gap-3">
+        <div className="fixed bottom-6 left-0 right-0 z-10 flex justify-center px-4">
+          <div className="flex w-full max-w-3xl items-center justify-between gap-3 rounded-full border border-white/10 bg-[rgba(13,19,35,0.95)] px-4 py-3 shadow-[0_16px_50px_rgba(0,0,0,0.45)]">
+            <div className="text-sm text-white/70">Save applies across all sections</div>
             <button
               type="submit"
-              disabled={saving || loading}
-              className="rounded-full bg-gradient-to-r from-[var(--accent1)] to-[var(--accent2)] px-6 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(249,115,22,0.35)] transition hover:shadow-[0_0_30px_rgba(249,115,22,0.55)] disabled:opacity-60"
+              disabled={saving}
+              className="flex items-center gap-2 rounded-full bg-gradient-to-r from-orange-500 to-orange-400 px-5 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(249,115,22,0.45)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {saving ? "Saving…" : "Save pricing"}
+              {saving ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  Saving...
+                </>
+              ) : (
+                "Save pricing"
+              )}
             </button>
           </div>
         </div>
@@ -650,3 +802,4 @@ export default function PricingPage() {
     </div>
   );
 }
+
