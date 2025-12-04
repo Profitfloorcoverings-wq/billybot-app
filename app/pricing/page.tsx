@@ -160,14 +160,14 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (val: boole
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-7 w-12 items-center rounded-full border border-white/15 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF7A1A] focus:ring-offset-[#0B1120] ${
+      className={`relative inline-flex h-8 w-14 items-center rounded-full border border-white/15 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF7A1A] focus:ring-offset-[#0B1120] ${
         checked ? "bg-[#FF7A1A]" : "bg-white/20"
       }`}
       aria-pressed={checked}
     >
       <span
         className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
-          checked ? "translate-x-5" : "translate-x-1"
+          checked ? "translate-x-6" : "translate-x-2"
         }`}
       />
     </button>
@@ -184,7 +184,7 @@ function Field({
   control: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[240px_1fr]">
+    <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[280px_1fr]">
       <div className="flex flex-col gap-1 sm:items-start">
         <span className="text-sm text-white/80">{label}</span>
         {hint ? <span className="text-xs text-white/60">{hint}</span> : null}
@@ -202,7 +202,7 @@ function Input({ value, onChange, step = 0.1 }: { value: number; onChange: (val:
       step={step}
       min={0}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="w-28 rounded-full border border-white/12 bg-[#0F172A] px-4 py-2 text-sm text-white outline-none transition focus:border-[#FF7A1A] focus:ring-1 focus:ring-[#FF7A1A] sm:w-32"
+      className="w-28 rounded-md border border-white/15 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-[#FF7A1A] focus:ring-1 focus:ring-[#FF7A1A] sm:w-32"
     />
   );
 }
@@ -221,7 +221,7 @@ function TextArea({ value, onChange, placeholder }: { value: string; onChange: (
 
 function UnitToggle({ unit, onChange }: { unit: "percent" | "per_m2"; onChange: (val: "percent" | "per_m2") => void }) {
   return (
-    <div className="flex rounded-md border border-white/10 bg-black/40 text-sm text-white">
+    <div className="flex overflow-hidden rounded-full border border-white/12 bg-black/30 text-sm text-white shadow-inner">
       <button
         type="button"
         onClick={() => onChange("percent")}
@@ -232,7 +232,9 @@ function UnitToggle({ unit, onChange }: { unit: "percent" | "per_m2"; onChange: 
       <button
         type="button"
         onClick={() => onChange("per_m2")}
-        className={`px-3 py-1.5 transition ${unit === "per_m2" ? "bg-[#FF7A1A] text-white" : "text-white/70"}`}
+        className={`px-3 py-1.5 transition border-l border-white/10 ${
+          unit === "per_m2" ? "bg-[#FF7A1A] text-white" : "text-white/70"
+        }`}
       >
         £/m²
       </button>
@@ -276,7 +278,7 @@ function PricingTabs({ active, onChange }: { active: TabId; onChange: (tab: TabI
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-white/10 bg-[#0F172A] p-6 text-white/90 shadow-sm">
+    <div className="w-full flex flex-col gap-5 rounded-xl border border-white/10 bg-[#0F172A] p-7 text-white/90 shadow-sm">
       {children}
     </div>
   );
@@ -333,13 +335,13 @@ function BaseRatesSection({
           control={<Input value={form.day_rate_per_fitter} onChange={(val) => onChangeNumber("day_rate_per_fitter", val)} />}
         />
         <div className="border-t border-white/10 pt-2" />
-        <div className="flex flex-col gap-3">
-          {MARKUP_CONFIG.map((cfg) => (
-            <div key={cfg.key} className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[240px_1fr]">
-              <div className="flex flex-col gap-1">
-                <span className="text-sm text-white/80">{cfg.label}</span>
-              </div>
-              <div className="flex items-center justify-start gap-3 sm:justify-start">
+        <div className="flex flex-col gap-4">
+            {MARKUP_CONFIG.map((cfg) => (
+              <div key={cfg.key} className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[280px_1fr]">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm text-white/80">{cfg.label}</span>
+                </div>
+                <div className="flex items-center justify-start gap-3 sm:justify-start">
                 <Input
                   value={form.markups[cfg.key]?.value ?? cfg.defaultValue}
                   onChange={(val) =>
@@ -509,7 +511,7 @@ function AdvancedSection({ form, onToggle, onTextChange }: { form: PricingFormSt
 function SaveBar({ saving, saved, onSave }: { saving: boolean; saved: boolean; onSave: () => void }) {
   return (
     <div className="sticky bottom-0 left-0 right-0 border-t border-white/10 bg-black/40 px-4 py-3 backdrop-blur">
-      <div className="mx-auto flex max-w-4xl items-center justify-end gap-3">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-end gap-3 px-2">
         {saved ? <span className="text-xs text-white/60">Saved</span> : null}
         <button
           type="button"
@@ -535,7 +537,6 @@ export default function PricingPage() {
   useEffect(() => {
     async function loadPricing() {
       setLoading(true);
-      setError(null);
       try {
         const res = await fetch("/api/pricing");
         if (!res.ok) throw new Error(`Failed to load pricing (${res.status})`);
@@ -545,7 +546,6 @@ export default function PricingPage() {
         }
       } catch (err) {
         console.error("Pricing load error", err);
-        setError("Unable to load pricing right now.");
       } finally {
         setLoading(false);
       }
@@ -602,7 +602,7 @@ export default function PricingPage() {
 
   return (
     <main className="min-h-screen bg-[#0B1120] text-white">
-      <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 pb-24 pt-8">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 pb-28 pt-10">
         <div className="flex flex-col gap-2">
           <div>
             <h1 className="text-lg font-semibold text-white">Pricing settings</h1>
