@@ -578,6 +578,8 @@ export default function PricingPage() {
   </button>
 </div>
 
-</div> 
-);  // END return()
-}   // END component
+</div>
+); // END return
+} // END component
+
+export default PricingPage;
