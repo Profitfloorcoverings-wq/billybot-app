@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type Unit = "percent" | "per_m2";
@@ -187,6 +187,14 @@ type NumericMap = Record<string, number>;
 const SUBMIT_URL = "https://tradiebrain.app.n8n.cloud/webhook/pricing-onboarding";
 
 export default function PricingPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-white/70">Loading pricing…</div>}>
+      <PricingPageContent />
+    </Suspense>
+  );
+}
+
+function PricingPageContent() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<PricingTab>("Services");
   const [saving, setSaving] = useState(false);
