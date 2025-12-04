@@ -1,200 +1,194 @@
 "use client";
 
-import { useState, useEffect, useRef, KeyboardEvent, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-// ---------- Browser Supabase Client ----------
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-function createBrowserSupabaseClient(): SupabaseClient | null {
-  if (typeof window === "undefined") return null;
-  return createClient(supabaseUrl, supabaseAnonKey);
-}
-
-type DbMessage = {
-  id: string;
+type Message = {
+  id: number | string;
   role: "user" | "assistant";
   content: string;
-  type?: "quote" | null;
+  type?: string | null;
+  conversation_id?: string;
   quote_reference?: string | null;
-  conversation_id: string;
-  created_at: string;
+  created_at?: string;
 };
 
-type UiMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  type?: "quote" | null;
-  quote_reference?: string | null;
+type HistoryResponse = {
+  conversation_id: string;
+  messages: Message[];
+};
+
+type SendResponse = {
+  reply: string;
+  conversation_id: string;
+  userMessage?: Message;
+  assistantMessage?: Message;
 };
 
 export default function ChatPage() {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<UiMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
 
-  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const initialLoadRef = useRef(true);
 
-  // Init browser client
-  useEffect(() => {
-    setSupabaseClient(createBrowserSupabaseClient());
+  const supabase: SupabaseClient | null = useMemo(() => {
+    if (!supabaseUrl || !supabaseAnonKey) return null;
+    return createClient(supabaseUrl, supabaseAnonKey);
   }, []);
 
-  // ---------- Load chat history ----------
-  const loadMessagesFromSupabase = useCallback(
-    async (conversation_id: string) => {
-      if (!supabaseClient) return;
-
-      const { data, error } = await supabaseClient
-        .from("messages")
-        .select("id, role, content, type, quote_reference, created_at")
-        .eq("conversation_id", conversation_id)
-        .order("created_at", { ascending: true });
-
-      if (error) {
-        console.error("Supabase history error:", error);
-        return;
-      }
-
-      const formatted: UiMessage[] = (data ?? []).map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content ?? "",
-        type: m.type ?? undefined,
-        quote_reference: m.quote_reference ?? undefined,
-      }));
-
-      setMessages(formatted);
-    },
-    [supabaseClient]
-  );
-
-  // ---------- Load or create conversation ----------
-  const initializeConversation = useCallback(async () => {
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
-      });
-
-      if (!res.ok) return;
-
-      const data = await res.json();
-      const rows = (data?.messages ?? []) as DbMessage[];
-
-      const existingConvIdFromRows =
-        rows.length > 0 ? rows[0].conversation_id : null;
-
-      const existingConvIdFromPayload =
-        typeof data?.conversation_id === "string" ? data.conversation_id : null;
-
-      const resolvedConversationId =
-        existingConvIdFromRows ?? existingConvIdFromPayload;
-
-      if (resolvedConversationId) {
-        setConversationId(resolvedConversationId);
-        await loadMessagesFromSupabase(resolvedConversationId);
-      }
-    } catch (err) {
-      console.error("History load error:", err);
-    }
-  }, [loadMessagesFromSupabase]);
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
 
   useEffect(() => {
-    if (supabaseClient) {
-      initializeConversation();
+    async function loadHistory() {
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
+        });
+
+        const data = (await res.json()) as HistoryResponse;
+
+        if (data?.conversation_id) {
+          setConversationId(data.conversation_id);
+        }
+
+        if (Array.isArray(data?.messages)) {
+          setMessages(data.messages);
+
+          const nextSeen = new Set<string>();
+          data.messages.forEach((m) => {
+            nextSeen.add(String(m.id));
+          });
+          seenIdsRef.current = nextSeen;
+        }
+      } catch (err) {
+        console.error("Error loading history:", err);
+      } finally {
+        setLoading(false);
+        scrollToBottom("auto");
+      }
     }
-  }, [supabaseClient, initializeConversation]);
 
-  // ---------- Realtime subscription ----------
+    loadHistory();
+  }, []);
+
   useEffect(() => {
-    if (!conversationId || !supabaseClient) return;
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
+    scrollToBottom();
+  }, [messages]);
 
-    const channel = supabaseClient
-      .channel(`chat-${conversationId}`)
+  useEffect(() => {
+    if (!supabase || !conversationId) return;
+
+    const channel = supabase
+      .channel(`messages-conversation-${conversationId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          const row = payload.new as DbMessage;
+          const newMessage = payload.new as Message & { conversation_id?: string };
 
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === row.id)) return prev;
+          const eventConversationId = newMessage.conversation_id
+            ? String(newMessage.conversation_id)
+            : null;
 
-            return [
-              ...prev,
-              {
-                id: row.id,
-                role: row.role,
-                content: row.content,
-                type: row.type ?? undefined,
-                quote_reference: row.quote_reference ?? undefined,
-              },
-            ];
-          });
+          if (!eventConversationId || eventConversationId !== String(conversationId)) return;
+
+          const idKey = String(newMessage.id);
+          if (seenIdsRef.current.has(idKey)) return;
+
+          seenIdsRef.current.add(idKey);
+
+          setMessages((prev) => [...prev, { ...newMessage, conversation_id: eventConversationId }]);
+          scrollToBottom();
         }
       )
       .subscribe();
 
     return () => {
-      supabaseClient.removeChannel(channel);
+      supabase.removeChannel(channel);
     };
-  }, [conversationId, supabaseClient]);
+  }, [supabase, conversationId]);
 
-  // ---------- Auto-scroll ----------
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
-
-  // ---------- Send Message ----------
   async function sendMessage() {
-    const text = input.trim();
-    if (!text || isSending) return;
+    if (!input.trim() || sending) return;
 
+    setSending(true);
+    const userText = input.trim();
     setInput("");
-    setIsSending(true);
-
-    // optimistic UI
-    const localId = `local-${Date.now()}`;
-    setMessages((prev) => [...prev, { id: localId, role: "user", content: text }]);
 
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: userText }),
       });
 
       if (!res.ok) {
-        console.error("Send failed", await res.text());
+        throw new Error(`Request failed: ${res.status}`);
       }
 
-      if (!conversationId) {
-        await initializeConversation();
+      const data = (await res.json()) as SendResponse;
+
+      if (data?.conversation_id && !conversationId) {
+        setConversationId(data.conversation_id);
+      }
+
+      const incoming: Message[] = [];
+
+      if (data?.userMessage) {
+        incoming.push(data.userMessage);
+        seenIdsRef.current.add(String(data.userMessage.id));
+      }
+
+      if (data?.assistantMessage) {
+        incoming.push(data.assistantMessage);
+        seenIdsRef.current.add(String(data.assistantMessage.id));
+      } else if (data?.reply) {
+        incoming.push({
+          id: Date.now(),
+          role: "assistant",
+          content: data.reply,
+          type: "text",
+        });
+      }
+
+      if (incoming.length) {
+        setMessages((prev) => [...prev, ...incoming]);
+        scrollToBottom();
       }
     } catch (err) {
       console.error("Chat error:", err);
       setMessages((prev) => [
         ...prev,
         {
-          id: `error-${Date.now()}`,
+          id: Date.now(),
           role: "assistant",
           content: "Error: Could not reach BillyBot.",
+          type: "text",
         },
       ]);
     } finally {
-      setIsSending(false);
+      setSending(false);
     }
   }
 
@@ -205,72 +199,91 @@ export default function ChatPage() {
     }
   }
 
-  // ---------- UI ----------
-  return (
-    <div className="flex h-full flex-col gap-4 p-5">
-      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
-        Chat
-      </h1>
-
-      <div className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.85)] p-4">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${
-              m.role === "user" ? "justify-end" : "justify-start"
-            }`}
+  const renderMessage = (m: Message) => {
+    if (m.type === "quote") {
+      const label = m.quote_reference ? `Quote ${m.quote_reference}` : "Quote";
+      return (
+        <div className="space-y-1">
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{label}</div>
+          <a
+            className="flex items-center gap-2 rounded-2xl border border-[var(--line)] bg-[rgba(37,99,235,0.12)] px-4 py-3 text-[var(--text)] shadow-md transition hover:border-[var(--brand2)] hover:bg-[rgba(59,130,246,0.16)]"
+            href={m.content}
+            target="_blank"
+            rel="noreferrer"
           >
-            <div
-              className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm shadow-sm whitespace-pre-wrap leading-relaxed
-                ${
-                  m.role === "user"
-                    ? "bg-[var(--brand1)] text-white rounded-br-none"
-                    : "bg-[#1f2937] text-[var(--text)] border border-[var(--line)] rounded-bl-none"
-                }`}
-            >
-              {m.type === "quote" ? (
-                <a
-                  href={m.content}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex flex-col gap-1 rounded-lg bg-[rgba(255,255,255,0.05)] px-3 py-2 text-left text-[var(--text)] hover:bg-[rgba(255,255,255,0.08)]"
-                >
-                  <span className="text-sm font-semibold">
-                    {m.quote_reference
-                      ? `Quote ${m.quote_reference} is ready`
-                      : "Quote is ready"}
-                  </span>
-                  <span className="text-xs text-[var(--muted)]">Tap to open</span>
-                </a>
-              ) : (
-                <div className="prose prose-invert max-w-none whitespace-pre-wrap">
-                  <ReactMarkdown>{m.content}</ReactMarkdown>
-                </div>
-              )}
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand1)] text-white shadow-lg">
+              PDF
+            </span>
+            <div className="flex flex-col">
+              <span className="font-semibold">{label} is ready</span>
+              <span className="text-sm text-[var(--muted)]">Tap to open the download</span>
             </div>
-          </div>
-        ))}
+          </a>
+        </div>
+      );
+    }
 
-        <div ref={bottomRef}></div>
+    return (
+      <div className="prose prose-invert max-w-none text-sm leading-normal [&_p]:my-1 [&_li]:my-0 [&_ul]:my-1">
+        <ReactMarkdown>{m.content}</ReactMarkdown>
       </div>
+    );
+  };
 
-      <div className="rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-3 py-2">
-        <div className="flex items-end gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            placeholder="Message BillyBot…"
-            className="flex-1 resize-none bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none"
-          />
+  return (
+    <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
+      <header className="rounded-3xl border border-[var(--line)] bg-[rgba(13,19,35,0.85)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+        <h1 className="text-3xl font-black text-white">Chat with BillyBot</h1>
+      </header>
+
+      <div className="chat-panel min-h-0">
+        <div className="flex items-center justify-between rounded-2xl bg-[rgba(255,255,255,0.04)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+          <span>Conversation</span>
+          <span>{loading ? "Syncing…" : "Live"}</span>
+        </div>
+
+        <div className="chat-messages flex flex-col gap-2 rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] p-4 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`chat-bubble ${m.role === "user" ? "chat-bubble-user" : "chat-bubble-bot"}`}
+            >
+              <div className={`chat-badge ${m.role === "user" ? "chat-badge-user" : ""}`}>
+                {m.role === "user" ? "You" : "BillyBot"}
+              </div>
+
+              {renderMessage(m)}
+            </div>
+          ))}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="chat-input-row">
+          <div className="chat-input-shell">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder="Tell BillyBot what you need."
+              className="chat-input resize-none"
+            />
+          </div>
 
           <button
             onClick={sendMessage}
-            disabled={!input.trim() || isSending}
-            className="inline-flex items-center justify-center rounded-full bg-[var(--brand1)] px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-[var(--brand2)] disabled:opacity-40"
+            disabled={!input.trim() || sending}
+            className="chat-send-btn"
           >
-            {isSending ? "Sending…" : "Send"}
+            {sending ? (
+              <span className="flex items-center gap-2">
+                <span className="chat-send-loader" aria-hidden />
+                <span className="text-sm font-semibold">Working…</span>
+              </span>
+            ) : (
+              "Send"
+            )}
           </button>
         </div>
       </div>

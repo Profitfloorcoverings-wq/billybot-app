@@ -2,15 +2,64 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 const navItems = [
   { label: "Chat", href: "/chat" },
+  { label: "Quotes", href: "/quotes", watchQuotes: true },
+  { label: "Pricing", href: "/pricing" },
   { label: "Jobs", href: "/jobs" },
   { label: "Settings", href: "/settings" },
 ];
 
+const QUOTES_LAST_VIEWED_KEY = "quotes_last_viewed_at";
+
 export default function Sidebar() {
   const pathname = usePathname();
+  const [hasNewQuote, setHasNewQuote] = useState(false);
+
+  const checkLatestQuote = useCallback(async () => {
+    try {
+      const res = await fetch("/api/quotes?latest=1", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { latest_created_at?: string | null };
+      const latest = data?.latest_created_at;
+      if (!latest) {
+        setHasNewQuote(false);
+        return;
+      }
+
+      const lastViewed = localStorage.getItem(QUOTES_LAST_VIEWED_KEY);
+      if (!lastViewed) {
+        setHasNewQuote(true);
+        return;
+      }
+
+      setHasNewQuote(new Date(latest).getTime() > new Date(lastViewed).getTime());
+    } catch (err) {
+      console.error("Sidebar quote check error", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void checkLatestQuote();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [checkLatestQuote]);
+
+  useEffect(() => {
+    if (pathname === "/quotes") {
+      const timer = setTimeout(() => {
+        const now = new Date().toISOString();
+        localStorage.setItem(QUOTES_LAST_VIEWED_KEY, now);
+        void checkLatestQuote();
+      }, 200);
+
+      return () => clearTimeout(timer);
+    }
+  }, [pathname, checkLatestQuote]);
 
   return (
     <aside className="sidebar">
@@ -24,6 +73,7 @@ export default function Sidebar() {
       <nav className="sidebar-nav">
         {navItems.map((item) => {
           const active = pathname === item.href;
+          const showNew = item.watchQuotes && hasNewQuote && pathname !== item.href;
           return (
             <Link
               key={item.href}
@@ -31,8 +81,18 @@ export default function Sidebar() {
               className={
                 active ? "sidebar-link sidebar-link-active" : "sidebar-link"
               }
+              onClick={() => {
+                if (item.watchQuotes) {
+                  const now = new Date().toISOString();
+                  localStorage.setItem(QUOTES_LAST_VIEWED_KEY, now);
+                  setHasNewQuote(false);
+                }
+              }}
             >
-              {item.label}
+              <span className="sidebar-link-inner">
+                <span>{item.label}</span>
+                {showNew ? <span className="sidebar-new-dot" aria-hidden="true" /> : null}
+              </span>
             </Link>
           );
         })}

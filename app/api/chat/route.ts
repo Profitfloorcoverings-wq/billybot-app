@@ -1,31 +1,39 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Environment variables (server-side only)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const n8nWebhook = process.env.N8N_WEBHOOK_URL!;
 
-// Dev fallback before auth is added
+// Dev fallback (pre-login)
 const DEV_PROFILE_ID = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
+
+type MessageRow = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  type?: string | null;
+  quote_reference?: string | null;
+  conversation_id: string;
+  created_at?: string;
+};
+
+type ChatRequest = {
+  message?: string;
+  profile_id?: string;
+};
 
 export async function POST(req: Request) {
   try {
-    const { message } = await req.json();
+    const body = (await req.json()) as ChatRequest;
+    const { message, profile_id: incomingProfileId } = body;
 
     if (!message) {
       return NextResponse.json({ error: "Missing message" }, { status: 400 });
     }
 
-    // Server-side Supabase (service role key)
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Try to get auth user (will be null until you add login)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-
-    const profileId = user?.id ?? DEV_PROFILE_ID;
+    const profileId = incomingProfileId || DEV_PROFILE_ID;
 
     // ---------------------------
     // 1. Find or create conversation
@@ -55,10 +63,12 @@ export async function POST(req: Request) {
       conversation = newConvo;
     }
 
-    const conversationId = conversation.id;
+    const conversationId: string = conversation.id;
+    const conversationProfileId: string =
+      (conversation as { profile_id?: string }).profile_id || profileId;
 
     // ---------------------------
-    // 2. Special case: load history
+    // 2. Load history only
     // ---------------------------
     if (message === "__LOAD_HISTORY__") {
       const { data: history, error: histErr } = await supabase
@@ -69,23 +79,30 @@ export async function POST(req: Request) {
 
       if (histErr) throw histErr;
 
-      return NextResponse.json({ messages: history ?? [] });
+      return NextResponse.json({
+        conversation_id: conversationId,
+        messages: (history as MessageRow[] | null) ?? [],
+      });
     }
 
     // ---------------------------
     // 3. Insert user message
     // ---------------------------
-    const { error: userMsgErr } = await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      role: "user",
-      content: message,
-    });
+    const { data: insertedUser, error: userMsgErr } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: conversationId,
+        role: "user",
+        type: "text",
+        content: message,
+        profile_id: conversationProfileId,
+      })
+      .select()
+      .single();
 
     if (userMsgErr) throw userMsgErr;
 
-    // ---------------------------
-    // 4. Load history for n8n
-    // ---------------------------
+    // Reload history for context for n8n
     const { data: history, error: histErr } = await supabase
       .from("messages")
       .select("*")
@@ -95,7 +112,7 @@ export async function POST(req: Request) {
     if (histErr) throw histErr;
 
     // ---------------------------
-    // 5. Send to n8n AI agent
+    // 4. Send to n8n
     // ---------------------------
     const n8nRes = await fetch(n8nWebhook, {
       method: "POST",
@@ -114,24 +131,38 @@ export async function POST(req: Request) {
       throw new Error("n8n webhook failed");
     }
 
-    const botData = await n8nRes.json();
+    const botData = (await n8nRes.json()) as { reply?: string };
     const botReply =
       typeof botData.reply === "string"
         ? botData.reply
         : "BillyBot didn’t reply.";
 
     // ---------------------------
-    // 6. Insert bot reply
+    // 5. Insert assistant message
     // ---------------------------
-    const { error: botMsgErr } = await supabase.from("messages").insert({
-      conversation_id: conversationId,
-      role: "assistant",
-      content: botReply,
-    });
+    const { data: assistantMessage, error: botMsgErr } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: conversationId,
+        role: "assistant",
+        type: "text",
+        content: botReply,
+        profile_id: conversationProfileId,
+      })
+      .select()
+      .single();
 
     if (botMsgErr) throw botMsgErr;
 
-    return NextResponse.json({ reply: botReply });
+    // ---------------------------
+    // 6. Return FULL response (your PR version)
+    // ---------------------------
+    return NextResponse.json({
+      reply: botReply,
+      conversation_id: conversationId,
+      userMessage: insertedUser as MessageRow,
+      assistantMessage: assistantMessage as MessageRow,
+    });
   } catch (err: unknown) {
     console.error("Chat route error:", err);
     return NextResponse.json(
