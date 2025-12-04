@@ -32,10 +32,15 @@ export async function POST(req: Request) {
     if (error) throw error;
 
     return NextResponse.json({ status: "ok" });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("SYSTEM ROUTE ERROR:", err);
     return NextResponse.json(
-      { error: err.message || "Server error" },
+      {
+        error:
+          err && typeof err === "object" && "message" in err
+            ? String((err as { message?: string }).message)
+            : "Server error",
+      },
       { status: 500 }
     );
   }
