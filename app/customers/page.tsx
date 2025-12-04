@@ -79,89 +79,90 @@ export default function CustomersPage() {
   const hasCustomers = filteredCustomers.length > 0;
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--muted)]">Customers</p>
-          <h1 className="text-3xl font-black text-white">Customers</h1>
-          <p className="text-sm text-[var(--muted)]">
+    <div className="page-container">
+      <div className="section-header">
+        <div className="stack">
+          <h1 className="section-title">Customers</h1>
+          <p className="section-subtitle">
             Keep every customer organised, searchable, and ready for your next job.
           </p>
         </div>
-        <Link
-          href="/customers/new"
-          className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[var(--brand1)] to-[var(--brand2)] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_18px_30px_rgba(37,99,235,0.45)] transition hover:shadow-[0_22px_38px_rgba(59,130,246,0.55)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brand1)]"
-        >
-          <span className="text-lg">＋</span>
+        <Link href="/customers/new" className="btn btn-primary">
           Add Customer
         </Link>
-      </header>
+      </div>
 
-      <div className="rounded-2xl border border-[var(--line)] bg-[var(--card)]/80 p-4 shadow-[0_20px_45px_rgba(0,0,0,0.35)] backdrop-blur">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="relative flex-1">
+      <div className="card stack">
+        <div className="stack md:row md:items-center md:justify-between">
+          <div className="stack">
+            <p className="section-subtitle">Search</p>
             <input
+              className="input-fluid"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by customer, contact, phone, or email"
-              className="w-full rounded-xl border border-[var(--line)] bg-[#0b1223] px-4 py-3 text-sm text-white placeholder:text-[var(--muted)] shadow-inner shadow-[rgba(0,0,0,0.25)] focus:border-[var(--brand1)] focus:outline-none focus:ring-2 focus:ring-[var(--brand1)]"
+              placeholder="Search by name, contact, phone, or email"
             />
-            <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-[var(--muted)]">
-              ⌕
-            </div>
           </div>
-          <div className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--muted)]">
-            {customers.length} total
-          </div>
+          <div className="tag">{customers.length} total</div>
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-xl border border-[var(--line)] bg-[#0c1325]">
-          <div className="hidden grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1.2fr] bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--muted)] md:grid">
-            <span>Customer Name</span>
-            <span>Address</span>
-            <span>Contact Name</span>
-            <span>Phone</span>
-            <span>Mobile</span>
+        <div className="table-card">
+          <div className="hidden md:grid grid-cols-[1.4fr_1fr_1.2fr_1fr_auto] bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+            <span>Customer</span>
+            <span>Contact</span>
             <span>Email</span>
+            <span>Phone</span>
+            <span className="text-right">View</span>
           </div>
 
           {loading && (
-            <div className="flex items-center justify-center px-4 py-10 text-sm text-[var(--muted)]">
-              Loading customers…
-            </div>
+            <div className="empty-state">Loading customers…</div>
           )}
 
           {error && !loading && (
-            <div className="flex items-center justify-center px-4 py-10 text-sm text-red-400">
+            <div className="empty-state" style={{ color: "#fca5a5" }}>
               {error}
             </div>
           )}
 
           {!loading && !error && !hasCustomers && (
-            <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-[var(--muted)]">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/5 text-lg text-white">🧰</div>
-              <p className="font-semibold text-white">Start by adding your first customer.</p>
-              <p>Use the button above to add your next job lead.</p>
+            <div className="empty-state stack items-center">
+              <h3 className="section-title">No customers yet</h3>
+              <p className="section-subtitle">Add your first customer to get started.</p>
+              <Link href="/customers/new" className="btn btn-primary">
+                Add Customer
+              </Link>
             </div>
           )}
 
           {!loading && !error && hasCustomers && (
-            <div className="divide-y divide-[var(--line)]">
+            <div>
               {filteredCustomers.map((customer) => (
                 <button
                   key={customer.id}
                   onClick={() => router.push(`/customers/${customer.id}`)}
-                  className="grid w-full grid-cols-1 gap-3 bg-transparent px-4 py-4 text-left transition hover:bg-white/3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--brand1)] md:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1.2fr] md:items-center"
+                  className="list-row text-left w-full"
                 >
-                  <div>
-                    <p className="text-sm font-semibold text-white">{customer.customer_name || "Untitled"}</p>
-                    <p className="text-xs text-[var(--muted)] md:hidden">{customer.email || "No email"}</p>
+                  <div className="stack gap-1">
+                    <p className="font-semibold text-[15px] text-white">
+                      {customer.customer_name || "Untitled"}
+                    </p>
+                    <p className="text-sm text-[var(--muted)] md:hidden">
+                      {customer.contact_name || "No contact"}
+                    </p>
                   </div>
-                  <p className="text-sm text-[var(--muted)] md:truncate">{customer.address || "—"}</p>
-                  <p className="text-sm text-[var(--muted)] md:truncate">{customer.contact_name || "—"}</p>
-                  <p className="text-sm text-[var(--muted)] md:truncate">{customer.phone || "—"}</p>
-                  <p className="text-sm text-[var(--muted)] md:truncate">{customer.mobile || "—"}</p>
-                  <p className="hidden text-sm text-[var(--muted)] md:block md:truncate">{customer.email || "—"}</p>
+                  <p className="text-sm text-[var(--muted)] hidden md:block">
+                    {customer.contact_name || "—"}
+                  </p>
+                  <p className="text-sm text-[var(--muted)] truncate">
+                    {customer.email || "—"}
+                  </p>
+                  <p className="text-sm text-[var(--muted)]">
+                    {customer.phone || customer.mobile || "—"}
+                  </p>
+                  <div className="flex items-center justify-end text-[var(--muted)]">
+                    →
+                  </div>
                 </button>
               ))}
             </div>
