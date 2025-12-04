@@ -631,3 +631,52 @@ a {
   gap: 6px;
   margin-bottom: 14px;
 }
+
+.pricing-toggle {
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: #ddd;
+  position: relative;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.pricing-toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+input[type="checkbox"]:checked + .pricing-toggle {
+  background: #3b82f6;
+}
+
+input[type="checkbox"]:checked + .pricing-toggle::after {
+  transform: translateX(18px);
+}
+
+/* CLEAN INPUTS FOR PRICING PAGE */
+.clean-input {
+  all: unset;
+  background: #fff !important;
+  color: #000 !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 8px !important;
+  padding: 8px 10px !important;
+  font-size: 14px !important;
+  width: 100% !important;
+}
+
+.clean-radio {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+}
+
