@@ -1,9 +1,12 @@
 "use client";
 
-// Webhook (same endpoint)
-const WEBHOOK_URL = "https://tradiebrain.app.n8n.cloud/webhook/pricing-onboarding";
+import { useState, useEffect, useCallback } from "react";
 
-// Simple debounce
+// Webhook destination (same as old onboarding form)
+const WEBHOOK_URL =
+  "https://tradiebrain.app.n8n.cloud/webhook/pricing-onboarding";
+
+// Helper: simple debounce for autosave
 function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
   let timer: ReturnType<typeof setTimeout> | null = null;
   return (...args: Parameters<T>) => {
@@ -12,7 +15,9 @@ function debounce<T extends (...args: any[]) => void>(fn: T, delay: number) {
   };
 }
 
-// Configs (mirroring your original onboarding logic)
+/* ------------------ STATIC CONFIG ------------------ */
+
+// Services
 const markupServices = [
   "service_domestic_carpets",
   "service_commercial_carpets",
@@ -39,6 +44,7 @@ const markupLabels: Record<string, string> = {
   service_ceramic: "Ceramic tiles",
 };
 
+// Material defaults
 const materialConfig = [
   { id: "mat_lvt", label: "LVT per m² £", default: 26 },
   { id: "mat_ceramic", label: "Ceramic tiles per m² £", default: 30 },
@@ -51,7 +57,7 @@ const materialConfig = [
   { id: "mat_wall_cladding", label: "Wall cladding per m² £", default: 35 },
   { id: "mat_gripper", label: "Gripper per m £", default: 4 },
   { id: "mat_underlay", label: "Underlay per m² £", default: 6 },
-  { id: "mat_coved", label: "Coved skirting materials per m £", default: 10 },
+  { id: "mat_coved", label: "Coved skirting per m £", default: 10 },
   { id: "mat_weld", label: "Weld rod per roll £", default: 25 },
   { id: "mat_adhesive", label: "Adhesive per m² £", default: 3 },
   { id: "mat_ply", label: "Ply board per m² £", default: 12 },
@@ -61,6 +67,7 @@ const materialConfig = [
   { id: "mat_matting", label: "Entrance matting per m² £", default: 35 },
 ];
 
+// Labour defaults
 const labourConfig = [
   { id: "lab_carpet_domestic", label: "Labour carpet domestic per m² £", default: 8 },
   { id: "lab_carpet_commercial", label: "Labour carpet commercial per m² £", default: 9 },
@@ -82,13 +89,13 @@ const labourConfig = [
   { id: "lab_furniture", label: "Furniture removal per room £", default: 25 },
 ];
 
-// Build default JSON equivalent to your original onboarding defaults
+/* ------------------ DEFAULT PRICING JSON ------------------ */
+
 function buildDefaultPricing(uid: string, sessionId: string) {
   const data: Record<string, any> = {
     uid,
     session_id: sessionId,
 
-    // Step 1 services defaults (same as original form)
     service_domestic_carpets: true,
     service_commercial_carpets: true,
     service_carpet_tiles: true,
@@ -100,126 +107,55 @@ function buildDefaultPricing(uid: string, sessionId: string) {
     service_whiterock: false,
     service_ceramic: false,
 
-    // Min charge / day rate
     min_job_charge: 150,
     day_rate_per_fitter: 200,
 
-    // Breakpoints
     use_breakpoints: "no",
     breakpoint_text: "",
 
-    // VAT
     vat_status: "registered",
-
-    // Labour split
     labour_split: "split",
   };
 
-  // Markups 50% default, % unit
   markupServices.forEach((svc) => {
     data[`markup_${svc}_value`] = 50;
     data[`markup_${svc}_unit`] = "percent";
   });
 
-  // Materials
-  materialConfig.forEach((cfg) => {
-    data[cfg.id] = cfg.default;
-  });
-
-  // Labour
-  labourConfig.forEach((cfg) => {
-    data[cfg.id] = cfg.default;
-  });
+  materialConfig.forEach((cfg) => (data[cfg.id] = cfg.default));
+  labourConfig.forEach((cfg) => (data[cfg.id] = cfg.default));
 
   return data;
 }
 
+/* ------------------ PAGE COMPONENT ------------------ */
+
 export default function PricingPage() {
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
   const [pricing, setPricing] = useState<Record<string, any> | null>(null);
-  const [profileId, setProfileId] = useState<string | null>(null);
 
-  // Initialise uid + session_id + profileId
+  // Generate uid + session_id on first load (matches old onboarding)
   useEffect(() => {
-    const sp = new URLSearchParams(window.location.search);
-    let uid = sp.get("uid") || "";
-    let sessionId = sp.get("session_id") || "";
+    const params = new URLSearchParams(window.location.search);
+    let uid = params.get("uid") || crypto.randomUUID();
+    let sessionId = params.get("session_id") || crypto.randomUUID();
 
-    if (!uid) uid = crypto.randomUUID();
-    if (!sessionId) sessionId = crypto.randomUUID();
-
-    setProfileId(uid); // we treat uid as profile_id key in Supabase
-
-    // If we don't yet have pricing, seed it with defaults so UI doesn't flash empty
-    setPricing((prev) => prev ?? buildDefaultPricing(uid, sessionId));
+    setPricing(buildDefaultPricing(uid, sessionId));
   }, []);
 
-  // Load existing pricing JSON from Supabase (if any)
-  useEffect(() => {
-    if (!profileId) return;
-
-    async function load() {
-      const { data, error } = await supabase
-        .from(TABLE_NAME)
-        .select(PROFILE_JSON_COL)
-        .eq(PROFILE_ID_COL, profileId)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        console.error("Error loading pricing:", error.message);
-      }
-
-      if (data && data[PROFILE_JSON_COL]) {
-        const existing = data[PROFILE_JSON_COL] as Record<string, any>;
-        // Make sure uid / session_id exist
-        if (!existing.uid) existing.uid = profileId;
-        if (!existing.session_id) existing.session_id = crypto.randomUUID();
-        setPricing(existing);
-      } else {
-        // No row yet: keep or create defaults
-        setPricing((prev) => {
-          if (prev) return prev;
-          const sess = crypto.randomUUID();
-          return buildDefaultPricing(profileId!, sess);
-        });
-      }
-
-      setLoading(false);
-    }
-
-    load();
-  }, [profileId]);
-
-  // Debounced save
+  // Debounced webhook save
   const debouncedSave = useCallback(
     debounce(async (payload: Record<string, any>) => {
-      if (!profileId) return;
       setSaving(true);
       setSaved(false);
-
-      // Upsert into Supabase
-      const { error: upsertError } = await supabase.from(TABLE_NAME).upsert({
-        [PROFILE_ID_COL]: profileId,
-        [PROFILE_JSON_COL]: payload,
-      });
-
-      if (upsertError) {
-        console.error("Supabase upsert error:", upsertError.message);
-      }
-
-      // Fire webhook, mimicking old form-style payload
-      const bodyToSend = {
-        profile_id: profileId,
-        ...payload,
-      };
 
       try {
         await fetch(WEBHOOK_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(bodyToSend),
+          body: JSON.stringify(payload),
         });
       } catch (err) {
         console.error("Webhook error:", err);
@@ -229,7 +165,7 @@ export default function PricingPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 1500);
     }, 800),
-    [profileId]
+    []
   );
 
   function updateField(key: string, value: any) {
@@ -240,17 +176,19 @@ export default function PricingPage() {
     });
   }
 
-  function updateMany(fields: Record<string, any>) {
+  function updateMany(map: Record<string, any>) {
     setPricing((prev) => {
-      const next = { ...(prev || {}), ...fields };
+      const next = { ...(prev || {}), ...map };
       debouncedSave(next);
       return next;
     });
   }
 
-  if (loading || !pricing) {
-    return <div className="p-10 text-white">Loading pricing settings…</div>;
+  if (!pricing) {
+    return <div className="p-10 text-white">Loading…</div>;
   }
+
+  /* ------------------ UI ------------------ */
 
   return (
     <div className="pricing-page max-w-5xl mx-auto py-8 space-y-8">
@@ -267,220 +205,128 @@ export default function PricingPage() {
         </div>
       </header>
 
-      {/* SERVICES */}
-      <SettingsCard
-        title="Services you offer"
-        description="Turn on only the jobs you actually take on."
-      >
+      {/* -------- SERVICES -------- */}
+      <SettingsCard title="Services you offer" description="Turn on only what you do.">
         <div className="grid gap-3 sm:grid-cols-2">
-          <ServiceToggle
-            label="Domestic carpets"
-            checked={!!pricing.service_domestic_carpets}
-            onChange={(v) => updateField("service_domestic_carpets", v)}
-          />
-          <ServiceToggle
-            label="Commercial carpets (glue-down)"
-            checked={!!pricing.service_commercial_carpets}
-            onChange={(v) => updateField("service_commercial_carpets", v)}
-          />
-          <ServiceToggle
-            label="Carpet tiles"
-            checked={!!pricing.service_carpet_tiles}
-            onChange={(v) => updateField("service_carpet_tiles", v)}
-          />
-          <ServiceToggle
-            label="LVT / Luxury Vinyl Tiles"
-            checked={!!pricing.service_lvt}
-            onChange={(v) => updateField("service_lvt", v)}
-          />
-          <ServiceToggle
-            label="Domestic vinyl"
-            checked={!!pricing.service_vinyl_domestic}
-            onChange={(v) => updateField("service_vinyl_domestic", v)}
-          />
-          <ServiceToggle
-            label="Safety / commercial vinyl"
-            checked={!!pricing.service_vinyl_safety}
-            onChange={(v) => updateField("service_vinyl_safety", v)}
-          />
-          <ServiceToggle
-            label="Laminate"
-            checked={!!pricing.service_laminate}
-            onChange={(v) => updateField("service_laminate", v)}
-          />
-          <ServiceToggle
-            label="Solid / engineered wood"
-            checked={!!pricing.service_wood}
-            onChange={(v) => updateField("service_wood", v)}
-          />
-          <ServiceToggle
-            label="Altro Whiterock (wall cladding)"
-            checked={!!pricing.service_whiterock}
-            onChange={(v) => updateField("service_whiterock", v)}
-          />
-          <ServiceToggle
-            label="Ceramic tiles"
-            checked={!!pricing.service_ceramic}
-            onChange={(v) => updateField("service_ceramic", v)}
-          />
+          {markupServices.map((svc) => (
+            <ServiceToggle
+              key={svc}
+              label={markupLabels[svc]}
+              checked={!!pricing[svc]}
+              onChange={(v) => updateField(svc, v)}
+            />
+          ))}
         </div>
-        <p className="text-xs text-gray-400 mt-2">
-          At least one service should stay on. Turn off anything you never touch.
-        </p>
       </SettingsCard>
 
-      {/* MARKUPS */}
-      <SettingsCard
-        title="Material markups"
-        description="How much you add on top of supplier cost for each service."
-      >
-        <div className="space-y-2">
+      {/* -------- MARKUPS -------- */}
+      <SettingsCard title="Material markups" description="How much you add on.">
+        <div className="space-y-3">
           {markupServices.map((svc) => {
-            const valueKey = `markup_${svc}_value`;
-            const unitKey = `markup_${svc}_unit`;
-            const value = pricing[valueKey] ?? 50;
-            const unit = pricing[unitKey] ?? "percent";
-            const label = markupLabels[svc];
-
-            // Only show rows for services that are on
             if (!pricing[svc]) return null;
-
             return (
               <MarkupRow
                 key={svc}
-                label={label}
-                value={value}
-                unit={unit}
-                onChange={(val, unitVal) =>
+                label={markupLabels[svc]}
+                value={pricing[`markup_${svc}_value`]}
+                unit={pricing[`markup_${svc}_unit`]}
+                onChange={(val, u) =>
                   updateMany({
-                    [valueKey]: val,
-                    [unitKey]: unitVal,
+                    [`markup_${svc}_value`]: val,
+                    [`markup_${svc}_unit`]: u,
                   })
                 }
               />
             );
           })}
         </div>
-        <p className="text-xs text-gray-400 mt-2">
-          Use % for typical margins or switch to £/m² if that matches how you buy.
-        </p>
       </SettingsCard>
 
-      {/* BASE MATERIAL RATES */}
-      <SettingsCard
-        title="Base material rates"
-        description="Your mid-range material prices. You can still tweak them per quote."
-      >
+      {/* -------- MATERIAL RATES -------- */}
+      <SettingsCard title="Base material rates" description="Your standard material costs.">
         <div className="space-y-2">
           {materialConfig.map((cfg) => (
             <InputRow
               key={cfg.id}
               label={cfg.label}
-              value={pricing[cfg.id] ?? cfg.default}
-              onChange={(val) => updateField(cfg.id, val)}
+              value={pricing[cfg.id]}
+              onChange={(v) => updateField(cfg.id, Number(v))}
             />
           ))}
         </div>
       </SettingsCard>
 
-      {/* BASE LABOUR RATES */}
-      <SettingsCard
-        title="Base labour rates"
-        description="Your normal labour prices for each type of work."
-      >
+      {/* -------- LABOUR RATES -------- */}
+      <SettingsCard title="Base labour rates" description="Your normal labour prices.">
         <div className="space-y-2">
           {labourConfig.map((cfg) => (
             <InputRow
               key={cfg.id}
               label={cfg.label}
-              value={pricing[cfg.id] ?? cfg.default}
-              onChange={(val) => updateField(cfg.id, val)}
+              value={pricing[cfg.id]}
+              onChange={(v) => updateField(cfg.id, Number(v))}
             />
           ))}
         </div>
       </SettingsCard>
 
-      {/* SMALL JOB SAFETY NETS */}
-      <SettingsCard
-        title="Small job rules"
-        description="Make sure even tiny jobs cover your time."
-      >
+      {/* -------- SMALL JOB -------- */}
+      <SettingsCard title="Small job rules" description="Protect your day rate.">
         <InputRow
           label="Minimum job charge £"
-          value={pricing.min_job_charge ?? 150}
-          onChange={(val) => updateField("min_job_charge", Number(val))}
+          value={pricing.min_job_charge}
+          onChange={(v) => updateField("min_job_charge", Number(v))}
         />
         <InputRow
           label="Day rate per fitter £"
-          value={pricing.day_rate_per_fitter ?? 200}
-          onChange={(val) => updateField("day_rate_per_fitter", Number(val))}
+          value={pricing.day_rate_per_fitter}
+          onChange={(v) => updateField("day_rate_per_fitter", Number(v))}
         />
-        <p className="text-xs text-gray-400 mt-2">
-          BillyBot will check quotes against these when jobs start looking like a full day.
-        </p>
       </SettingsCard>
 
-      {/* BREAKPOINTS */}
+      {/* -------- BREAKPOINTS -------- */}
       <SettingsCard
-        title="Breakpoints (big / small jobs)"
-        description="If you change rates for tiny or huge projects, add the rules here."
+        title="Breakpoints"
+        description="Change pricing for tiny or huge jobs."
       >
         <RadioRow
           name="use_breakpoints"
-          value={pricing.use_breakpoints ?? "no"}
+          value={pricing.use_breakpoints}
           options={[
             { label: "No breakpoints", value: "no" },
             { label: "Yes – I use breakpoints", value: "yes" },
           ]}
-          onChange={(val) => updateField("use_breakpoints", val)}
+          onChange={(v) => updateField("use_breakpoints", v)}
         />
-        {pricing.use_breakpoints === "yes" && (
-          <div className="mt-3 space-y-1">
-            <label className="block text-sm text-gray-200">
-              Describe your breakpoint rules
-            </label>
-            <textarea
-              className="clean-input !h-32 !resize-y"
-              defaultValue={pricing.breakpoint_text ?? ""}
-              onChange={(e) => updateField("breakpoint_text", e.target.value)}
-              placeholder={`Example:
-- If LVT is under 10m², charge £30/m² for labour.
-- Over 60m², drop labour and materials by 10%.
-- Over 100m², drop labour by £4/m² and materials by 15%.
 
-Add your own version for each service you offer.`}
-            />
-            <p className="text-xs text-gray-400">
-              Keep it simple language. BillyBot will turn this into hard rules for you.
-            </p>
-          </div>
+        {pricing.use_breakpoints === "yes" && (
+          <textarea
+            className="clean-input h-32 resize-y mt-3"
+            defaultValue={pricing.breakpoint_text}
+            onChange={(e) => updateField("breakpoint_text", e.target.value)}
+            placeholder="Describe your breakpoint rules…"
+          />
         )}
       </SettingsCard>
 
-      {/* VAT */}
-      <SettingsCard
-        title="VAT setup"
-        description="How your pricing should behave inside Sage, Xero or QuickBooks."
-      >
+      {/* -------- VAT -------- */}
+      <SettingsCard title="VAT setup" description="How tax is handled on quotes.">
         <RadioRow
           name="vat_status"
-          value={pricing.vat_status ?? "registered"}
+          value={pricing.vat_status}
           options={[
             { label: "VAT registered", value: "registered" },
             { label: "Not VAT registered / VAT exempt", value: "exempt" },
           ]}
-          onChange={(val) => updateField("vat_status", val)}
+          onChange={(v) => updateField("vat_status", v)}
         />
       </SettingsCard>
 
-      {/* LABOUR DISPLAY */}
-      <SettingsCard
-        title="Labour display"
-        description="Where labour shows on your quotes."
-      >
+      {/* -------- LABOUR DISPLAY -------- */}
+      <SettingsCard title="Labour display" description="Where labour shows on quotes.">
         <RadioRow
           name="labour_split"
-          value={pricing.labour_split ?? "split"}
+          value={pricing.labour_split}
           options={[
             {
               label: "Split labour into notes (no VAT on labour)",
@@ -491,17 +337,14 @@ Add your own version for each service you offer.`}
               value: "no_split",
             },
           ]}
-          onChange={(val) => updateField("labour_split", val)}
+          onChange={(v) => updateField("labour_split", v)}
         />
-        <p className="text-xs text-gray-400 mt-2">
-          If you pay fitters directly and don’t want VAT on labour, keep the first option.
-        </p>
       </SettingsCard>
     </div>
   );
 }
 
-/* ----------------- UI COMPONENTS ----------------- */
+/* ------------------ UI COMPONENTS ------------------ */
 
 function SettingsCard({
   title,
@@ -530,13 +373,12 @@ function ServiceToggle({
 }: {
   label: string;
   checked: boolean;
-  onChange: (val: boolean) => void;
+  onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-3 cursor-pointer">
-      <span className="text-sm text-white">{label}</span>
-      <div onClick={() => onChange(!checked)} className="flex items-center">
-        <input type="checkbox" className="hidden" checked={checked} readOnly />
+    <label className="flex justify-between items-center text-white">
+      <span className="text-sm">{label}</span>
+      <div onClick={() => onChange(!checked)} className="cursor-pointer">
         <div className="pricing-toggle" data-active={checked} />
       </div>
     </label>
@@ -558,12 +400,10 @@ function MarkupRow({
     <div className="grid grid-cols-3 gap-3 items-center">
       <span className="text-sm text-white">{label}</span>
       <input
-        className="clean-input"
         type="number"
+        className="clean-input"
         defaultValue={value}
-        min={0}
-        step={0.1}
-        onChange={(e) => onChange(Number(e.target.value || 0), unit)}
+        onChange={(e) => onChange(Number(e.target.value), unit)}
       />
       <select
         className="clean-input"
@@ -584,14 +424,14 @@ function InputRow({
 }: {
   label: string;
   value: number | string;
-  onChange: (val: string) => void;
+  onChange: (v: string) => void;
 }) {
   return (
     <div className="grid grid-cols-3 gap-3 items-center">
       <span className="text-sm text-white">{label}</span>
       <input
-        className="clean-input col-span-2"
         type="number"
+        className="clean-input col-span-2"
         defaultValue={value}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -608,24 +448,24 @@ function RadioRow({
   name: string;
   value: string;
   options: { label: string; value: string }[];
-  onChange: (val: string) => void;
+  onChange: (v: string) => void;
 }) {
   return (
     <div className="space-y-2">
       {options.map((opt) => (
         <label
           key={opt.value}
-          className="flex items-center gap-3 cursor-pointer text-sm text-white"
+          className="flex items-center gap-3 cursor-pointer text-white"
         >
           <input
             type="radio"
             name={name}
-            className="clean-radio"
             value={opt.value}
             checked={value === opt.value}
             onChange={(e) => onChange(e.target.value)}
+            className="clean-radio"
           />
-          <span>{opt.label}</span>
+          {opt.label}
         </label>
       ))}
     </div>
