@@ -31,7 +31,7 @@ useEffect(() => {
     setLoading(true);
 
     // TEMP FIX: Hard-code your profile ID here
-    const hardCodedProfileId = "YOUR_PROFILE_ID_HERE";
+    const hardCodedProfileId = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
 
     try {
       const data = await fetchCustomers(hardCodedProfileId);
