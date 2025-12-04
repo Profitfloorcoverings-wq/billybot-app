@@ -213,7 +213,7 @@ function PricingTabs({ active, onChange }: { active: TabId; onChange: (v: TabId)
         return (
           <button
             key={t.id}
-            onClick={() => onChange(t.id)}
+            onClick={() => onChange(t.id as TabId)}
             className={`px-5 py-2 rounded-full text-sm font-medium transition-all
               ${isActive
                 ? "bg-[#5271FF] text-white shadow-[0_0_12px_rgba(82,113,255,0.55)]"
