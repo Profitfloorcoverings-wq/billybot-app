@@ -24,42 +24,30 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
+useEffect(() => {
+  let active = true;
 
-    async function loadCustomers() {
-      try {
-        setError(null);
-        const supabase = createClient();
-        const { data, error: authError } = await supabase.auth.getUser();
+  async function load() {
+    setLoading(true);
 
-        if (authError) throw authError;
-        if (!data?.user) {
-          setError("Please sign in to view customers.");
-          return;
-        }
+    // TEMP FIX: Hard-code your profile ID here
+    const hardCodedProfileId = "YOUR_PROFILE_ID_HERE";
 
-        const list = await fetchCustomers(data.user.id);
-        if (!active) return;
-        setCustomers(list);
-      } catch (err) {
-        if (!active) return;
-        const message =
-          err && typeof err === "object" && "message" in err
-            ? String((err as { message?: string }).message)
-            : "Unable to load customers.";
-        setError(message);
-      } finally {
-        if (active) setLoading(false);
-      }
+    try {
+      const data = await fetchCustomers(hardCodedProfileId);
+      if (active) setCustomers(data);
+    } catch (err: any) {
+      if (active) setError(err.message);
+    } finally {
+      if (active) setLoading(false);
     }
+  }
 
-    loadCustomers();
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  load();
+  return () => {
+    active = false;
+  };
+}, []);
 
   const filteredCustomers = useMemo(() => {
     if (!search.trim()) return customers;
