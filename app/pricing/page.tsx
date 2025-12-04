@@ -252,7 +252,7 @@ export default function PricingPage() {
                   label={markupLabels[svc]}
                   value={pricing[valKey]}
                   unit={pricing[unitKey]}
-                  onChange={(val, unit) => {
+                  onChange={(val: number, unit: MarkupUnit) => {
                     updateField(valKey, val);
                     updateField(unitKey, unit);
                   }}
@@ -374,6 +374,15 @@ type InputRowProps = {
   onChange: (value: string) => void;
 };
 
+type MarkupUnit = "percent" | "per_m2";
+
+type MarkupRowProps = {
+  label: string;
+  value: number | string;
+  unit: MarkupUnit;
+  onChange: (value: number, unit: MarkupUnit) => void;
+};
+
 function InputRow({ label, value, onChange }: InputRowProps) {
   return (
     <div className="grid grid-cols-3 gap-3 items-center">
@@ -388,7 +397,7 @@ function InputRow({ label, value, onChange }: InputRowProps) {
   );
 }
 
-function MarkupRow({ label, value, unit, onChange }: any) {
+function MarkupRow({ label, value, unit, onChange }: MarkupRowProps) {
   return (
     <div className="grid grid-cols-3 gap-3 items-center">
       <span className="text-sm text-white">{label}</span>
@@ -400,7 +409,7 @@ function MarkupRow({ label, value, unit, onChange }: any) {
       />
       <select
         value={unit}
-        onChange={(e) => onChange(value, e.target.value)}
+        onChange={(e) => onChange(Number(value), e.target.value as MarkupUnit)}
         className="clean-input"
       >
         <option value="percent">% markup</option>
