@@ -1,19 +1,5 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-export const dynamic = "force-dynamic";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Supabase table + columns
-const TABLE_NAME = "pricing_profiles";
-const PROFILE_JSON_COL = "profile_json";
-const PROFILE_ID_COL = "profile_id";
-
 // Webhook (same endpoint)
 const WEBHOOK_URL = "https://tradiebrain.app.n8n.cloud/webhook/pricing-onboarding";
 
