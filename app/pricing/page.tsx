@@ -7,7 +7,7 @@ type ServiceConfig = { key: string; label: string; defaultOn?: boolean };
 type RateConfig = { key: string; label: string; defaultValue: number; services?: string[]; always?: boolean };
 type MarkupConfig = { key: string; label: string; defaultValue: number };
 type MarkupValue = { value: number; unit: "percent" | "per_m2" };
-type TabId = "services" | "base" | "materials" | "labour" | "vat" | "advanced";
+type TabId = "services" | "base" | "materials" | "labour" | "vat";
 
 export type PricingFormState = {
   services: Record<string, boolean>;
@@ -238,18 +238,23 @@ function Card({ title, description, children }: { title: string; description?: s
 function PricingTabs({ tabs, active, onChange }: { tabs: { id: TabId; label: string }[]; active: TabId; onChange: (id: TabId) => void }) {
   return (
     <nav className="flex flex-wrap items-center gap-2 rounded-full border border-white/10 bg-white/5 p-1">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          type="button"
-          onClick={() => onChange(tab.id)}
-          className={`rounded-full px-3 py-1.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-orange-400/70 ${
-            active === tab.id ? "bg-orange-500 text-white shadow" : "text-white/70 hover:bg-white/10"
-          }`}
-        >
-          {tab.label}
-        </button>
-      ))}
+      {tabs.map((tab) => {
+        const isActive = active === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onChange(tab.id)}
+            className={`rounded-full px-3 py-1.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-[var(--brand2)]/70 ${
+              isActive
+                ? "bg-[linear-gradient(135deg,var(--brand1),var(--brand2))] text-white shadow"
+                : "text-white/70 hover:bg-white/10"
+            }`}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
     </nav>
   );
 }
@@ -257,20 +262,22 @@ function PricingTabs({ tabs, active, onChange }: { tabs: { id: TabId; label: str
 function ServicesSection({ form, onToggle }: { form: PricingFormState; onToggle: (key: string) => void }) {
   return (
     <Card title="Services" description="Choose the work you offer. Toggle to include or exclude.">
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="flex flex-col divide-y divide-white/5">
         {SERVICES.map((svc) => (
-          <button
-            key={svc.key}
-            type="button"
-            onClick={() => onToggle(svc.key)}
-            className="flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:border-orange-400/60 hover:bg-white/10"
-          >
+          <div key={svc.key} className="flex items-center justify-between py-2 first:pt-0 last:pb-0">
             <div className="flex flex-col gap-0.5">
               <span className="text-sm font-medium text-white">{svc.label}</span>
-              <span className="text-xs text-white/50">{form.services[svc.key] ? "Enabled" : "Disabled"}</span>
+              <span className="text-xs text-white/50">{form.services[svc.key] ? "On" : "Off"}</span>
             </div>
-            <Switch checked={!!form.services[svc.key]} />
-          </button>
+            <button
+              type="button"
+              onClick={() => onToggle(svc.key)}
+              className="transition hover:scale-105 focus:outline-none"
+              aria-label={`Toggle ${svc.label}`}
+            >
+              <Switch checked={!!form.services[svc.key]} />
+            </button>
+          </div>
         ))}
       </div>
     </Card>
@@ -295,71 +302,73 @@ function BaseRatesSection({
   return (
     <Card title="Base rates" description="Core charges and markups that drive every quote.">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
-          <Field label="Minimum charge" hint="Applied automatically to small jobs">
-            <Input value={form.min_job_charge} onChange={(v) => onNumberChange("min_job_charge", v)} step={1} />
-          </Field>
-          <Field label="Day rate per fitter">
-            <Input value={form.day_rate_per_fitter} onChange={(v) => onNumberChange("day_rate_per_fitter", v)} step={1} />
-          </Field>
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="flex flex-col gap-3">
+            <Field label="Minimum charge" hint="Applied automatically to small jobs">
+              <div className="flex items-center gap-2">
+                <Input value={form.min_job_charge} onChange={(v) => onNumberChange("min_job_charge", v)} step={1} />
+                <span className="text-xs text-white/50">£</span>
+              </div>
+            </Field>
+            <Field label="Day rate per fitter">
+              <div className="flex items-center gap-2">
+                <Input value={form.day_rate_per_fitter} onChange={(v) => onNumberChange("day_rate_per_fitter", v)} step={1} />
+                <span className="text-xs text-white/50">£/day</span>
+              </div>
+            </Field>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
-          <span className="text-sm font-semibold text-white">Service markups</span>
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-sm font-semibold text-white">Service markups</span>
+            <span className="text-xs text-white/60">Adjust margin by % or £/m²</span>
+          </div>
           <div className="flex flex-col divide-y divide-white/5">
             {markups.map((cfg) => (
-              <div key={cfg.key} className="py-3 first:pt-0 last:pb-0">
-                <Field label={cfg.label} hint="Adjust margin by % or £/m²">
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_140px]">
-                    <Input value={form.markups[cfg.key]?.value ?? cfg.defaultValue} onChange={(value) => onMarkupChange(cfg.key, { value })} />
-                    <Select
-                      value={form.markups[cfg.key]?.unit ?? "percent"}
-                      onChange={(unit) => onMarkupChange(cfg.key, { unit: unit as MarkupValue["unit"] })}
-                      options={[
-                        { value: "percent", label: "%" },
-                        { value: "per_m2", label: "£/m²" },
-                      ]}
-                    />
-                  </div>
-                </Field>
+              <div key={cfg.key} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 py-2 first:pt-0 last:pb-0">
+                <span className="text-sm text-white/90">{cfg.label}</span>
+                <Input value={form.markups[cfg.key]?.value ?? cfg.defaultValue} onChange={(value) => onMarkupChange(cfg.key, { value })} />
+                <Select
+                  value={form.markups[cfg.key]?.unit ?? "percent"}
+                  onChange={(unit) => onMarkupChange(cfg.key, { unit: unit as MarkupValue["unit"] })}
+                  options={[
+                    { value: "percent", label: "%" },
+                    { value: "per_m2", label: "£/m²" },
+                  ]}
+                />
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-white/10 bg-white/5 p-4">
-          <span className="text-sm font-semibold text-white">Breakpoints</span>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => onBreakpointsChange("no")}
-              className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
-                form.use_breakpoints === "no" ? "border-orange-400/60 bg-orange-500/20 text-white" : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
-              }`}
-            >
-              <span>No breakpoints</span>
-              <Switch checked={form.use_breakpoints === "no"} />
-            </button>
-            <button
-              type="button"
-              onClick={() => onBreakpointsChange("yes")}
-              className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
-                form.use_breakpoints === "yes" ? "border-orange-400/60 bg-orange-500/20 text-white" : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
-              }`}
-            >
-              <span>Use breakpoints</span>
-              <Switch checked={form.use_breakpoints === "yes"} />
-            </button>
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <div className="flex items-center justify-between pb-2">
+            <span className="text-sm font-semibold text-white">Breakpoints</span>
+            <span className="text-xs text-white/60">Adjust pricing for unusual job sizes</span>
           </div>
-          {form.use_breakpoints === "yes" ? (
-            <Field label="Breakpoint rules" hint="Describe how rates change for small or large jobs">
+          <div className="flex flex-col gap-2">
+            <label className="flex items-center justify-between rounded-lg border border-white/10 bg-[#0D1117] px-3 py-2">
+              <div className="flex flex-col">
+                <span className="text-sm text-white">Use breakpoints</span>
+                <span className="text-xs text-white/50">Turn on to add rules for small/large jobs</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onBreakpointsChange(form.use_breakpoints === "yes" ? "no" : "yes")}
+                className="focus:outline-none"
+              >
+                <Switch checked={form.use_breakpoints === "yes"} />
+              </button>
+            </label>
+            {form.use_breakpoints === "yes" ? (
               <TextArea
                 value={form.breakpoint_text}
                 onChange={(val) => onBreakpointsChange("yes", val)}
                 placeholder="Example: Under 10m² increase labour, over 60m² reduce materials by 10%."
               />
-            </Field>
-          ) : null}
+            ) : null}
+          </div>
         </div>
       </div>
     </Card>
@@ -371,12 +380,12 @@ function MaterialsSection({ form, activeServices, onChange }: { form: PricingFor
 
   return (
     <Card title="Materials" description="Per-unit material pricing across your services.">
-      <div className="flex flex-col divide-y divide-white/5 rounded-lg border border-white/10 bg-white/5">
+      <div className="flex flex-col divide-y divide-white/5 rounded-xl border border-white/10 bg-white/5">
         {items.map((cfg) => (
-          <div key={cfg.key} className="p-4 first:rounded-t-lg last:rounded-b-lg">
-            <Field label={cfg.label}>
-              <Input value={form.materials[cfg.key] ?? cfg.defaultValue} onChange={(v) => onChange(cfg.key, v)} />
-            </Field>
+          <div key={cfg.key} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 p-4 first:rounded-t-xl last:rounded-b-xl">
+            <span className="text-sm text-white/90">{cfg.label}</span>
+            <Input value={form.materials[cfg.key] ?? cfg.defaultValue} onChange={(v) => onChange(cfg.key, v)} />
+            <div className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/60">£/m²</div>
           </div>
         ))}
       </div>
@@ -399,49 +408,46 @@ function LabourSection({
 
   return (
     <Card title="Labour" description="Labour rates and how they appear on quotes.">
-      <div className="flex flex-col divide-y divide-white/5 rounded-lg border border-white/10 bg-white/5">
+      <div className="flex flex-col divide-y divide-white/5 rounded-xl border border-white/10 bg-white/5">
         {items.map((cfg) => (
-          <div key={cfg.key} className="p-4 first:rounded-t-lg last:rounded-b-lg">
-            <Field label={cfg.label}>
-              <Input value={form.labour[cfg.key] ?? cfg.defaultValue} onChange={(v) => onRateChange(cfg.key, v)} />
-            </Field>
+          <div key={cfg.key} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 p-4 first:rounded-t-xl last:rounded-b-xl">
+            <span className="text-sm text-white/90">{cfg.label}</span>
+            <Input value={form.labour[cfg.key] ?? cfg.defaultValue} onChange={(v) => onRateChange(cfg.key, v)} />
+            <div className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/60">£/m²</div>
           </div>
         ))}
       </div>
 
-      <div className="flex flex-col gap-2 rounded-lg border border-white/10 bg-white/5 p-4">
-        <span className="text-sm font-semibold text-white">Labour display</span>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <label
-            className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
-              form.labour_split === "split" ? "border-orange-400/60 bg-orange-500/20 text-white" : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
-            }`}
-          >
-            <span>Split labour into notes (no VAT)</span>
-            <input
-              type="radio"
-              name="labour_split"
-              value="split"
-              checked={form.labour_split === "split"}
-              onChange={() => onSplitChange("split")}
-              className="h-4 w-4 accent-orange-500"
-            />
-          </label>
-          <label
-            className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
-              form.labour_split === "no_split" ? "border-orange-400/60 bg-orange-500/20 text-white" : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
-            }`}
-          >
-            <span>Keep labour on main quote lines</span>
-            <input
-              type="radio"
-              name="labour_split"
-              value="no_split"
-              checked={form.labour_split === "no_split"}
-              onChange={() => onSplitChange("no_split")}
-              className="h-4 w-4 accent-orange-500"
-            />
-          </label>
+      <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-sm font-semibold text-white">Labour display</span>
+            <span className="text-xs text-white/60">Choose how labour shows on quotes</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onSplitChange("split")}
+              className={`rounded-md px-3 py-1 text-sm transition ${
+                form.labour_split === "split"
+                  ? "bg-orange-500 text-white"
+                  : "border border-white/15 bg-white/5 text-white/70 hover:border-white/40"
+              }`}
+            >
+              Split to notes
+            </button>
+            <button
+              type="button"
+              onClick={() => onSplitChange("no_split")}
+              className={`rounded-md px-3 py-1 text-sm transition ${
+                form.labour_split === "no_split"
+                  ? "bg-orange-500 text-white"
+                  : "border border-white/15 bg-white/5 text-white/70 hover:border-white/40"
+              }`}
+            >
+              Show on lines
+            </button>
+          </div>
         </div>
       </div>
     </Card>
@@ -451,49 +457,23 @@ function LabourSection({
 function VatSection({ form, onChange }: { form: PricingFormState; onChange: (value: "registered" | "exempt") => void }) {
   return (
     <Card title="VAT" description="Tell BillyBot how to handle VAT on your quotes.">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <label
-          className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
-            form.vat_status === "registered" ? "border-orange-400/60 bg-orange-500/20 text-white" : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
-          }`}
+      <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#0D1117] px-3 py-2">
+        <div className="flex flex-col">
+          <span className="text-sm text-white">VAT registered</span>
+          <span className="text-xs text-white/50">Toggle off if you are VAT exempt</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => onChange(form.vat_status === "registered" ? "exempt" : "registered")}
+          className="focus:outline-none"
         >
-          <span>VAT registered</span>
-          <input
-            type="radio"
-            name="vat_status"
-            value="registered"
-            checked={form.vat_status === "registered"}
-            onChange={() => onChange("registered")}
-            className="h-4 w-4 accent-orange-500"
-          />
-        </label>
-        <label
-          className={`flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition ${
-            form.vat_status === "exempt" ? "border-orange-400/60 bg-orange-500/20 text-white" : "border-white/15 bg-white/5 text-white/80 hover:border-white/30"
-          }`}
-        >
-          <span>VAT exempt / not registered</span>
-          <input
-            type="radio"
-            name="vat_status"
-            value="exempt"
-            checked={form.vat_status === "exempt"}
-            onChange={() => onChange("exempt")}
-            className="h-4 w-4 accent-orange-500"
-          />
-        </label>
+          <Switch checked={form.vat_status === "registered"} />
+        </button>
       </div>
     </Card>
   );
 }
 
-function AdvancedSection() {
-  return (
-    <Card title="Advanced options" description="Extra controls for edge cases.">
-      <div className="text-sm text-white/70">Add any future advanced settings here.</div>
-    </Card>
-  );
-}
 
 function SaveBar({ saving, status }: { saving: boolean; status: string | null }) {
   return (
@@ -641,7 +621,6 @@ export default function PricingPage() {
     { id: "materials", label: "Materials" },
     { id: "labour", label: "Labour" },
     { id: "vat", label: "VAT" },
-    { id: "advanced", label: "Advanced" },
   ];
 
   return (
@@ -678,7 +657,6 @@ export default function PricingPage() {
           />
         ) : null}
         {!loading && activeTab === "vat" ? <VatSection form={form} onChange={handleVatChange} /> : null}
-        {!loading && activeTab === "advanced" ? <AdvancedSection /> : null}
 
         <SaveBar saving={saving} status={status} />
       </form>
