@@ -206,12 +206,11 @@ export default function PricingPage() {
           >
             <div className="grid gap-3 sm:grid-cols-2">
               {markupServices.map((svc) => (
-                <ServiceToggle
-                  key={svc}
-                  label={markupLabels[svc]}
-                  checked={!!pricing[svc]}
-                  onChange={(v) => updateField(svc, v)}
-                />
+<ServiceToggle
+  label={markupLabels[svc]}
+  checked={!!pricing[svc]}
+  onChange={(v: boolean) => updateField(svc, v)}
+/>
               ))}
             </div>
           </SettingsCard>
