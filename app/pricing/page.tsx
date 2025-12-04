@@ -160,14 +160,14 @@ function Switch({ checked, onChange }: { checked: boolean; onChange: (val: boole
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-5 w-9 items-center rounded-full border border-white/15 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF7A1A] focus:ring-offset-[#0B1120] ${
+      className={`relative inline-flex h-7 w-12 items-center rounded-full border border-white/15 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF7A1A] focus:ring-offset-[#0B1120] ${
         checked ? "bg-[#FF7A1A]" : "bg-white/20"
       }`}
       aria-pressed={checked}
     >
       <span
-        className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-          checked ? "translate-x-4" : "translate-x-1"
+        className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+          checked ? "translate-x-5" : "translate-x-1"
         }`}
       />
     </button>
@@ -184,12 +184,12 @@ function Field({
   control: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[220px_1fr]">
-      <div className="flex flex-col gap-1">
+    <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[240px_1fr]">
+      <div className="flex flex-col gap-1 sm:items-start">
         <span className="text-sm text-white/80">{label}</span>
         {hint ? <span className="text-xs text-white/60">{hint}</span> : null}
       </div>
-      <div className="flex justify-end">{control}</div>
+      <div className="flex justify-start sm:justify-start">{control}</div>
     </div>
   );
 }
@@ -202,7 +202,7 @@ function Input({ value, onChange, step = 0.1 }: { value: number; onChange: (val:
       step={step}
       min={0}
       onChange={(e) => onChange(Number(e.target.value))}
-      className="w-32 rounded-md border border-white/10 bg-black/40 px-3 py-2 text-sm text-white outline-none transition focus:border-[#FF7A1A] focus:ring-1 focus:ring-[#FF7A1A]"
+      className="w-28 rounded-full border border-white/12 bg-[#0F172A] px-4 py-2 text-sm text-white outline-none transition focus:border-[#FF7A1A] focus:ring-1 focus:ring-[#FF7A1A] sm:w-32"
     />
   );
 }
@@ -251,7 +251,7 @@ function PricingTabs({ active, onChange }: { active: TabId; onChange: (tab: TabI
   ];
 
   return (
-    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Pricing sections">
+    <div className="flex flex-wrap items-center justify-center gap-2" role="tablist" aria-label="Pricing sections">
       {tabs.map((tab) => (
         <button
           key={tab.id}
@@ -263,8 +263,8 @@ function PricingTabs({ active, onChange }: { active: TabId; onChange: (tab: TabI
           aria-controls={`${tab.id}-panel`}
           className={`rounded-full px-4 py-2 text-sm font-medium transition ${
             active === tab.id
-              ? "bg-[#5271FF] text-white"
-              : "bg-white/10 text-white/60 hover:text-white"
+              ? "bg-[#5271FF] text-white shadow-[0_0_12px_rgba(82,113,255,0.55)]"
+              : "bg-transparent text-white/60 hover:text-white"
           }`}
         >
           {tab.label}
@@ -335,11 +335,11 @@ function BaseRatesSection({
         <div className="border-t border-white/10 pt-2" />
         <div className="flex flex-col gap-3">
           {MARKUP_CONFIG.map((cfg) => (
-            <div key={cfg.key} className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[220px_1fr]">
+            <div key={cfg.key} className="grid grid-cols-1 items-center gap-3 sm:grid-cols-[240px_1fr]">
               <div className="flex flex-col gap-1">
                 <span className="text-sm text-white/80">{cfg.label}</span>
               </div>
-              <div className="flex items-center justify-end gap-3">
+              <div className="flex items-center justify-start gap-3 sm:justify-start">
                 <Input
                   value={form.markups[cfg.key]?.value ?? cfg.defaultValue}
                   onChange={(val) =>
@@ -509,15 +509,13 @@ function AdvancedSection({ form, onToggle, onTextChange }: { form: PricingFormSt
 function SaveBar({ saving, saved, onSave }: { saving: boolean; saved: boolean; onSave: () => void }) {
   return (
     <div className="sticky bottom-0 left-0 right-0 border-t border-white/10 bg-black/40 px-4 py-3 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-center justify-end gap-3">
+      <div className="mx-auto flex max-w-4xl items-center justify-end gap-3">
         {saved ? <span className="text-xs text-white/60">Saved</span> : null}
         <button
           type="button"
           onClick={onSave}
           disabled={saving}
-          className={`rounded-md px-4 py-2 text-sm font-medium text-white transition ${
-            saving ? "bg-[#FF7A1A]/70" : "bg-[#FF7A1A] hover:bg-[#e96b0f]"
-          } disabled:opacity-60`}
+          className={`flex items-center gap-2 rounded-full bg-gradient-to-r from-[#F97316] to-[#FB923C] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_16px_rgba(249,115,22,0.65)] transition hover:brightness-105 active:translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed`}
         >
           {saving ? "Saving..." : "Save changes"}
         </button>
@@ -604,7 +602,7 @@ export default function PricingPage() {
 
   return (
     <main className="min-h-screen bg-[#0B1120] text-white">
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 pb-24 pt-8">
+      <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 pb-24 pt-8">
         <div className="flex flex-col gap-2">
           <div>
             <h1 className="text-lg font-semibold text-white">Pricing settings</h1>
