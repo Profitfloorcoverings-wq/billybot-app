@@ -603,3 +603,31 @@ a {
   outline: 2px solid rgba(37, 99, 235, 0.45);
   outline-offset: 2px;
 }
+
+/* RESET PRICING PAGE INPUT STYLES */
+.pricing-page input,
+.pricing-page select,
+.pricing-page textarea {
+  all: unset;
+  background: white!important;
+  color: black!important;
+  border: 1px solid #d1d5db!important;
+  border-radius: 8px!important;
+  padding: 10px 12px!important;
+  width: 100%!important;
+  font-size: 14px!important;
+  line-height: 1.4!important;
+}
+
+.pricing-page label {
+  font-weight: 600;
+  color: #fff;
+  font-size: 15px;
+}
+
+.pricing-page .form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
