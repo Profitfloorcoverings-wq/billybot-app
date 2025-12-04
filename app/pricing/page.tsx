@@ -510,15 +510,17 @@ export default function PricingPage() {
   {form.use_breakpoints === "yes" && (
     <div className="mt-3 space-y-2">
       <label className="block text-sm text-gray-200">Your breakpoint rules</label>
+
       <textarea
         className="clean-input !h-32 !resize-y"
         value={form.breakpoint_text}
         onChange={(e) => updateField("breakpoint_text", e.target.value)}
         placeholder={`Example:
 - If LVT is under 10m², charge £30/m² labour
-- Over 60m² drop labour & mats by 10%
+- Over 60m² drop labour & materials by 10%
 - Over 100m² reduce labour by £4/m²`}
       />
+
       <p className="text-xs text-gray-400">
         Keep it simple. BillyBot converts it into hard rules.
       </p>
@@ -571,6 +573,7 @@ export default function PricingPage() {
 {/* SAVE BUTTON */}
 <div className="flex justify-end pt-6">
   <button
+    type="button"
     onClick={handleSubmit}
     className="px-6 py-3 rounded-xl font-semibold text-black bg-orange-400 hover:bg-orange-500 transition"
   >
@@ -578,8 +581,9 @@ export default function PricingPage() {
   </button>
 </div>
 
-</div>
+</div> 
 ); // END return
+
 } // END component
 
 export default PricingPage;
