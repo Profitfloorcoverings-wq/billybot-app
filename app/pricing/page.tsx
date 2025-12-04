@@ -1,34 +1,61 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type React from "react";
+import React, { useState } from "react";
 
-type ServiceConfig = { key: string; label: string; defaultOn?: boolean };
+type Unit = "percent" | "per_m2";
+
+type ServiceKey =
+  | "service_domestic_carpets"
+  | "service_commercial_carpets"
+  | "service_carpet_tiles"
+  | "service_lvt"
+  | "service_vinyl_domestic"
+  | "service_vinyl_safety"
+  | "service_laminate"
+  | "service_wood"
+  | "service_whiterock"
+  | "service_ceramic";
+
+type ServiceConfig = {
+  key: ServiceKey;
+  label: string;
+  description?: string;
+  defaultOn?: boolean;
+};
+
+type MarkupConfig = {
+  key: ServiceKey;
+  label: string;
+  defaultValue: number;
+};
+
 type RateConfig = {
   key: string;
   label: string;
   defaultValue: number;
-  services?: string[];
+  services?: ServiceKey[];
   always?: boolean;
 };
-type MarkupConfig = { key: string; label: string; defaultValue: number };
-type MarkupValue = { value: number; unit: "percent" | "per_m2" };
-type TabId = "services" | "base" | "materials" | "labour" | "vat" | "advanced";
 
-export type PricingFormState = {
-  services: Record<string, boolean>;
-  markups: Record<string, MarkupValue>;
-  materials: Record<string, number>;
-  labour: Record<string, number>;
-  min_job_charge: number;
-  day_rate_per_fitter: number;
-  use_breakpoints: "yes" | "no";
-  breakpoint_text: string;
-  vat_status: "registered" | "exempt";
-  labour_split: "split" | "no_split";
+type MarkupState = {
+  value: number;
+  unit: Unit;
 };
 
-const SERVICES: ServiceConfig[] = [
+type PricingState = {
+  services: Record<ServiceKey, boolean>;
+  markups: Record<ServiceKey, MarkupState>;
+  materials: Record<string, number>;
+  labour: Record<string, number>;
+  minJobCharge: number;
+  dayRatePerFitter: number;
+  useBreakpoints: "yes" | "no";
+  breakpointText: string;
+  vatStatus: "registered" | "exempt";
+  labourSplit: "split" | "no_split";
+};
+
+const serviceConfigs: ServiceConfig[] = [
   { key: "service_domestic_carpets", label: "Domestic carpets", defaultOn: true },
   { key: "service_commercial_carpets", label: "Commercial carpets (glue-down)", defaultOn: true },
   { key: "service_carpet_tiles", label: "Carpet tiles", defaultOn: true },
@@ -41,7 +68,7 @@ const SERVICES: ServiceConfig[] = [
   { key: "service_ceramic", label: "Ceramic tiles" },
 ];
 
-const MARKUP_CONFIG: MarkupConfig[] = [
+const markupConfigs: MarkupConfig[] = [
   { key: "service_domestic_carpets", label: "Domestic carpet", defaultValue: 50 },
   { key: "service_commercial_carpets", label: "Commercial carpet", defaultValue: 50 },
   { key: "service_carpet_tiles", label: "Carpet tiles", defaultValue: 50 },
@@ -54,16 +81,11 @@ const MARKUP_CONFIG: MarkupConfig[] = [
   { key: "service_ceramic", label: "Ceramic tiles", defaultValue: 50 },
 ];
 
-const MATERIAL_CONFIG: RateConfig[] = [
+const materialConfigs: RateConfig[] = [
   { key: "mat_lvt", label: "LVT per m² £", defaultValue: 26, services: ["service_lvt"] },
   { key: "mat_ceramic", label: "Ceramic tiles per m² £", defaultValue: 30, services: ["service_ceramic"] },
   { key: "mat_carpet_domestic", label: "Carpet domestic per m² £", defaultValue: 12, services: ["service_domestic_carpets"] },
-  {
-    key: "mat_carpet_commercial",
-    label: "Carpet commercial per m² £",
-    defaultValue: 16,
-    services: ["service_commercial_carpets"],
-  },
+  { key: "mat_carpet_commercial", label: "Carpet commercial per m² £", defaultValue: 16, services: ["service_commercial_carpets"] },
   { key: "mat_safety", label: "Safety flooring per m² £", defaultValue: 18, services: ["service_vinyl_safety"] },
   { key: "mat_vinyl_domestic", label: "Vinyl domestic per m² £", defaultValue: 14, services: ["service_vinyl_domestic"] },
   { key: "mat_vinyl_commercial", label: "Vinyl commercial per m² £", defaultValue: 18, services: ["service_vinyl_safety"] },
@@ -91,8 +113,13 @@ const MATERIAL_CONFIG: RateConfig[] = [
   { key: "mat_matting", label: "Entrance matting per m² £", defaultValue: 35, always: true },
 ];
 
-const LABOUR_CONFIG: RateConfig[] = [
-  { key: "lab_carpet_domestic", label: "Labour carpet domestic per m² £", defaultValue: 8, services: ["service_domestic_carpets"] },
+const labourConfigs: RateConfig[] = [
+  {
+    key: "lab_carpet_domestic",
+    label: "Labour carpet domestic per m² £",
+    defaultValue: 8,
+    services: ["service_domestic_carpets"],
+  },
   {
     key: "lab_carpet_commercial",
     label: "Labour carpet commercial per m² £",
@@ -100,12 +127,42 @@ const LABOUR_CONFIG: RateConfig[] = [
     services: ["service_commercial_carpets"],
   },
   { key: "lab_lvt", label: "Labour LVT per m² £", defaultValue: 16, services: ["service_lvt"] },
-  { key: "lab_ceramic", label: "Labour ceramic tiles per m² £", defaultValue: 25, services: ["service_ceramic"] },
-  { key: "lab_safety", label: "Labour safety flooring per m² £", defaultValue: 22, services: ["service_vinyl_safety"] },
-  { key: "lab_vinyl_domestic", label: "Labour vinyl domestic per m² £", defaultValue: 12, services: ["service_vinyl_domestic"] },
-  { key: "lab_vinyl_commercial", label: "Labour vinyl commercial per m² £", defaultValue: 14, services: ["service_vinyl_safety"] },
-  { key: "lab_carpet_tiles", label: "Labour carpet tiles per m² £", defaultValue: 8, services: ["service_carpet_tiles"] },
-  { key: "lab_wall_cladding", label: "Labour wall cladding per m² £", defaultValue: 16, services: ["service_whiterock"] },
+  {
+    key: "lab_ceramic",
+    label: "Labour ceramic tiles per m² £",
+    defaultValue: 25,
+    services: ["service_ceramic"],
+  },
+  {
+    key: "lab_safety",
+    label: "Labour safety flooring per m² £",
+    defaultValue: 22,
+    services: ["service_vinyl_safety"],
+  },
+  {
+    key: "lab_vinyl_domestic",
+    label: "Labour vinyl domestic per m² £",
+    defaultValue: 12,
+    services: ["service_vinyl_domestic"],
+  },
+  {
+    key: "lab_vinyl_commercial",
+    label: "Labour vinyl commercial per m² £",
+    defaultValue: 14,
+    services: ["service_vinyl_safety"],
+  },
+  {
+    key: "lab_carpet_tiles",
+    label: "Labour carpet tiles per m² £",
+    defaultValue: 8,
+    services: ["service_carpet_tiles"],
+  },
+  {
+    key: "lab_wall_cladding",
+    label: "Labour wall cladding per m² £",
+    defaultValue: 16,
+    services: ["service_whiterock"],
+  },
   { key: "lab_coved", label: "Labour coved skirting per m £", defaultValue: 12, services: ["service_vinyl_safety"] },
   { key: "lab_ply", label: "Labour ply board per m² £", defaultValue: 6, always: true },
   { key: "lab_latex", label: "Labour latex per m² £", defaultValue: 6, always: true },
@@ -117,724 +174,663 @@ const LABOUR_CONFIG: RateConfig[] = [
   { key: "lab_furniture", label: "Furniture removal per room £", defaultValue: 25, always: true },
 ];
 
-const defaultServices = SERVICES.reduce<Record<string, boolean>>((acc, svc) => {
-  acc[svc.key] = !!svc.defaultOn;
-  return acc;
-}, {});
+function buildInitialState(): PricingState {
+  const services: Record<ServiceKey, boolean> = {} as any;
+  const markups: Record<ServiceKey, MarkupState> = {} as any;
+  const materials: Record<string, number> = {};
+  const labour: Record<string, number> = {};
 
-const defaultMarkups = MARKUP_CONFIG.reduce<Record<string, MarkupValue>>((acc, cfg) => {
-  acc[cfg.key] = { value: cfg.defaultValue, unit: "percent" };
-  return acc;
-}, {});
+  serviceConfigs.forEach(s => {
+    services[s.key] = !!s.defaultOn;
+  });
 
-const defaultMaterials = MATERIAL_CONFIG.reduce<Record<string, number>>((acc, cfg) => {
-  acc[cfg.key] = cfg.defaultValue;
-  return acc;
-}, {});
+  markupConfigs.forEach(m => {
+    markups[m.key] = { value: m.defaultValue, unit: "percent" };
+  });
 
-const defaultLabour = LABOUR_CONFIG.reduce<Record<string, number>>((acc, cfg) => {
-  acc[cfg.key] = cfg.defaultValue;
-  return acc;
-}, {});
+  materialConfigs.forEach(m => {
+    materials[m.key] = m.defaultValue;
+  });
 
-const DEFAULT_FORM: PricingFormState = {
-  services: defaultServices,
-  markups: defaultMarkups,
-  materials: defaultMaterials,
-  labour: defaultLabour,
-  min_job_charge: 150,
-  day_rate_per_fitter: 200,
-  use_breakpoints: "no",
-  breakpoint_text: "",
-  vat_status: "registered",
-  labour_split: "split",
-};
+  labourConfigs.forEach(l => {
+    labour[l.key] = l.defaultValue;
+  });
 
-function mergeForm(prev: PricingFormState, next: Partial<PricingFormState>) {
   return {
-    ...prev,
-    ...next,
-    services: { ...prev.services, ...(next.services || {}) },
-    markups: { ...prev.markups, ...(next.markups || {}) },
-    materials: { ...prev.materials, ...(next.materials || {}) },
-    labour: { ...prev.labour, ...(next.labour || {}) },
+    services,
+    markups,
+    materials,
+    labour,
+    minJobCharge: 150,
+    dayRatePerFitter: 200,
+    useBreakpoints: "no",
+    breakpointText: "",
+    vatStatus: "registered",
+    labourSplit: "split",
   };
 }
 
-/* ---------- Small UI primitives ---------- */
+/* Simple UI helpers */
 
-function Switch({
+function Toggle({
   checked,
   onChange,
 }: {
   checked: boolean;
-  onChange: (val: boolean) => void;
+  onChange: (value: boolean) => void;
 }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-7 w-14 items-center rounded-full border border-slate-600/70 px-1 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#F97316] focus:ring-offset-slate-950 ${
-        checked ? "bg-[#F97316]" : "bg-slate-800"
-      }`}
-      aria-pressed={checked}
+      className={[
+        "relative inline-flex h-6 w-11 items-center rounded-full border transition-colors",
+        checked
+          ? "bg-gradient-to-r from-blue-600 to-blue-500 border-blue-400 shadow-[0_0_0_1px_rgba(59,130,246,0.4)]"
+          : "bg-slate-800 border-slate-600",
+      ].join(" ")}
+      role="switch"
+      aria-checked={checked}
     >
       <span
-        className={`inline-block h-5 w-5 transform rounded-full bg-slate-50 shadow-md transition-transform duration-150 ${
-          checked ? "translate-x-6" : "translate-x-0"
-        }`}
+        className={[
+          "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+          checked ? "translate-x-5" : "translate-x-1",
+        ].join(" ")}
       />
     </button>
   );
 }
 
-function NumberInput({
+function Segmented({
   value,
   onChange,
-  step = 0.1,
-}: {
-  value: number;
-  onChange: (val: number) => void;
-  step?: number;
-}) {
-  return (
-    <input
-      type="number"
-      value={Number.isFinite(value) ? value : ""}
-      step={step}
-      min={0}
-      onChange={(e) => onChange(Number(e.target.value))}
-      className="w-full max-w-[160px] rounded-xl border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-sm text-slate-50 shadow-sm outline-none transition focus:border-[#5271FF] focus:ring-2 focus:ring-[#5271FF]"
-    />
-  );
-}
-
-function TextArea({
-  value,
-  onChange,
-  placeholder,
+  options,
 }: {
   value: string;
-  onChange: (val: string) => void;
-  placeholder?: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
 }) {
   return (
-    <textarea
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={4}
-      className="w-full rounded-xl border border-slate-700/80 bg-slate-900/70 px-3 py-2 text-sm text-slate-50 outline-none transition focus:border-[#5271FF] focus:ring-2 focus:ring-[#5271FF]"
-    />
-  );
-}
-
-function UnitToggle({
-  unit,
-  onChange,
-}: {
-  unit: "percent" | "per_m2";
-  onChange: (val: "percent" | "per_m2") => void;
-}) {
-  return (
-    <div className="inline-flex overflow-hidden rounded-full border border-slate-700/80 bg-slate-900/80 text-xs text-slate-200">
-      <button
-        type="button"
-        onClick={() => onChange("percent")}
-        className={`px-3 py-1.5 transition ${
-          unit === "percent"
-            ? "bg-[#5271FF] text-white shadow-[0_0_10px_rgba(82,113,255,0.7)]"
-            : "text-slate-400"
-        }`}
-      >
-        %
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("per_m2")}
-        className={`border-l border-slate-700/80 px-3 py-1.5 transition ${
-          unit === "per_m2"
-            ? "bg-[#5271FF] text-white shadow-[0_0_10px_rgba(82,113,255,0.7)]"
-            : "text-slate-400"
-        }`}
-      >
-        £/m²
-      </button>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  control,
-}: {
-  label: string;
-  hint?: string;
-  control: React.ReactNode;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,220px)_minmax(0,1fr)] sm:items-center">
-      <div className="flex flex-col gap-1">
-        <span className="text-sm font-medium text-slate-100">{label}</span>
-        {hint ? <span className="text-xs text-slate-400">{hint}</span> : null}
-      </div>
-      <div className="flex justify-start">{control}</div>
-    </div>
-  );
-}
-
-function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-950/80 px-5 py-5 shadow-[0_20px_50px_rgba(0,0,0,0.55)] sm:px-7 sm:py-6">
-      <div className="mb-4 flex flex-col gap-1">
-        <h2 className="text-base font-semibold text-slate-50">{title}</h2>
-        {subtitle ? <p className="text-xs text-slate-400">{subtitle}</p> : null}
-      </div>
-      <div className="space-y-4">{children}</div>
-    </section>
-  );
-}
-
-/* ---------- Tabs ---------- */
-
-function PricingTabs({ active, onChange }: { active: TabId; onChange: (tab: TabId) => void }) {
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "services", label: "Services" },
-    { id: "base", label: "Base rates" },
-    { id: "materials", label: "Materials" },
-    { id: "labour", label: "Labour" },
-    { id: "vat", label: "VAT" },
-    { id: "advanced", label: "Advanced" },
-  ];
-
-  return (
-    <div className="space-y-2">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-        Sections
-      </p>
-      <div className="inline-flex rounded-full border border-slate-800 bg-slate-950/80 p-1">
-        {tabs.map((tab) => {
-          const isActive = active === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onChange(tab.id)}
-              className={`relative rounded-full px-4 py-1.5 text-xs font-medium transition ${
-                isActive
-                  ? "text-white shadow-[0_0_16px_rgba(59,130,246,0.85)]"
-                  : "text-slate-400 hover:text-slate-100"
-              }`}
-            >
-              {isActive && (
-                <span className="absolute inset-0 -z-10 rounded-full bg-gradient-to-r from-[#2563EB] via-[#4F46E5] to-[#0EA5E9] opacity-90" />
-              )}
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Sections ---------- */
-
-function ServicesSection({
-  form,
-  onToggle,
-}: {
-  form: PricingFormState;
-  onToggle: (key: string, val: boolean) => void;
-}) {
-  return (
-    <Card
-      title="Services"
-      subtitle="Switch on the work you take; turn off what you never quote."
-    >
-      <div className="grid gap-3 md:grid-cols-2">
-        {SERVICES.map((svc) => (
-          <div
-            key={svc.key}
-            className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2.5"
+    <div className="inline-flex rounded-full bg-slate-900 p-0.5 border border-slate-700">
+      {options.map(opt => {
+        const active = opt.value === value;
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={[
+              "px-3 py-1 text-xs font-semibold rounded-full transition-all",
+              active
+                ? "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow"
+                : "text-slate-300",
+            ].join(" ")}
           >
-            <span className="text-sm text-slate-100">{svc.label}</span>
-            <Switch
-              checked={!!form.services[svc.key]}
-              onChange={(val) => onToggle(svc.key, val)}
-            />
-          </div>
-        ))}
-      </div>
-    </Card>
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
-function BaseRatesSection({
-  form,
-  onChangeMarkup,
-  onChangeNumber,
-}: {
-  form: PricingFormState;
-  onChangeMarkup: (key: string, value: number, unit: "percent" | "per_m2") => void;
-  onChangeNumber: (key: "min_job_charge" | "day_rate_per_fitter", value: number) => void;
-}) {
-  return (
-    <Card
-      title="Base rates"
-      subtitle="Set your minimums and markups. Adjust margin by % or £/m²."
-    >
-      <div className="space-y-4">
-        <Field
-          label="Minimum charge per job"
-          control={
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-400">£</span>
-              <NumberInput
-                value={form.min_job_charge}
-                onChange={(val) => onChangeNumber("min_job_charge", val)}
-              />
-            </div>
-          }
-        />
-        <Field
-          label="Day rate per fitter"
-          control={
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-slate-400">£/day</span>
-              <NumberInput
-                value={form.day_rate_per_fitter}
-                onChange={(val) => onChangeNumber("day_rate_per_fitter", val)}
-              />
-            </div>
-          }
-        />
-      </div>
+/* MAIN PAGE */
 
-      <div className="mt-5 border-t border-slate-800 pt-4">
-        <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Service markups
-        </p>
-        <div className="grid gap-3 md:grid-cols-2">
-          {MARKUP_CONFIG.map((cfg) => (
-            <div
-              key={cfg.key}
-              className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2.5"
-            >
-              <span className="text-sm text-slate-100">{cfg.label}</span>
-              <div className="flex items-center gap-2">
-                <NumberInput
-                  value={form.markups[cfg.key]?.value ?? cfg.defaultValue}
-                  onChange={(val) =>
-                    onChangeMarkup(cfg.key, val, form.markups[cfg.key]?.unit ?? "percent")
-                  }
-                />
-                <UnitToggle
-                  unit={form.markups[cfg.key]?.unit ?? "percent"}
-                  onChange={(unit) =>
-                    onChangeMarkup(
-                      cfg.key,
-                      form.markups[cfg.key]?.value ?? cfg.defaultValue,
-                      unit
-                    )
-                  }
-                />
+export default function PricingSettingsPage() {
+  const [state, setState] = useState<PricingState>(buildInitialState);
+  const [saving, setSaving] = useState(false);
+
+  const activeServiceSet = new Set(
+    Object.entries(state.services)
+      .filter(([, on]) => on)
+      .map(([key]) => key as ServiceKey)
+  );
+
+  const showMaterialRow = (cfg: RateConfig) =>
+    cfg.always || (cfg.services && cfg.services.some(s => activeServiceSet.has(s)));
+
+  const showLabourRow = showMaterialRow;
+
+  async function handleSave() {
+    try {
+      setSaving(true);
+
+      // TODO: wire this into your Supabase or API save logic
+      // Example:
+      // await savePricingToSupabase(profileId, state);
+
+      console.log("Pricing settings payload", state);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-50">
+      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-6 pb-24 lg:flex-row lg:px-6">
+        {/* Left column: title and quick info */}
+        <div className="w-full lg:w-72 lg:flex-none">
+          <div className="sticky top-4 space-y-4">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-lg shadow-black/40">
+              <h1 className="text-lg font-semibold tracking-tight text-slate-50">
+                Pricing settings
+              </h1>
+              <p className="mt-1 text-sm text-slate-400">
+                Set everything once so BillyBot can quote like you on every job.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
+                <span className="rounded-full bg-blue-600/20 px-2 py-0.5 text-blue-200">
+                  Services
+                </span>
+                <span className="rounded-full bg-slate-700/60 px-2 py-0.5">
+                  Markups
+                </span>
+                <span className="rounded-full bg-slate-700/60 px-2 py-0.5">
+                  Base rates
+                </span>
+                <span className="rounded-full bg-slate-700/60 px-2 py-0.5">
+                  VAT & labour
+                </span>
               </div>
             </div>
-          ))}
+
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-xs text-slate-400">
+              <p className="font-medium text-slate-200">
+                Quick tip
+              </p>
+              <p className="mt-1">
+                Start with your normal everyday prices. You can tighten specific quotes later inside each job.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className={[
+                "inline-flex w-full items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold",
+                "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-900/40",
+                saving ? "opacity-60 cursor-wait" : "hover:brightness-110",
+              ].join(" ")}
+            >
+              {saving ? "Saving..." : "Save pricing"}
+            </button>
+          </div>
+        </div>
+
+        {/* Right column: cards */}
+        <div className="flex-1 space-y-5">
+          {/* Services card */}
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5 shadow-lg shadow-black/40">
+            <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold tracking-tight text-slate-50">
+                  Services you take on
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  Turn off anything you never touch. At least one service must stay on.
+                </p>
+              </div>
+              <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
+                {activeServiceSet.size} active
+              </span>
+            </header>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {serviceConfigs.map(service => {
+                const checked = state.services[service.key];
+                return (
+                  <button
+                    key={service.key}
+                    type="button"
+                    onClick={() => {
+                      // prevent turning off the very last service
+                      if (checked && activeServiceSet.size === 1) return;
+                      setState(prev => ({
+                        ...prev,
+                        services: {
+                          ...prev.services,
+                          [service.key]: !checked,
+                        },
+                      }));
+                    }}
+                    className={[
+                      "flex items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm transition-all",
+                      checked
+                        ? "border-blue-500/70 bg-blue-600/10 shadow-[0_0_0_1px_rgba(59,130,246,0.5)]"
+                        : "border-slate-800 bg-slate-900/80 hover:border-slate-700",
+                    ].join(" ")}
+                  >
+                    <div>
+                      <p className="font-medium text-slate-50">
+                        {service.label}
+                      </p>
+                    </div>
+                    <Toggle
+                      checked={checked}
+                      onChange={value => {
+                        if (!value && activeServiceSet.size === 1) return;
+                        setState(prev => ({
+                          ...prev,
+                          services: {
+                            ...prev.services,
+                            [service.key]: value,
+                          },
+                        }));
+                      }}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Markups card */}
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5 shadow-lg shadow-black/40">
+            <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-semibold tracking-tight text-slate-50">
+                  Material markups
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  Set how much you add on for each service. Use percent or a flat £ per m².
+                </p>
+              </div>
+            </header>
+
+            <div className="space-y-2">
+              {markupConfigs.map(cfg => {
+                if (!activeServiceSet.has(cfg.key)) return null;
+                const m = state.markups[cfg.key];
+                return (
+                  <div
+                    key={cfg.key}
+                    className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5"
+                  >
+                    <div className="flex-1 min-w-[8rem]">
+                      <p className="text-sm font-medium text-slate-50">
+                        {cfg.label}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={m?.value ?? cfg.defaultValue}
+                        onChange={e =>
+                          setState(prev => ({
+                            ...prev,
+                            markups: {
+                              ...prev.markups,
+                              [cfg.key]: {
+                                ...(prev.markups[cfg.key] || {
+                                  value: cfg.defaultValue,
+                                  unit: "percent" as Unit,
+                                }),
+                                value: Number(e.target.value),
+                              },
+                            },
+                          }))
+                        }
+                        className="h-9 w-24 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-sm text-slate-50 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <Segmented
+                        value={m?.unit ?? "percent"}
+                        onChange={val =>
+                          setState(prev => ({
+                            ...prev,
+                            markups: {
+                              ...prev.markups,
+                              [cfg.key]: {
+                                ...(prev.markups[cfg.key] || {
+                                  value: cfg.defaultValue,
+                                  unit: "percent" as Unit,
+                                }),
+                                unit: val as Unit,
+                              },
+                            },
+                          }))
+                        }
+                        options={[
+                          { value: "percent", label: "%" },
+                          { value: "per_m2", label: "£ / m²" },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Base rates card */}
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5 shadow-lg shadow-black/40">
+            <header className="mb-4">
+              <h2 className="text-base font-semibold tracking-tight text-slate-50">
+                Base rates
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-400">
+                These are your normal mid range prices. Tiny or massive job tweaks come from breakpoints.
+              </p>
+            </header>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Materials */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Materials
+                </p>
+                <div className="space-y-2">
+                  {materialConfigs
+                    .filter(showMaterialRow)
+                    .map(cfg => (
+                      <div
+                        key={cfg.key}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5"
+                      >
+                        <span className="text-xs text-slate-200">
+                          {cfg.label}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={state.materials[cfg.key]}
+                          onChange={e =>
+                            setState(prev => ({
+                              ...prev,
+                              materials: {
+                                ...prev.materials,
+                                [cfg.key]: Number(e.target.value),
+                              },
+                            }))
+                          }
+                          className="h-8 w-24 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-slate-50 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Labour */}
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Labour
+                </p>
+                <div className="space-y-2">
+                  {labourConfigs
+                    .filter(showLabourRow)
+                    .map(cfg => (
+                      <div
+                        key={cfg.key}
+                        className="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5"
+                      >
+                        <span className="text-xs text-slate-200">
+                          {cfg.label}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={state.labour[cfg.key]}
+                          onChange={e =>
+                            setState(prev => ({
+                              ...prev,
+                              labour: {
+                                ...prev.labour,
+                                [cfg.key]: Number(e.target.value),
+                              },
+                            }))
+                          }
+                          className="h-8 w-24 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-slate-50 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Safety nets card */}
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5 shadow-lg shadow-black/40">
+            <header className="mb-4">
+              <h2 className="text-base font-semibold tracking-tight text-slate-50">
+                Safety nets for small jobs
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Make sure tiny jobs still cover your time.
+              </p>
+            </header>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm">
+                  <span className="text-slate-200">
+                    Minimum charge per job
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-400">£</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={state.minJobCharge}
+                      onChange={e =>
+                        setState(prev => ({
+                          ...prev,
+                          minJobCharge: Number(e.target.value),
+                        }))
+                      }
+                      className="h-8 w-24 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-slate-50 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                </label>
+                <p className="mt-1 text-xs text-slate-400">
+                  What you want to earn even if it is just one room.
+                </p>
+              </div>
+
+              <div>
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5 text-sm">
+                  <span className="text-slate-200">
+                    Day rate per fitter
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-400">£</span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={state.dayRatePerFitter}
+                      onChange={e =>
+                        setState(prev => ({
+                          ...prev,
+                          dayRatePerFitter: Number(e.target.value),
+                        }))
+                      }
+                      className="h-8 w-24 rounded-lg border border-slate-700 bg-slate-900 px-2.5 text-xs text-slate-50 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+                </label>
+                <p className="mt-1 text-xs text-slate-400">
+                  BillyBot can check when a job starts to look like a full day.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Breakpoints card */}
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5 shadow-lg shadow-black/40">
+            <header className="mb-4">
+              <h2 className="text-base font-semibold tracking-tight text-slate-50">
+                Breakpoints for big and small jobs
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-400">
+                Use different rates for tiny areas or huge projects if you need to.
+              </p>
+            </header>
+
+            <div className="mb-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setState(prev => ({ ...prev, useBreakpoints: "no" }))
+                }
+                className={[
+                  "rounded-full px-3 py-1 text-xs font-medium",
+                  state.useBreakpoints === "no"
+                    ? "bg-blue-600 text-white shadow"
+                    : "bg-slate-800 text-slate-300",
+                ].join(" ")}
+              >
+                No breakpoints
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setState(prev => ({ ...prev, useBreakpoints: "yes" }))
+                }
+                className={[
+                  "rounded-full px-3 py-1 text-xs font-medium",
+                  state.useBreakpoints === "yes"
+                    ? "bg-blue-600 text-white shadow"
+                    : "bg-slate-800 text-slate-300",
+                ].join(" ")}
+              >
+                Yes, I use breakpoints
+              </button>
+            </div>
+
+            {state.useBreakpoints === "yes" && (
+              <div className="space-y-2">
+                <textarea
+                  value={state.breakpointText}
+                  onChange={e =>
+                    setState(prev => ({
+                      ...prev,
+                      breakpointText: e.target.value,
+                    }))
+                  }
+                  className="min-h-[120px] w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-sm text-slate-50 placeholder:text-slate-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder={`Example:
+- If LVT is under 10m², charge £30/m² for labour.
+- Over 60m², drop labour and materials by 10%.
+- Over 100m², drop labour by £4/m² and materials by 15%.`}
+                />
+                <p className="text-xs text-slate-400">
+                  Keep it in plain English. BillyBot will turn this into hard rules.
+                </p>
+              </div>
+            )}
+          </section>
+
+          {/* VAT and labour card */}
+          <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5 shadow-lg shadow-black/40">
+            <header className="mb-4">
+              <h2 className="text-base font-semibold tracking-tight text-slate-50">
+                VAT and labour display
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-400">
+                This controls how quotes behave inside Sage, QuickBooks or Xero.
+              </p>
+            </header>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  VAT status
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setState(prev => ({ ...prev, vatStatus: "registered" }))
+                    }
+                    className={[
+                      "rounded-full px-3 py-1.5 text-xs font-medium",
+                      state.vatStatus === "registered"
+                        ? "bg-blue-600 text-white shadow"
+                        : "bg-slate-800 text-slate-300",
+                    ].join(" ")}
+                  >
+                    VAT registered
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setState(prev => ({ ...prev, vatStatus: "exempt" }))
+                    }
+                    className={[
+                      "rounded-full px-3 py-1.5 text-xs font-medium",
+                      state.vatStatus === "exempt"
+                        ? "bg-blue-600 text-white shadow"
+                        : "bg-slate-800 text-slate-300",
+                    ].join(" ")}
+                  >
+                    Not VAT registered / VAT exempt
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Labour display
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setState(prev => ({ ...prev, labourSplit: "split" }))
+                    }
+                    className={[
+                      "rounded-full px-3 py-1.5 text-xs font-medium",
+                      state.labourSplit === "split"
+                        ? "bg-blue-600 text-white shadow"
+                        : "bg-slate-800 text-slate-300",
+                    ].join(" ")}
+                  >
+                    Split labour into notes (no VAT on labour)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setState(prev => ({ ...prev, labourSplit: "no_split" }))
+                    }
+                    className={[
+                      "rounded-full px-3 py-1.5 text-xs font-medium",
+                      state.labourSplit === "no_split"
+                        ? "bg-blue-600 text-white shadow"
+                        : "bg-slate-800 text-slate-300",
+                    ].join(" ")}
+                  >
+                    Keep labour on main quote lines
+                  </button>
+                </div>
+                <p className="text-xs text-slate-400">
+                  If you pay fitters direct and do not want VAT on labour, keep the first option.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          <div className="flex justify-end pb-4">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className={[
+                "inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold",
+                "bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-900/40",
+                saving ? "opacity-60 cursor-wait" : "hover:brightness-110",
+              ].join(" ")}
+            >
+              {saving ? "Saving..." : "Save pricing"}
+            </button>
+          </div>
         </div>
       </div>
-    </Card>
-  );
-}
-
-function MaterialsSection({
-  form,
-  activeServices,
-  onChange,
-}: {
-  form: PricingFormState;
-  activeServices: Set<string>;
-  onChange: (key: string, value: number) => void;
-}) {
-  const materials = useMemo(
-    () =>
-      MATERIAL_CONFIG.filter((cfg) =>
-        cfg.always ? true : cfg.services?.some((svc) => activeServices.has(svc))
-      ),
-    [activeServices]
-  );
-
-  return (
-    <Card
-      title="Materials"
-      subtitle="Per m² or per unit material rates, tailored to the services you offer."
-    >
-      <div className="grid gap-3 md:grid-cols-2">
-        {materials.map((cfg) => (
-          <div
-            key={cfg.key}
-            className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2.5"
-          >
-            <span className="text-sm text-slate-100">{cfg.label}</span>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">£</span>
-              <NumberInput
-                value={form.materials[cfg.key] ?? cfg.defaultValue}
-                onChange={(val) => onChange(cfg.key, val)}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-function LabourSection({
-  form,
-  activeServices,
-  onChange,
-  onSplitChange,
-}: {
-  form: PricingFormState;
-  activeServices: Set<string>;
-  onChange: (key: string, value: number) => void;
-  onSplitChange: (value: "split" | "no_split") => void;
-}) {
-  const labour = useMemo(
-    () =>
-      LABOUR_CONFIG.filter((cfg) =>
-        cfg.always ? true : cfg.services?.some((svc) => activeServices.has(svc))
-      ),
-    [activeServices]
-  );
-
-  return (
-    <Card
-      title="Labour"
-      subtitle="Keep fitting rates clear and choose how labour appears on quotes."
-    >
-      <div className="grid gap-3 md:grid-cols-2">
-        {labour.map((cfg) => (
-          <div
-            key={cfg.key}
-            className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2.5"
-          >
-            <span className="text-sm text-slate-100">{cfg.label}</span>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">£</span>
-              <NumberInput
-                value={form.labour[cfg.key] ?? cfg.defaultValue}
-                onChange={(val) => onChange(cfg.key, val)}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-5 border-t border-slate-800 pt-4">
-        <Field
-          label="Show labour on quotes"
-          hint="Split into notes or keep on the main line items."
-          control={
-            <div className="inline-flex rounded-full border border-slate-700/80 bg-slate-900/80 p-1 text-xs">
-              <button
-                type="button"
-                onClick={() => onSplitChange("split")}
-                className={`rounded-full px-3 py-1.5 font-medium transition ${
-                  form.labour_split === "split"
-                    ? "bg-[#F97316] text-white shadow-[0_0_14px_rgba(249,115,22,0.9)]"
-                    : "text-slate-300"
-                }`}
-              >
-                Split into notes
-              </button>
-              <button
-                type="button"
-                onClick={() => onSplitChange("no_split")}
-                className={`rounded-full px-3 py-1.5 font-medium transition ${
-                  form.labour_split === "no_split"
-                    ? "bg-[#F97316] text-white shadow-[0_0_14px_rgba(249,115,22,0.9)]"
-                    : "text-slate-300"
-                }`}
-              >
-                Keep on lines
-              </button>
-            </div>
-          }
-        />
-      </div>
-    </Card>
-  );
-}
-
-function VatSection({
-  form,
-  onToggle,
-}: {
-  form: PricingFormState;
-  onToggle: (val: "registered" | "exempt") => void;
-}) {
-  const isRegistered = form.vat_status === "registered";
-  return (
-    <Card
-      title="VAT"
-      subtitle="Tell BillyBot whether to treat your quotes as VAT registered."
-    >
-      <Field
-        label="VAT registered"
-        control={
-          <div className="flex items-center gap-3">
-            <Switch
-              checked={isRegistered}
-              onChange={(val) => onToggle(val ? "registered" : "exempt")}
-            />
-            <span className="text-xs text-slate-400">
-              {isRegistered ? "Quotes show VAT breakdown." : "Quotes are treated as VAT exempt."}
-            </span>
-          </div>
-        }
-      />
-    </Card>
-  );
-}
-
-function AdvancedSection({
-  form,
-  onToggle,
-  onTextChange,
-}: {
-  form: PricingFormState;
-  onToggle: (val: "yes" | "no") => void;
-  onTextChange: (val: string) => void;
-}) {
-  return (
-    <Card
-      title="Advanced"
-      subtitle="Breakpoint rules for tiny or oversized jobs."
-    >
-      <Field
-        label="Use breakpoints"
-        control={
-          <div className="flex items-center gap-3">
-            <Switch
-              checked={form.use_breakpoints === "yes"}
-              onChange={(val) => onToggle(val ? "yes" : "no")}
-            />
-            <span className="text-xs text-slate-400">
-              Automatically adjust pricing for unusually small or large jobs.
-            </span>
-          </div>
-        }
-      />
-      {form.use_breakpoints === "yes" && (
-        <Field
-          label="Breakpoint logic"
-          hint="Describe how pricing shifts above or below certain areas."
-          control={
-            <TextArea
-              value={form.breakpoint_text}
-              onChange={onTextChange}
-              placeholder="Example: Under 10m² increase labour to £30/m²; over 60m² drop by 10%."
-            />
-          }
-        />
-      )}
-    </Card>
-  );
-}
-
-/* ---------- Save bar ---------- */
-
-function SaveBar({
-  saving,
-  saved,
-  onSave,
-}: {
-  saving: boolean;
-  saved: boolean;
-  onSave: () => void;
-}) {
-  return (
-    <div className="sticky bottom-0 left-0 right-0 border-t border-slate-900 bg-slate-950/90 px-4 py-3 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-end gap-3">
-        {saved && (
-          <span className="text-xs text-emerald-400">
-            Saved
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={saving}
-          className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#F97316] via-[#FB923C] to-[#FDBA74] px-6 py-2.5 text-sm font-semibold text-white shadow-[0_0_22px_rgba(249,115,22,0.75)] transition hover:brightness-110 active:translate-y-[1px] disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          {saving ? "Saving…" : "Save changes"}
-        </button>
-      </div>
     </div>
-  );
-}
-
-/* ---------- Page ---------- */
-
-export default function PricingPage() {
-  const [activeTab, setActiveTab] = useState<TabId>("services");
-  const [form, setForm] = useState<PricingFormState>(DEFAULT_FORM);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadPricing() {
-      setLoading(true);
-      try {
-        const res = await fetch("/api/pricing");
-        if (!res.ok) throw new Error(`Failed to load pricing (${res.status})`);
-        const data = (await res.json()) as { data?: Partial<PricingFormState> | null };
-        if (data?.data) {
-          setForm((prev) => mergeForm(prev, data.data ?? {}));
-        }
-      } catch (err) {
-        console.error("Pricing load error", err);
-        setError("Unable to load pricing right now.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void loadPricing();
-  }, []);
-
-  const activeServices = useMemo(
-    () => new Set(Object.entries(form.services).filter(([, on]) => on).map(([key]) => key)),
-    [form.services]
-  );
-
-  function handleServiceToggle(key: string, val: boolean) {
-    setForm((prev) => ({ ...prev, services: { ...prev.services, [key]: val } }));
-  }
-
-  function handleMarkupChange(key: string, value: number, unit: "percent" | "per_m2") {
-    setForm((prev) => ({
-      ...prev,
-      markups: { ...prev.markups, [key]: { value, unit } },
-    }));
-  }
-
-  function handleMaterialChange(key: string, value: number) {
-    setForm((prev) => ({ ...prev, materials: { ...prev.materials, [key]: value } }));
-  }
-
-  function handleLabourChange(key: string, value: number) {
-    setForm((prev) => ({ ...prev, labour: { ...prev.labour, [key]: value } }));
-  }
-
-  function handleSave() {
-    setSaving(true);
-    setSaved(false);
-    setError(null);
-
-    void (async () => {
-      try {
-        const res = await fetch("/api/pricing", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ data: form }),
-        });
-        if (!res.ok) throw new Error(`Save failed (${res.status})`);
-        setSaved(true);
-      } catch (err) {
-        console.error("Pricing save error", err);
-        setError("Unable to save changes. Please try again.");
-      } finally {
-        setSaving(false);
-        setTimeout(() => setSaved(false), 2000);
-      }
-    })();
-  }
-
-  return (
-    <main className="min-h-screen bg-slate-950 text-slate-50">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 pb-28 pt-10 sm:px-6">
-        <header className="space-y-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-white">
-              Pricing settings
-            </h1>
-            <p className="text-sm text-slate-400">
-              Keep services, rates, VAT and labour aligned in one place.
-            </p>
-          </div>
-          <PricingTabs active={activeTab} onChange={setActiveTab} />
-        </header>
-
-        {error && (
-          <div className="rounded-xl border border-red-500/50 bg-red-900/20 px-4 py-3 text-xs text-red-100">
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-950/80 px-5 py-6 text-sm text-slate-300">
-            Loading pricing…
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {activeTab === "services" && (
-              <ServicesSection form={form} onToggle={handleServiceToggle} />
-            )}
-            {activeTab === "base" && (
-              <BaseRatesSection
-                form={form}
-                onChangeMarkup={handleMarkupChange}
-                onChangeNumber={(key, value) =>
-                  setForm((prev) => ({ ...prev, [key]: value }))
-                }
-              />
-            )}
-            {activeTab === "materials" && (
-              <MaterialsSection
-                form={form}
-                activeServices={activeServices}
-                onChange={handleMaterialChange}
-              />
-            )}
-            {activeTab === "labour" && (
-              <LabourSection
-                form={form}
-                activeServices={activeServices}
-                onChange={handleLabourChange}
-                onSplitChange={(value) =>
-                  setForm((prev) => ({ ...prev, labour_split: value }))
-                }
-              />
-            )}
-            {activeTab === "vat" && (
-              <VatSection
-                form={form}
-                onToggle={(val) => setForm((prev) => ({ ...prev, vat_status: val }))}
-              />
-            )}
-            {activeTab === "advanced" && (
-              <AdvancedSection
-                form={form}
-                onToggle={(val) =>
-                  setForm((prev) => ({ ...prev, use_breakpoints: val }))
-                }
-                onTextChange={(val) =>
-                  setForm((prev) => ({ ...prev, breakpoint_text: val }))
-                }
-              />
-            )}
-          </div>
-        )}
-      </div>
-
-      <SaveBar saving={saving} saved={saved} onSave={handleSave} />
-    </main>
   );
 }
