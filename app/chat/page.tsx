@@ -59,17 +59,17 @@ export default function ChatPage() {
         });
 
         const data = (await res.json()) as HistoryResponse;
+
         if (data?.conversation_id) {
           setConversationId(data.conversation_id);
         }
 
         if (Array.isArray(data?.messages)) {
           setMessages(data.messages);
+
           const nextSeen = new Set<string>();
           data.messages.forEach((m) => {
-            if (typeof m.id === "number" || typeof m.id === "string") {
-              nextSeen.add(String(m.id));
-            }
+            nextSeen.add(String(m.id));
           });
           seenIdsRef.current = nextSeen;
         }
@@ -86,7 +86,6 @@ export default function ChatPage() {
 
   useEffect(() => {
     if (initialLoadRef.current) {
-      // Avoid jumpy behavior on the very first render; history load already scrolls.
       initialLoadRef.current = false;
       return;
     }
@@ -107,21 +106,18 @@ export default function ChatPage() {
         },
         (payload) => {
           const newMessage = payload.new as Message & { conversation_id?: string };
+
           const eventConversationId = newMessage.conversation_id
             ? String(newMessage.conversation_id)
             : null;
+
           if (!eventConversationId || eventConversationId !== String(conversationId)) return;
 
-          const idKey =
-            typeof newMessage.id === "number" || typeof newMessage.id === "string"
-              ? String(newMessage.id)
-              : null;
-          if (idKey && seenIdsRef.current.has(idKey)) {
-            return;
-          }
-          if (idKey) {
-            seenIdsRef.current.add(idKey);
-          }
+          const idKey = String(newMessage.id);
+          if (seenIdsRef.current.has(idKey)) return;
+
+          seenIdsRef.current.add(idKey);
+
           setMessages((prev) => [...prev, { ...newMessage, conversation_id: eventConversationId }]);
           scrollToBottom();
         }
@@ -158,19 +154,15 @@ export default function ChatPage() {
       }
 
       const incoming: Message[] = [];
+
       if (data?.userMessage) {
-        const msg = data.userMessage;
-        if (typeof msg.id === "number" || typeof msg.id === "string") {
-          seenIdsRef.current.add(String(msg.id));
-        }
-        incoming.push(msg);
+        incoming.push(data.userMessage);
+        seenIdsRef.current.add(String(data.userMessage.id));
       }
+
       if (data?.assistantMessage) {
-        const msg = data.assistantMessage;
-        if (typeof msg.id === "number" || typeof msg.id === "string") {
-          seenIdsRef.current.add(String(msg.id));
-        }
-        incoming.push(msg);
+        incoming.push(data.assistantMessage);
+        seenIdsRef.current.add(String(data.assistantMessage.id));
       } else if (data?.reply) {
         incoming.push({
           id: Date.now(),
@@ -241,15 +233,7 @@ export default function ChatPage() {
   return (
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
       <header className="rounded-3xl border border-[var(--line)] bg-[rgba(13,19,35,0.85)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="text-3xl font-black text-white">Chat with BillyBot</h1>
-          </div>
-          <div className="hidden sm:flex items-center gap-3 rounded-2xl bg-[rgba(37,99,235,0.12)] px-4 py-3 text-[var(--text)] border border-[var(--line)]">
-            <span className="h-3 w-3 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
-            <div className="text-sm font-semibold">Live updates enabled</div>
-          </div>
-        </div>
+        <h1 className="text-3xl font-black text-white">Chat with BillyBot</h1>
       </header>
 
       <div className="chat-panel min-h-0">
@@ -267,9 +251,11 @@ export default function ChatPage() {
               <div className={`chat-badge ${m.role === "user" ? "chat-badge-user" : ""}`}>
                 {m.role === "user" ? "You" : "BillyBot"}
               </div>
+
               {renderMessage(m)}
             </div>
           ))}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -284,6 +270,7 @@ export default function ChatPage() {
               className="chat-input resize-none"
             />
           </div>
+
           <button
             onClick={sendMessage}
             disabled={!input.trim() || sending}

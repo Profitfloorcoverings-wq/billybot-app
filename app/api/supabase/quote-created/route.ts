@@ -13,20 +13,25 @@ export async function POST(req: Request) {
       );
     }
 
+    // Ignore optional signature header
     void req.headers.get("x-supabase-signature");
 
+    // Supabase payload formats: record | new | raw
     const payload = await req.json();
+    const quotePayload = payload?.record ?? payload?.new ?? payload;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const quotePayload = payload?.record ?? payload?.new ?? payload;
-
+    // ---------------------------
+    // 1. Extract quote fields
+    // ---------------------------
     const quoteId = quotePayload?.id;
 
     if (!quoteId) {
       return NextResponse.json({ error: "Missing quote id" }, { status: 400 });
     }
 
+    // Fetch full quote row to ensure all fields exist
     const { data: quoteRow, error: quoteFetchErr } = await supabase
       .from("quotes")
       .select("id, quote_reference, pdf_url, client_id")
@@ -47,6 +52,9 @@ export async function POST(req: Request) {
       );
     }
 
+    // ---------------------------
+    // 2. Find conversation
+    // ---------------------------
     const { data: conversation, error: convoErr } = await supabase
       .from("conversations")
       .select("id")
@@ -62,6 +70,9 @@ export async function POST(req: Request) {
       throw convoErr;
     }
 
+    // ---------------------------
+    // 3. Prevent duplicate insert
+    // ---------------------------
     const { data: existingMessage, error: existingErr } = await supabase
       .from("messages")
       .select("id")
@@ -76,6 +87,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "ok" });
     }
 
+    // ---------------------------
+    // 4. Insert new quote message
+    // ---------------------------
     const { error: insertErr } = await supabase.from("messages").insert({
       conversation_id: conversation.id,
       profile_id: clientid,

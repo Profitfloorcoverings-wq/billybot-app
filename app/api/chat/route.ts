@@ -33,9 +33,11 @@ export async function POST(req: Request) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
     const profileId = incomingProfileId || DEV_PROFILE_ID;
 
+    // ---------------------------
+    // 1. Find or create conversation
+    // ---------------------------
     const { data: convos, error: convoSelectErr } = await supabase
       .from("conversations")
       .select("*")
@@ -65,6 +67,9 @@ export async function POST(req: Request) {
     const conversationProfileId: string =
       (conversation as { profile_id?: string }).profile_id || profileId;
 
+    // ---------------------------
+    // 2. Load history only
+    // ---------------------------
     if (message === "__LOAD_HISTORY__") {
       const { data: history, error: histErr } = await supabase
         .from("messages")
@@ -80,6 +85,9 @@ export async function POST(req: Request) {
       });
     }
 
+    // ---------------------------
+    // 3. Insert user message
+    // ---------------------------
     const { data: insertedUser, error: userMsgErr } = await supabase
       .from("messages")
       .insert({
@@ -94,6 +102,7 @@ export async function POST(req: Request) {
 
     if (userMsgErr) throw userMsgErr;
 
+    // Reload history for context for n8n
     const { data: history, error: histErr } = await supabase
       .from("messages")
       .select("*")
@@ -102,6 +111,9 @@ export async function POST(req: Request) {
 
     if (histErr) throw histErr;
 
+    // ---------------------------
+    // 4. Send to n8n
+    // ---------------------------
     const n8nRes = await fetch(n8nWebhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -125,6 +137,9 @@ export async function POST(req: Request) {
         ? botData.reply
         : "BillyBot didn’t reply.";
 
+    // ---------------------------
+    // 5. Insert assistant message
+    // ---------------------------
     const { data: assistantMessage, error: botMsgErr } = await supabase
       .from("messages")
       .insert({
@@ -139,6 +154,9 @@ export async function POST(req: Request) {
 
     if (botMsgErr) throw botMsgErr;
 
+    // ---------------------------
+    // 6. Return FULL response (your PR version)
+    // ---------------------------
     return NextResponse.json({
       reply: botReply,
       conversation_id: conversationId,
