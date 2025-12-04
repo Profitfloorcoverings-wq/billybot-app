@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 const QUOTES_LAST_VIEWED_KEY = "quotes_last_viewed_at";
@@ -10,6 +11,7 @@ type Quote = {
   pdf_url?: string | null;
   client_id?: string | null;
   created_at?: string | null;
+  status?: string | null;
 };
 
 type QuotesResponse = {
@@ -76,60 +78,84 @@ export default function QuotesPage() {
     return Number.isNaN(time) ? null : time;
   }, [initialLastViewed]);
 
-  return (
-    <div className="quotes-page">
-      <header className="quotes-header">
-        <div>
-          <p className="quotes-kicker">Documents</p>
-          <h1 className="quotes-title">Quotes</h1>
-          <p className="quotes-subtitle">Review, track, and open every quote in one place.</p>
-        </div>
-        <div className="quotes-badge">Live feed</div>
-      </header>
+  const hasQuotes = quotes.length > 0;
 
-      <section className="quotes-grid">
-        {loading && <div className="quotes-empty">Loading your quotes…</div>}
-        {error && !loading && <div className="quotes-error">{error}</div>}
-        {!loading && !error && quotes.length === 0 && (
-          <div className="quotes-empty">No quotes yet. They’ll appear here automatically.</div>
+  return (
+    <div className="page-container">
+      <div className="section-header">
+        <div className="stack">
+          <h1 className="section-title">Quotes</h1>
+          <p className="section-subtitle">
+            Review, track, and open every quote in one place.
+          </p>
+        </div>
+        <div className="tag">Live feed</div>
+      </div>
+
+      <div className="card stack">
+        {loading && <div className="empty-state">Loading your quotes…</div>}
+
+        {error && !loading && <div className="empty-state">{error}</div>}
+
+        {!loading && !error && !hasQuotes && (
+          <div className="empty-state stack items-center">
+            <h3 className="section-title">No quotes yet</h3>
+            <p className="section-subtitle">Your quotes will appear here once created.</p>
+          </div>
         )}
 
-        {!loading && !error &&
-          quotes.map((quote) => {
-            const isNew = unseenCutoff
-              ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
-              : true;
+        {!loading && !error && hasQuotes && (
+          <div className="table-card">
+            <div className="hidden md:grid grid-cols-[1.2fr_1fr_1fr_auto] bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+              <span>Quote</span>
+              <span>Date</span>
+              <span>Status</span>
+              <span className="text-right">Action</span>
+            </div>
 
-            return (
-              <article key={quote.id} className="quote-card">
-                <div className="quote-card-top">
-                  <div>
-                    <div className="quote-label">Quote</div>
-                    <h2 className="quote-ref">{quote.quote_reference || "Pending ref"}</h2>
-                    <p className="quote-meta">{formatDate(quote.created_at)}</p>
+            {quotes.map((quote) => {
+              const isNew = unseenCutoff
+                ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
+                : true;
+
+              return (
+                <div
+                  key={quote.id}
+                  className="list-row md:grid md:grid-cols-[1.2fr_1fr_1fr_auto] w-full"
+                >
+                  <div className="stack gap-1">
+                    <p className="text-[15px] font-semibold text-white">
+                      {quote.quote_reference || "Pending reference"}
+                    </p>
+                    <p className="text-sm text-[var(--muted)] md:hidden">{formatDate(quote.created_at)}</p>
                   </div>
-                  {isNew ? <span className="quote-pill">New</span> : null}
-                </div>
 
-                <p className="quote-note">
-                  Ready to download and share with your customer. Stored under the profile
-                  linked to this conversation.
-                </p>
+                  <p className="text-sm text-[var(--muted)] hidden md:block">
+                    {formatDate(quote.created_at)}
+                  </p>
 
-                <div className="quote-actions">
-                  <a
-                    href={quote.pdf_url ?? undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="quote-link"
-                  >
-                    Open PDF
-                  </a>
+                  <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
+                    <span className="status-pill">{quote.status || "Pending"}</span>
+                    {isNew ? <span className="tag">New</span> : null}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3">
+                    <Link
+                      href={quote.pdf_url ?? "#"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary"
+                    >
+                      Open PDF
+                    </Link>
+                    <span className="text-[var(--muted)]">→</span>
+                  </div>
                 </div>
-              </article>
-            );
-          })}
-      </section>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
