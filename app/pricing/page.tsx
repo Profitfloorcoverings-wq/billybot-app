@@ -194,7 +194,7 @@ export default function PricingPage() {
         setPricing((prev) => {
           if (prev) return prev;
           const sess = crypto.randomUUID();
-          return buildDefaultPricing(profileId, sess);
+          return buildDefaultPricing(profileId!, sess);
         });
       }
 
