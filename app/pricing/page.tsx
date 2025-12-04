@@ -251,12 +251,16 @@ function PricingTabs({ active, onChange }: { active: TabId; onChange: (tab: TabI
   ];
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2" role="tablist" aria-label="Pricing sections">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
+          role="tab"
+          id={`${tab.id}-tab`}
+          aria-selected={active === tab.id}
+          aria-controls={`${tab.id}-panel`}
           className={`rounded-full px-4 py-2 text-sm font-medium transition ${
             active === tab.id
               ? "bg-[#5271FF] text-white"
@@ -616,35 +620,49 @@ export default function PricingPage() {
         ) : (
           <div>
             {activeTab === "services" ? (
-              <ServicesSection form={form} onToggle={handleServiceToggle} />
+              <section id="services-panel" role="tabpanel" aria-labelledby="services-tab">
+                <ServicesSection form={form} onToggle={handleServiceToggle} />
+              </section>
             ) : null}
             {activeTab === "base" ? (
-              <BaseRatesSection
-                form={form}
-                onChangeMarkup={handleMarkupChange}
-                onChangeNumber={(key, value) =>
-                  setForm((prev) => ({ ...prev, [key]: value }))
-                }
-              />
+              <section id="base-panel" role="tabpanel" aria-labelledby="base-tab">
+                <BaseRatesSection
+                  form={form}
+                  onChangeMarkup={handleMarkupChange}
+                  onChangeNumber={(key, value) =>
+                    setForm((prev) => ({ ...prev, [key]: value }))
+                  }
+                />
+              </section>
             ) : null}
             {activeTab === "materials" ? (
-              <MaterialsSection form={form} activeServices={activeServices} onChange={handleMaterialChange} />
+              <section id="materials-panel" role="tabpanel" aria-labelledby="materials-tab">
+                <MaterialsSection form={form} activeServices={activeServices} onChange={handleMaterialChange} />
+              </section>
             ) : null}
             {activeTab === "labour" ? (
-              <LabourSection
-                form={form}
-                activeServices={activeServices}
-                onChange={handleLabourChange}
-                onSplitChange={(value) => setForm((prev) => ({ ...prev, labour_split: value }))}
-              />
+              <section id="labour-panel" role="tabpanel" aria-labelledby="labour-tab">
+                <LabourSection
+                  form={form}
+                  activeServices={activeServices}
+                  onChange={handleLabourChange}
+                  onSplitChange={(value) => setForm((prev) => ({ ...prev, labour_split: value }))}
+                />
+              </section>
             ) : null}
-            {activeTab === "vat" ? <VatSection form={form} onToggle={(val) => setForm((prev) => ({ ...prev, vat_status: val }))} /> : null}
+            {activeTab === "vat" ? (
+              <section id="vat-panel" role="tabpanel" aria-labelledby="vat-tab">
+                <VatSection form={form} onToggle={(val) => setForm((prev) => ({ ...prev, vat_status: val }))} />
+              </section>
+            ) : null}
             {activeTab === "advanced" ? (
-              <AdvancedSection
-                form={form}
-                onToggle={(val) => setForm((prev) => ({ ...prev, use_breakpoints: val }))}
-                onTextChange={(val) => setForm((prev) => ({ ...prev, breakpoint_text: val }))}
-              />
+              <section id="advanced-panel" role="tabpanel" aria-labelledby="advanced-tab">
+                <AdvancedSection
+                  form={form}
+                  onToggle={(val) => setForm((prev) => ({ ...prev, use_breakpoints: val }))}
+                  onTextChange={(val) => setForm((prev) => ({ ...prev, breakpoint_text: val }))}
+                />
+              </section>
             ) : null}
           </div>
         )}
