@@ -368,7 +368,13 @@ function ServiceToggle({ label, checked, onChange }: any) {
   );
 }
 
-function InputRow({ label, value, onChange }: any) {
+type InputRowProps = {
+  label: string;
+  value: number | string;
+  onChange: (value: string) => void;
+};
+
+function InputRow({ label, value, onChange }: InputRowProps) {
   return (
     <div className="grid grid-cols-3 gap-3 items-center">
       <span className="text-sm text-white">{label}</span>
