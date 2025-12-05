@@ -5,7 +5,9 @@ const DEMO_CLIENT_ID = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
 
 export async function POST() {
   // Guard against missing env vars
-  if (!process.env.STRIPE_SECRET_KEY) {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+  if (!stripeSecretKey) {
     console.error("Stripe secret key missing at runtime");
     return NextResponse.json(
       { error: "STRIPE_SECRET_KEY missing" },
@@ -16,7 +18,7 @@ export async function POST() {
   // Lazy import Stripe so Turbopack doesn't evaluate it at build time
   const Stripe = (await import("stripe")).default;
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2023-10-16"
   });
 
