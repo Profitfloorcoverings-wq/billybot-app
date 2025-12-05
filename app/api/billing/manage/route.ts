@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
-const DEMO_CLIENT_ID = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
+const client_id = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
 
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -26,7 +26,7 @@ export async function POST() {
   const { data: client, error } = await supabase
     .from("clients")
     .select("stripe_id")
-    .eq("id", DEMO_CLIENT_ID)
+    .eq("id", client_id)
     .single();
 
   if (error || !client) {
