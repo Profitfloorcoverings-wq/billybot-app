@@ -16,7 +16,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
   throw new Error("Missing Supabase configuration environment variables.");
 }
 
-const stripe = new Stripe(stripeSecretKey, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2023-10-16",
 });
 
