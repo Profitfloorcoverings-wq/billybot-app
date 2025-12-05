@@ -30,7 +30,7 @@ export async function POST() {
   const { data: client, error } = await supabase
     .from("clients")
     .select("stripe_id")
-    .eq("id", CLIENT_ID)
+    .eq("id", client_id)
     .single();
 
   if (error || !client?.stripe_id) {
