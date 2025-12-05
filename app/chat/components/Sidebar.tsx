@@ -9,6 +9,7 @@ const navItems = [
   { label: "Quotes", href: "/quotes", watchQuotes: true },
   { label: "Customers", href: "/customers" },
   { label: "Pricing", href: "/settings" },
+  { label: "Account", href: "/account" },
 ];
 
 const QUOTES_LAST_VIEWED_KEY = "quotes_last_viewed_at";
