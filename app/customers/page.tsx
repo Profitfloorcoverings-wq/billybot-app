@@ -16,6 +16,22 @@ type Customer = {
   email?: string | null;
 };
 
+async function fetchCustomers(profileId: string) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const { data, error } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("profile_id", profileId)
+    .order("customer_name", { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export default function CustomersPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -23,44 +39,17 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  // Create client
-  const supabase = useMemo(() => {
-    if (!supabaseUrl || !supabaseAnonKey) return null;
-    return createClient(supabaseUrl!, supabaseAnonKey!);
-  }, []);
-
-  console.log(
-  "CUSTOMERS PAGE SUPABASE ENVS",
-  { supabaseUrl, hasAnonKey: !!supabaseAnonKey }
-);
-
   useEffect(() => {
-    if (!supabase) {
-      setError("Missing Supabase environment variables");
-      setLoading(false);
-      return;
-    }
-
     let active = true;
 
-    async function loadCustomers() {
+    async function load() {
       setLoading(true);
 
+      const hardCodedProfileId = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
+
       try {
-        // FORCE TS to accept supabase is NOT null
-        const client = supabase!;
-
-        const { data, error } = await client
-          .from("customers")
-          .select("*")
-          .eq("profile_id", "19b639a4-6e14-4c69-9ddf-04d371a3e45b")
-          .order("customer_name", { ascending: true });
-
-        if (error) throw error;
-        if (active) setCustomers(data || []);
+        const data = await fetchCustomers(hardCodedProfileId);
+        if (active) setCustomers(data);
       } catch (err: any) {
         if (active) setError(err.message);
       } finally {
@@ -68,23 +57,26 @@ export default function CustomersPage() {
       }
     }
 
-    loadCustomers();
+    load();
     return () => {
       active = false;
     };
-  }, [supabase]);
+  }, []);
 
-  const filteredCustomers = customers.filter((c) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return (
-      (c.customer_name?.toLowerCase().includes(q) ?? false) ||
-      (c.contact_name?.toLowerCase().includes(q) ?? false) ||
-      (c.email?.toLowerCase().includes(q) ?? false) ||
-      (c.phone?.toLowerCase().includes(q) ?? false) ||
-      (c.mobile?.toLowerCase().includes(q) ?? false)
-    );
-  });
+  const filteredCustomers = useMemo(() => {
+    if (!search.trim()) return customers;
+    const query = search.toLowerCase();
+    return customers.filter((customer) => {
+      const fields = [
+        customer.customer_name,
+        customer.contact_name,
+        customer.email,
+        customer.phone,
+        customer.mobile,
+      ];
+      return fields.some((value) => value?.toLowerCase().includes(query));
+    });
+  }, [customers, search]);
 
   return (
     <div className="page-container">
@@ -127,7 +119,9 @@ export default function CustomersPage() {
           {!loading && !error && filteredCustomers.length === 0 && (
             <div className="empty-state stack items-center">
               <h3 className="section-title">No customers yet</h3>
-              <p className="section-subtitle">Add your first customer to get started.</p>
+              <p className="section-subtitle">
+                Add your first customer to get started.
+              </p>
               <Link href="/customers/new" className="btn btn-primary">
                 Add Customer
               </Link>
@@ -175,3 +169,4 @@ export default function CustomersPage() {
     </div>
   );
 }
+
