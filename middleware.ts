@@ -39,16 +39,43 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession();
 
   const pathname = req.nextUrl.pathname;
-
-  // Check if this route should be protected
   const isProtected = PROTECTED_ROUTES.some((route) =>
+    pathname.startsWith(route)
+  );
+
+  // --- ONBOARDING LOGIC ---
+  let isOnboarded = true;
+
+  if (session?.user) {
+    const { data: clientProfile } = await supabase
+      .from("clients")
+      .select("is_onboarded")
+      .eq("id", session.user.id)
+      .maybeSingle();
+
+    isOnboarded = clientProfile?.is_onboarded ?? false;
+  }
+
+  const onboardingExemptRoutes = [
+    "/account/setup",
+    "/auth/login",
+    "/auth/signup",
+  ];
+
+  const isOnboardingRoute = onboardingExemptRoutes.some((route) =>
     pathname.startsWith(route)
   );
 
   // If no session AND route is protected → redirect to login
   if (isProtected && !session) {
     const redirectUrl = new URL("/auth/login", req.url);
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(redirectUrl, { headers: res.headers });
+  }
+
+  // User logged in but NOT onboarded → force into setup flow
+  if (session && !isOnboarded && !isOnboardingRoute) {
+    const redirectUrl = new URL("/account/setup", req.url);
+    return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 
   return res;
