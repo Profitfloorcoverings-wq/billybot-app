@@ -10,7 +10,7 @@ type ClientProfile = {
   contact_name: string;
   phone: string;
   address_line1: string;
-  address_line2: string;
+  address_line2?: string;
   city: string;
   postcode: string;
   country: string;
@@ -247,7 +247,6 @@ export default function AccountPage() {
                 className="input-fluid"
                 value={profile.address_line2}
                 onChange={(e) => updateField("address_line2", e.target.value)}
-                required
               />
             </div>
 
