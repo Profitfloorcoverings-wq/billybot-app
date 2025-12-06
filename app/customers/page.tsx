@@ -1,11 +1,10 @@
 "use client";
+export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-
-import { fetchCustomers } from "@/lib/supabase/customers";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@supabase/supabase-js";
 
 type Customer = {
   id: string;
@@ -16,6 +15,22 @@ type Customer = {
   mobile?: string | null;
   email?: string | null;
 };
+
+async function fetchCustomers(profileId: string) {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const { data, error } = await supabase
+    .from("customers")
+    .select("*")
+    .eq("profile_id", profileId)
+    .order("customer_name", { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
 
 export default function CustomersPage() {
   const router = useRouter();
@@ -30,7 +45,6 @@ export default function CustomersPage() {
     async function load() {
       setLoading(true);
 
-      // TEMP FIX: Hard-code your profile ID here
       const hardCodedProfileId = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
 
       try {
@@ -64,8 +78,6 @@ export default function CustomersPage() {
     });
   }, [customers, search]);
 
-  const hasCustomers = filteredCustomers.length > 0;
-
   return (
     <div className="page-container">
       <div className="section-header">
@@ -75,6 +87,7 @@ export default function CustomersPage() {
             Keep every customer organised, searchable, and ready for your next job.
           </p>
         </div>
+
         <Link href="/customers/new" className="btn btn-primary">
           Add Customer
         </Link>
@@ -91,39 +104,31 @@ export default function CustomersPage() {
               placeholder="Search by name, contact, phone, or email"
             />
           </div>
+
           <div className="tag">{customers.length} total</div>
         </div>
 
         <div className="table-card">
-          <div className="hidden md:grid grid-cols-[1.4fr_1fr_1.2fr_1fr_auto] bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-            <span>Customer</span>
-            <span>Contact</span>
-            <span>Email</span>
-            <span>Phone</span>
-            <span className="text-right">View</span>
-          </div>
-
-          {loading && (
-            <div className="empty-state">Loading customers…</div>
-          )}
-
+          {loading && <div className="empty-state">Loading customers…</div>}
           {error && !loading && (
             <div className="empty-state" style={{ color: "#fca5a5" }}>
               {error}
             </div>
           )}
 
-          {!loading && !error && !hasCustomers && (
+          {!loading && !error && filteredCustomers.length === 0 && (
             <div className="empty-state stack items-center">
               <h3 className="section-title">No customers yet</h3>
-              <p className="section-subtitle">Add your first customer to get started.</p>
+              <p className="section-subtitle">
+                Add your first customer to get started.
+              </p>
               <Link href="/customers/new" className="btn btn-primary">
                 Add Customer
               </Link>
             </div>
           )}
 
-          {!loading && !error && hasCustomers && (
+          {!loading && !error && filteredCustomers.length > 0 && (
             <div>
               {filteredCustomers.map((customer) => (
                 <button
@@ -139,15 +144,19 @@ export default function CustomersPage() {
                       {customer.contact_name || "No contact"}
                     </p>
                   </div>
+
                   <p className="text-sm text-[var(--muted)] hidden md:block">
                     {customer.contact_name || "—"}
                   </p>
+
                   <p className="text-sm text-[var(--muted)] truncate">
                     {customer.email || "—"}
                   </p>
+
                   <p className="text-sm text-[var(--muted)]">
                     {customer.phone || customer.mobile || "—"}
                   </p>
+
                   <div className="flex items-center justify-end text-[var(--muted)]">
                     →
                   </div>
@@ -160,3 +169,4 @@ export default function CustomersPage() {
     </div>
   );
 }
+
