@@ -1,56 +1,92 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-const PUBLIC_ROUTES = ["/auth/login", "/auth/signup", "/auth/logout"];
+// Routes that require login
+const PROTECTED_ROUTES = [
+  "/chat",
+  "/quotes",
+  "/customers",
+  "/pricing",
+  "/account",
+];
 
 export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  const res = NextResponse.next();
 
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname === "/favicon.ico" ||
-    pathname.startsWith("/public")
-  ) {
-    return NextResponse.next();
+  // Initialize Supabase server client using request cookies
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return req.cookies.get(name)?.value;
+        },
+        set(name: string, value: string, options: any) {
+          res.cookies.set({ name, value, ...options });
+        },
+        remove(name: string, options: any) {
+          res.cookies.set({ name, value: "", ...options });
+        },
+      },
+    }
+  );
+
+  // Get session
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const pathname = req.nextUrl.pathname;
+
+  // Check if this route should be protected
+  const isProtected = PROTECTED_ROUTES.some((route) =>
+    pathname.startsWith(route)
+  );
+
+  // If a session exists, check onboarding status
+  let isOnboarded = true;
+
+  if (session?.user) {
+    const { data: clientProfile } = await supabase
+      .from("clients")
+      .select("is_onboarded")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+
+    isOnboarded = clientProfile?.is_onboarded ?? false;
   }
 
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
-  const accessToken = req.cookies.get("sb-access-token")?.value;
-  const redirectToLogin = NextResponse.redirect(new URL("/auth/login", req.url));
+  const onboardingExemptRoutes = ["/account/setup", "/auth/login", "/auth/signup"];
+  const isOnboardingRoute = onboardingExemptRoutes.some((route) =>
+    pathname.startsWith(route)
+  );
 
-  if (!accessToken) {
-    return isPublicRoute ? NextResponse.next() : redirectToLogin;
+  // If no session AND route is protected → redirect to login
+  if (isProtected && !session) {
+    const redirectUrl = new URL("/auth/login", req.url);
+    return NextResponse.redirect(redirectUrl, {
+      headers: res.headers,
+    });
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return isPublicRoute ? NextResponse.next() : redirectToLogin;
+  if (session && !isOnboarded && !isOnboardingRoute) {
+    const redirectUrl = new URL("/account/setup", req.url);
+    return NextResponse.redirect(redirectUrl, {
+      headers: res.headers,
+    });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  const user = error ? null : data?.user;
-
-  if (!user) {
-    return isPublicRoute ? NextResponse.next() : redirectToLogin;
-  }
-
-  if (isPublicRoute) {
-    return NextResponse.redirect(new URL("/chat", req.url));
-  }
-
-  return NextResponse.next();
+  return res;
 }
 
 export const config = {
-  matcher: ["/(.*)", "/"],
+  matcher: [
+    "/chat/:path*",
+    "/quotes/:path*",
+    "/customers/:path*",
+    "/pricing/:path*",
+    "/account/:path*",
+  ],
 };

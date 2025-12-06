@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState, KeyboardEvent } from "react";
 import ReactMarkdown from "react-markdown";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+import { createClient as createSupabaseClient } from "@/utils/supabase/client";
+import { getSession } from "@/utils/supabase/session";
+import LoginPage from "../auth/login/page";
 
 type Message = {
   id: number | string;
@@ -30,6 +31,8 @@ type SendResponse = {
 };
 
 export default function ChatPage() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
@@ -41,8 +44,11 @@ export default function ChatPage() {
   const initialLoadRef = useRef(true);
 
   const supabase: SupabaseClient | null = useMemo(() => {
-    if (!supabaseUrl || !supabaseAnonKey) return null;
-    return createClient(supabaseUrl, supabaseAnonKey);
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return null;
+    }
+
+    return createSupabaseClient();
   }, []);
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
@@ -50,6 +56,27 @@ export default function ChatPage() {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
+    async function loadSession() {
+      const currentSession = await getSession();
+
+      if (!isMounted) return;
+
+      setSession(currentSession);
+      setAuthLoading(false);
+    }
+
+    void loadSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session) return;
+
     async function loadHistory() {
       try {
         const res = await fetch("/api/chat", {
@@ -82,7 +109,7 @@ export default function ChatPage() {
     }
 
     loadHistory();
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     if (initialLoadRef.current) {
@@ -229,6 +256,9 @@ export default function ChatPage() {
       </div>
     );
   };
+
+  if (authLoading) return null;
+  if (!session || !session.user) return <LoginPage />;
 
   return (
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">

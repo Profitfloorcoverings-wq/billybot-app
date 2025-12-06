@@ -14,7 +14,6 @@ type ClientProfile = {
   city: string;
   postcode: string;
   country: string;
-  is_onboarded: boolean;
 };
 
 const EMPTY_PROFILE: ClientProfile = {
@@ -26,88 +25,77 @@ const EMPTY_PROFILE: ClientProfile = {
   city: "",
   postcode: "",
   country: "",
-  is_onboarded: false,
 };
 
-export default function AccountPage() {
+export default function AccountSetupPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
+  const [email, setEmail] = useState("");
   const [profile, setProfile] = useState<ClientProfile>(EMPTY_PROFILE);
-  const [userEmail, setUserEmail] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadProfile() {
+    async function loadUser() {
       setLoading(true);
       setError(null);
 
       try {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
+        const { data, error: userError } = await supabase.auth.getUser();
 
-        if (userError || !userData?.user) {
+        if (userError || !data?.user) {
           router.push("/auth/login");
           return;
         }
 
-        setUserEmail(userData.user.email ?? "");
+        setEmail(data.user.email ?? "");
 
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
           .select(
-            "business_name, contact_name, phone, address_line_1, address_line_2, city, postcode, country, is_onboarded"
+            "business_name, contact_name, phone, address_line_1, address_line_2, city, postcode, country"
           )
-          .eq("user_id", userData.user.id)
+          .eq("user_id", data.user.id)
           .maybeSingle();
 
         if (clientError) {
           throw clientError;
         }
 
-        if (!clientData || clientData.is_onboarded === false) {
-          router.push("/account/setup");
-          return;
+        if (clientData) {
+          setProfile({ ...EMPTY_PROFILE, ...clientData });
         }
-
-        setProfile({ ...EMPTY_PROFILE, ...clientData, is_onboarded: true });
       } catch (err) {
         setError(
           err && typeof err === "object" && "message" in err
             ? String((err as { message?: string }).message)
-            : "Unable to load account"
+            : "Unable to load your account"
         );
       } finally {
         setLoading(false);
       }
     }
 
-    void loadProfile();
+    void loadUser();
   }, [router, supabase]);
-
-  const handleLogout = async () => {
-    await fetch("/auth/logout", { method: "GET" });
-    router.push("/auth/login");
-  };
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setSuccess(null);
     setSaving(true);
 
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const { data, error: userError } = await supabase.auth.getUser();
 
-      if (userError || !userData?.user) {
+      if (userError || !data?.user) {
         router.push("/auth/login");
         return;
       }
 
       const { error: upsertError } = await supabase.from("clients").upsert({
-        user_id: userData.user.id,
+        user_id: data.user.id,
         ...profile,
         is_onboarded: true,
       });
@@ -116,12 +104,12 @@ export default function AccountPage() {
         throw upsertError;
       }
 
-      setSuccess("Profile updated successfully");
+      router.push("/chat");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
           ? String((err as { message?: string }).message)
-          : "Unable to update profile"
+          : "Unable to save your profile"
       );
     } finally {
       setSaving(false);
@@ -133,40 +121,34 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="page-container">
-      <div className="section-header">
-        <div className="stack">
-          <h1 className="section-title">Account</h1>
-          <p className="section-subtitle">Manage your profile and sign out.</p>
-        </div>
-        <button className="btn btn-secondary" onClick={handleLogout}>
-          Logout
-        </button>
-      </div>
+    <div className="min-h-screen bg-[var(--bg1)] text-[var(--text)] px-4 py-12 flex items-center justify-center">
+      <div className="w-full max-w-3xl">
+        <div className="card stack gap-6">
+          <div className="stack gap-1">
+            <h1 className="section-title">Set up your business profile</h1>
+            <p className="section-subtitle">
+              Complete these details to start using the app.
+            </p>
+          </div>
 
-      <div className="card stack gap-6">
-        {loading ? <p className="section-subtitle">Loading account…</p> : null}
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
-        {success ? (
-          <p className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/40 rounded-lg p-3">
-            {success}
-          </p>
-        ) : null}
+          {error ? (
+            <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
+              {error}
+            </div>
+          ) : null}
 
-        {!loading && !error ? (
           <form onSubmit={handleSubmit} className="stack gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="stack">
-                <p className="section-subtitle">Email</p>
-                <p className="text-lg font-semibold text-white">{userEmail || "—"}</p>
-              </div>
-
-              <div className="stack">
-                <p className="section-subtitle">Status</p>
-                <p className="text-lg font-semibold text-white">
-                  {profile.is_onboarded ? "Onboarded" : "Not onboarded"}
-                </p>
-              </div>
+            <div className="field-group">
+              <label className="field-label" htmlFor="email">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                className="input-fluid"
+                value={email}
+                disabled
+              />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -277,19 +259,14 @@ export default function AccountPage() {
                   required
                 />
               </div>
+
             </div>
 
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={saving || loading}
-              >
-                {saving ? "Saving..." : "Save changes"}
-              </button>
-            </div>
+            <button type="submit" className="btn btn-primary" disabled={saving || loading}>
+              {saving ? "Saving..." : "Save and continue"}
+            </button>
           </form>
-        ) : null}
+        </div>
       </div>
     </div>
   );
