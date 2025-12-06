@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-import { fetchCustomers } from "@/lib/supabase/customers";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
 
 type Customer = {
   id: string;
@@ -24,30 +27,34 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-useEffect(() => {
-  let active = true;
+  useEffect(() => {
+    let active = true;
 
-  async function load() {
-    setLoading(true);
+    async function load() {
+      setLoading(true);
 
-    // TEMP FIX: Hard-code your profile ID here
-    const hardCodedProfileId = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
+      try {
+        const { data, error } = await supabase
+          .from("customers")
+          .select("*")
+          .eq("profile_id", "19b639a4-6e14-4c69-9ddf-04d371a3e45b")
+          .order("customer_name", { ascending: true });
 
-    try {
-      const data = await fetchCustomers(hardCodedProfileId);
-      if (active) setCustomers(data);
-    } catch (err: any) {
-      if (active) setError(err.message);
-    } finally {
-      if (active) setLoading(false);
+        if (error) throw error;
+
+        if (active) setCustomers(data || []);
+      } catch (err: any) {
+        if (active) setError(err.message);
+      } finally {
+        if (active) setLoading(false);
+      }
     }
-  }
 
-  load();
-  return () => {
-    active = false;
-  };
-}, []);
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredCustomers = useMemo(() => {
     if (!search.trim()) return customers;
