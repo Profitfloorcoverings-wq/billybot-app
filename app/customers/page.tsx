@@ -26,22 +26,29 @@ export default function CustomersPage() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+  // Create client
   const supabase = useMemo(() => {
     if (!supabaseUrl || !supabaseAnonKey) return null;
-    return createClient(supabaseUrl, supabaseAnonKey);
+    return createClient(supabaseUrl!, supabaseAnonKey!);
   }, []);
 
-  // LOAD CUSTOMERS
   useEffect(() => {
-    if (!supabase) return; // Fixes "possibly null" error
+    if (!supabase) {
+      setError("Missing Supabase environment variables");
+      setLoading(false);
+      return;
+    }
 
     let active = true;
 
-    async function load() {
+    async function loadCustomers() {
       setLoading(true);
 
       try {
-        const { data, error } = await supabase
+        // FORCE TS to accept supabase is NOT null
+        const client = supabase!;
+
+        const { data, error } = await client
           .from("customers")
           .select("*")
           .eq("profile_id", "19b639a4-6e14-4c69-9ddf-04d371a3e45b")
@@ -56,31 +63,23 @@ export default function CustomersPage() {
       }
     }
 
-    load();
+    loadCustomers();
     return () => {
       active = false;
     };
   }, [supabase]);
 
-  // Client-side filtering
-  const filteredCustomers = useMemo(() => {
-    if (!search.trim()) return customers;
-
+  const filteredCustomers = customers.filter((c) => {
+    if (!search.trim()) return true;
     const q = search.toLowerCase();
-
-    return customers.filter((c) => {
-      const fields = [
-        c.customer_name,
-        c.contact_name,
-        c.email,
-        c.phone,
-        c.mobile,
-      ];
-      return fields.some((v) => v?.toLowerCase().includes(q));
-    });
-  }, [customers, search]);
-
-  const hasCustomers = filteredCustomers.length > 0;
+    return (
+      (c.customer_name?.toLowerCase().includes(q) ?? false) ||
+      (c.contact_name?.toLowerCase().includes(q) ?? false) ||
+      (c.email?.toLowerCase().includes(q) ?? false) ||
+      (c.phone?.toLowerCase().includes(q) ?? false) ||
+      (c.mobile?.toLowerCase().includes(q) ?? false)
+    );
+  });
 
   return (
     <div className="page-container">
@@ -113,23 +112,14 @@ export default function CustomersPage() {
         </div>
 
         <div className="table-card">
-          <div className="hidden md:grid grid-cols-[1.4fr_1fr_1.2fr_1fr_auto] bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-            <span>Customer</span>
-            <span>Contact</span>
-            <span>Email</span>
-            <span>Phone</span>
-            <span className="text-right">View</span>
-          </div>
-
           {loading && <div className="empty-state">Loading customers…</div>}
-
           {error && !loading && (
             <div className="empty-state" style={{ color: "#fca5a5" }}>
               {error}
             </div>
           )}
 
-          {!loading && !error && !hasCustomers && (
+          {!loading && !error && filteredCustomers.length === 0 && (
             <div className="empty-state stack items-center">
               <h3 className="section-title">No customers yet</h3>
               <p className="section-subtitle">Add your first customer to get started.</p>
@@ -139,7 +129,7 @@ export default function CustomersPage() {
             </div>
           )}
 
-          {!loading && !error && hasCustomers && (
+          {!loading && !error && filteredCustomers.length > 0 && (
             <div>
               {filteredCustomers.map((customer) => (
                 <button
@@ -168,7 +158,9 @@ export default function CustomersPage() {
                     {customer.phone || customer.mobile || "—"}
                   </p>
 
-                  <div className="flex items-center justify-end text-[var(--muted)]">→</div>
+                  <div className="flex items-center justify-end text-[var(--muted)]">
+                    →
+                  </div>
                 </button>
               ))}
             </div>
