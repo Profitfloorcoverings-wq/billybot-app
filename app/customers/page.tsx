@@ -24,30 +24,30 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-useEffect(() => {
-  let active = true;
+  useEffect(() => {
+    let active = true;
 
-  async function load() {
-    setLoading(true);
+    async function load() {
+      setLoading(true);
 
-    // TEMP FIX: Hard-code your profile ID here
-    const hardCodedProfileId = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
+      // TEMP FIX: Hard-code your profile ID here
+      const hardCodedProfileId = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
 
-    try {
-      const data = await fetchCustomers(hardCodedProfileId);
-      if (active) setCustomers(data);
-    } catch (err: any) {
-      if (active) setError(err.message);
-    } finally {
-      if (active) setLoading(false);
+      try {
+        const data = await fetchCustomers(hardCodedProfileId);
+        if (active) setCustomers(data);
+      } catch (err: any) {
+        if (active) setError(err.message);
+      } finally {
+        if (active) setLoading(false);
+      }
     }
-  }
 
-  load();
-  return () => {
-    active = false;
-  };
-}, []);
+    load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredCustomers = useMemo(() => {
     if (!search.trim()) return customers;
