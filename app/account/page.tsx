@@ -9,8 +9,8 @@ type ClientProfile = {
   business_name: string;
   contact_name: string;
   phone: string;
-  address_line_1: string;
-  address_line_2: string;
+  address_line1: string;
+  address_line2: string;
   city: string;
   postcode: string;
   country: string;
@@ -21,8 +21,8 @@ const EMPTY_PROFILE: ClientProfile = {
   business_name: "",
   contact_name: "",
   phone: "",
-  address_line_1: "",
-  address_line_2: "",
+  address_line1: "",
+  address_line2: "",
   city: "",
   postcode: "",
   country: "",
@@ -58,7 +58,7 @@ export default function AccountPage() {
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
           .select(
-            "business_name, contact_name, phone, address_line_1, address_line_2, city, postcode, country, is_onboarded"
+            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
           )
           .eq("user_id", userData.user.id)
           .maybeSingle();
@@ -226,27 +226,27 @@ export default function AccountPage() {
             </div>
 
             <div className="field-group">
-              <label className="field-label" htmlFor="address_line_1">
+              <label className="field-label" htmlFor="address_line1">
                 Address line 1
               </label>
               <input
-                id="address_line_1"
+                id="address_line1"
                 className="input-fluid"
-                value={profile.address_line_1}
-                onChange={(e) => updateField("address_line_1", e.target.value)}
+                value={profile.address_line1}
+                onChange={(e) => updateField("address_line1", e.target.value)}
                 required
               />
             </div>
 
             <div className="field-group">
-              <label className="field-label" htmlFor="address_line_2">
+              <label className="field-label" htmlFor="address_line2">
                 Address line 2
               </label>
               <input
-                id="address_line_2"
+                id="address_line2"
                 className="input-fluid"
-                value={profile.address_line_2}
-                onChange={(e) => updateField("address_line_2", e.target.value)}
+                value={profile.address_line2}
+                onChange={(e) => updateField("address_line2", e.target.value)}
                 required
               />
             </div>
