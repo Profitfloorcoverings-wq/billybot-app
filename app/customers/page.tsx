@@ -4,7 +4,8 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+
+import { createClient } from "@/utils/supabase/client";
 
 type Customer = {
   id: string;
@@ -16,12 +17,7 @@ type Customer = {
   email?: string | null;
 };
 
-async function fetchCustomers(profileId: string) {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
+async function fetchCustomers(supabase: ReturnType<typeof createClient>, profileId: string) {
   const { data, error } = await supabase
     .from("customers")
     .select("*")
@@ -34,6 +30,7 @@ async function fetchCustomers(profileId: string) {
 
 export default function CustomersPage() {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -44,24 +41,30 @@ export default function CustomersPage() {
 
     async function load() {
       setLoading(true);
-
-      const hardCodedProfileId = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
+      setError(null);
 
       try {
-        const data = await fetchCustomers(hardCodedProfileId);
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        const profileId = userData?.user?.id;
+
+        if (userError || !profileId) {
+          throw new Error(userError?.message || "Unable to find your account");
+        }
+
+        const data = await fetchCustomers(supabase, profileId);
         if (active) setCustomers(data);
       } catch (err: any) {
-        if (active) setError(err.message);
+        if (active) setError(err.message || "Unable to load customers");
       } finally {
         if (active) setLoading(false);
       }
     }
 
-    load();
+    void load();
     return () => {
       active = false;
     };
-  }, []);
+  }, [supabase]);
 
   const filteredCustomers = useMemo(() => {
     if (!search.trim()) return customers;
@@ -169,4 +172,3 @@ export default function CustomersPage() {
     </div>
   );
 }
-

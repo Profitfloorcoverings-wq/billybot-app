@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+import { getUserFromCookies } from "@/utils/supabase/auth";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const n8nWebhook = process.env.N8N_WEBHOOK_URL!;
-
-// Dev fallback (pre-login)
-const DEV_PROFILE_ID = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
 
 type MessageRow = {
   id: number;
@@ -20,20 +19,25 @@ type MessageRow = {
 
 type ChatRequest = {
   message?: string;
-  profile_id?: string;
 };
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as ChatRequest;
-    const { message, profile_id: incomingProfileId } = body;
+    const { message } = body;
 
     if (!message) {
       return NextResponse.json({ error: "Missing message" }, { status: 400 });
     }
 
+    const user = await getUserFromCookies();
+    const profileId = user?.id;
+
+    if (!profileId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const profileId = incomingProfileId || DEV_PROFILE_ID;
 
     // ---------------------------
     // 1. Find or create conversation
