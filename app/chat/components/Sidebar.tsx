@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { createClient } from "@/utils/supabase/client";
+import { getSession } from "@/utils/supabase/session";
 
 const navItems = [
   { label: "Chat", href: "/chat" },
@@ -18,7 +18,6 @@ const QUOTES_LAST_VIEWED_KEY = "quotes_last_viewed_at";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const supabase = useMemo(() => createClient(), []);
   const [hasNewQuote, setHasNewQuote] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
@@ -66,23 +65,22 @@ export default function Sidebar() {
   }, [pathname, checkLatestQuote]);
 
   useEffect(() => {
+    let isMounted = true;
+
     async function syncSession() {
-      const { data } = await supabase.auth.getSession();
-      setIsAuthenticated(!!data.session?.user);
+      const session = await getSession();
+
+      if (!isMounted) return;
+
+      setIsAuthenticated(!!session?.user);
     }
 
     void syncSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event: string, session: { user: any } | null) => {
-        setIsAuthenticated(!!session?.user);
-      }
-    );
-
     return () => {
-      authListener?.subscription.unsubscribe();
+      isMounted = false;
     };
-  }, [supabase]);
+  }, []);
 
   const showNav = !!isAuthenticated;
 
