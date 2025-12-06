@@ -180,7 +180,7 @@ function NumberField({
   );
 }
 
-export default function SettingsPage() {
+export default function PricingPage() {
   const [serviceToggles, setServiceToggles] = useState<BooleanMap>(() =>
     createBooleanState(serviceOptions)
   );
@@ -219,7 +219,7 @@ export default function SettingsPage() {
     <div className="page-container">
       <div className="section-header">
         <div className="stack">
-          <h1 className="section-title">Settings</h1>
+          <h1 className="section-title">Pricing</h1>
           <p className="section-subtitle">
             Configure pricing, labour, and VAT preferences for your quotes.
           </p>
