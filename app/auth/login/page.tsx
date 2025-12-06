@@ -44,7 +44,7 @@ export default function LoginPage() {
       }
 
       persistSession(data.session ?? null);
-      router.push("/chat");
+      router.push("/settings");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
