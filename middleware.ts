@@ -1,56 +1,45 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const PROTECTED_ROUTES = ["/chat", "/quotes", "/customers", "/pricing", "/account"];
 
-const PUBLIC_ROUTES = ["/auth/login", "/auth/signup", "/auth/logout"];
+function isProtectedRoute(pathname: string) {
+  return PROTECTED_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`)
+  );
+}
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
     pathname === "/favicon.ico" ||
-    pathname.startsWith("/public")
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/api")
   ) {
     return NextResponse.next();
   }
 
-  const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route));
-  const accessToken = req.cookies.get("sb-access-token")?.value;
-  const redirectToLogin = NextResponse.redirect(new URL("/auth/login", req.url));
-
-  if (!accessToken) {
-    return isPublicRoute ? NextResponse.next() : redirectToLogin;
+  const requiresAuth = isProtectedRoute(pathname);
+  if (!requiresAuth) {
+    return NextResponse.next();
   }
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return isPublicRoute ? NextResponse.next() : redirectToLogin;
+  const res = NextResponse.next();
+  const supabase = createMiddlewareClient({ req, res });
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (!session && requiresAuth) {
+    return NextResponse.redirect(new URL("/auth/login", req.url));
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-  });
-
-  const { data, error } = await supabase.auth.getUser(accessToken);
-  const user = error ? null : data?.user;
-
-  if (!user) {
-    return isPublicRoute ? NextResponse.next() : redirectToLogin;
-  }
-
-  if (isPublicRoute) {
-    return NextResponse.redirect(new URL("/chat", req.url));
-  }
-
-  return NextResponse.next();
+  return res;
 }
 
 export const config = {
-  matcher: ["/(.*)", "/"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

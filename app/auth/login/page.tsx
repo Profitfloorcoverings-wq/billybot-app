@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useState, useMemo } from "react";
+import { type FormEvent, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import { createClient } from "@/utils/supabase/client";
@@ -15,10 +15,13 @@ function persistSession(session: Session | null) {
     ? Math.max(session.expires_at - Math.floor(Date.now() / 1000), 3600)
     : 3600 * 24 * 7;
 
-  document.cookie = `sb-access-token=${session.access_token}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
+  const secureFlag = window.location.protocol === "https:" ? "; Secure" : "";
+  const cookieSettings = `Path=/; Max-Age=${maxAge}; SameSite=Lax${secureFlag}`;
+
+  document.cookie = `sb-access-token=${session.access_token}; ${cookieSettings}`;
 
   if (session.refresh_token) {
-    document.cookie = `sb-refresh-token=${session.refresh_token}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
+    document.cookie = `sb-refresh-token=${session.refresh_token}; ${cookieSettings}`;
   }
 }
 
@@ -48,7 +51,7 @@ export default function LoginPage() {
       persistSession(data.session ?? null);
 
       // Redirect user
-      router.replace("/pricing");
+      router.push("/chat");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
