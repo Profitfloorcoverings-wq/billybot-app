@@ -2,18 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useState, useMemo } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import { createClient } from "@/utils/supabase/client";
 
+// Store session in cookies for SSR awareness (non-blocking)
 function persistSession(session: Session | null) {
   if (!session) return;
+
   const maxAge = session.expires_at
-    ? Math.max(session.expires_at - Math.floor(Date.now() / 1000), 60 * 60)
-    : 60 * 60 * 24 * 7;
+    ? Math.max(session.expires_at - Math.floor(Date.now() / 1000), 3600)
+    : 3600 * 24 * 7;
 
   document.cookie = `sb-access-token=${session.access_token}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
+
   if (session.refresh_token) {
     document.cookie = `sb-refresh-token=${session.refresh_token}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
   }
@@ -39,12 +42,13 @@ export default function LoginPage() {
         password,
       });
 
-      if (signInError) {
-        throw signInError;
-      }
+      if (signInError) throw signInError;
 
+      // Save session locally
       persistSession(data.session ?? null);
-      router.push("/settings");
+
+      // Redirect user
+      router.replace("/settings");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
@@ -67,9 +71,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="stack gap-4">
             <div className="field-group">
-              <label className="field-label" htmlFor="email">
-                Email
-              </label>
+              <label className="field-label" htmlFor="email">Email</label>
               <input
                 id="email"
                 type="email"
@@ -82,9 +84,7 @@ export default function LoginPage() {
             </div>
 
             <div className="field-group">
-              <label className="field-label" htmlFor="password">
-                Password
-              </label>
+              <label className="field-label" htmlFor="password">Password</label>
               <input
                 id="password"
                 type="password"
@@ -96,11 +96,11 @@ export default function LoginPage() {
               />
             </div>
 
-            {error ? (
+            {error && (
               <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
                 {error}
               </div>
-            ) : null}
+            )}
 
             <button type="submit" className="btn btn-primary" disabled={loading}>
               {loading ? "Logging in…" : "Log in"}
@@ -108,7 +108,7 @@ export default function LoginPage() {
           </form>
 
           <p className="text-center text-sm text-[var(--muted)]">
-            Don&apos;t have an account?{" "}
+            Don’t have an account?{" "}
             <Link href="/auth/signup" className="text-[var(--brand1)] hover:underline">
               Create one
             </Link>
