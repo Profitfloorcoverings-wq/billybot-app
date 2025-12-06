@@ -24,9 +24,16 @@ export default function NewCustomerPage() {
     setLoading(true);
 
     try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const profileId = userData?.user?.id;
+
+      if (userError || !profileId) {
+        throw new Error(userError?.message || "No user found");
+      }
+
       const { error: insertError } = await supabase.from("customers").insert([
         {
-          profile_id: "19b639a4-6e14-4c69-9ddf-04d371a3e45b",
+          profile_id: profileId,
           customer_name: customerName,
           contact_name: contactName,
           address,

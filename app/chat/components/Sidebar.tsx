@@ -2,13 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { createClient } from "@/utils/supabase/client";
 
 const navItems = [
   { label: "Chat", href: "/chat" },
   { label: "Quotes", href: "/quotes", watchQuotes: true },
   { label: "Customers", href: "/customers" },
-  { label: "Pricing", href: "/settings" },
+  { label: "Jobs", href: "/jobs" },
+  { label: "Settings", href: "/settings" },
   { label: "Account", href: "/account" },
 ];
 
@@ -16,7 +19,9 @@ const QUOTES_LAST_VIEWED_KEY = "quotes_last_viewed_at";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const supabase = useMemo(() => createClient(), []);
   const [hasNewQuote, setHasNewQuote] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   const checkLatestQuote = useCallback(async () => {
     try {
@@ -61,6 +66,25 @@ export default function Sidebar() {
     }
   }, [pathname, checkLatestQuote]);
 
+  useEffect(() => {
+    async function syncSession() {
+      const { data } = await supabase.auth.getSession();
+      setIsAuthenticated(!!data.session?.user);
+    }
+
+    void syncSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
+      setIsAuthenticated(!!session?.user);
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const showNav = !!isAuthenticated;
+
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
@@ -70,33 +94,35 @@ export default function Sidebar() {
         </span>
       </div>
 
-      <nav className="sidebar-nav">
-        {navItems.map((item) => {
-          const active = pathname === item.href;
-          const showNew = item.watchQuotes && hasNewQuote && pathname !== item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={
-                active ? "sidebar-link sidebar-link-active" : "sidebar-link"
-              }
-              onClick={() => {
-                if (item.watchQuotes) {
-                  const now = new Date().toISOString();
-                  localStorage.setItem(QUOTES_LAST_VIEWED_KEY, now);
-                  setHasNewQuote(false);
+      {showNav ? (
+        <nav className="sidebar-nav">
+          {navItems.map((item) => {
+            const active = pathname === item.href;
+            const showNew = item.watchQuotes && hasNewQuote && pathname !== item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={
+                  active ? "sidebar-link sidebar-link-active" : "sidebar-link"
                 }
-              }}
-            >
-              <span className="sidebar-link-inner">
-                <span>{item.label}</span>
-                {showNew ? <span className="sidebar-new-dot" aria-hidden="true" /> : null}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
+                onClick={() => {
+                  if (item.watchQuotes) {
+                    const now = new Date().toISOString();
+                    localStorage.setItem(QUOTES_LAST_VIEWED_KEY, now);
+                    setHasNewQuote(false);
+                  }
+                }}
+              >
+                <span className="sidebar-link-inner">
+                  <span>{item.label}</span>
+                  {showNew ? <span className="sidebar-new-dot" aria-hidden="true" /> : null}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
 
       <div className="sidebar-footer">
         <span className="sidebar-tag">Admin gone. Quotes done.</span>

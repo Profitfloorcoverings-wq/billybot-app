@@ -19,11 +19,10 @@ function persistSession(session: Session | null) {
   }
 }
 
-export default function SignUpPage() {
+export default function LoginPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const [businessName, setBusinessName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -35,30 +34,13 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (signUpError) {
-        throw signUpError;
-      }
-
-      const user = data?.user;
-
-      if (!user) {
-        throw new Error("Signup succeeded but no user was returned.");
-      }
-
-      const { error: insertError } = await supabase.from("clients").insert({
-        id: user.id,
-        business_name: businessName,
-        email,
-        created_at: new Date().toISOString(),
-      });
-
-      if (insertError) {
-        throw insertError;
+      if (signInError) {
+        throw signInError;
       }
 
       persistSession(data.session ?? null);
@@ -67,7 +49,7 @@ export default function SignUpPage() {
       setError(
         err && typeof err === "object" && "message" in err
           ? String((err as { message?: string }).message)
-          : "Unable to sign up"
+          : "Unable to log in"
       );
     } finally {
       setLoading(false);
@@ -79,25 +61,11 @@ export default function SignUpPage() {
       <div className="w-full max-w-xl">
         <div className="card stack gap-6">
           <div className="stack gap-1 text-center">
-            <h1 className="section-title">Create your BillyBot account</h1>
-            <p className="section-subtitle">Sign up to get started</p>
+            <h1 className="section-title">Welcome back</h1>
+            <p className="section-subtitle">Log in to continue chatting</p>
           </div>
 
           <form onSubmit={handleSubmit} className="stack gap-4">
-            <div className="field-group">
-              <label className="field-label" htmlFor="business_name">
-                Business name
-              </label>
-              <input
-                id="business_name"
-                className="input-fluid"
-                value={businessName}
-                onChange={(e) => setBusinessName(e.target.value)}
-                placeholder="BillyBot Builders"
-                required
-              />
-            </div>
-
             <div className="field-group">
               <label className="field-label" htmlFor="email">
                 Email
@@ -135,14 +103,14 @@ export default function SignUpPage() {
             ) : null}
 
             <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? "Creating account…" : "Create account"}
+              {loading ? "Logging in…" : "Log in"}
             </button>
           </form>
 
           <p className="text-center text-sm text-[var(--muted)]">
-            Already have an account?{" "}
-            <Link href="/auth/login" className="text-[var(--brand1)] hover:underline">
-              Log in
+            Don&apos;t have an account?{" "}
+            <Link href="/auth/signup" className="text-[var(--brand1)] hover:underline">
+              Create one
             </Link>
           </p>
         </div>
