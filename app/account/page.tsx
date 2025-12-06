@@ -57,7 +57,7 @@ export default function AccountPage() {
   }, [supabase]);
 
   const handleLogout = async () => {
-    await fetch("/auth/logout", { method: "POST" });
+    await fetch("/auth/logout", { method: "GET" });
     router.push("/auth/login");
   };
 
