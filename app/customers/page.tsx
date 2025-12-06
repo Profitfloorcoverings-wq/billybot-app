@@ -1,11 +1,9 @@
 "use client";
-
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-
 import { createClient } from "@supabase/supabase-js";
 
 type Customer = {
@@ -33,8 +31,9 @@ export default function CustomersPage() {
     return createClient(supabaseUrl, supabaseAnonKey);
   }, []);
 
+  // LOAD CUSTOMERS
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) return; // Fixes "possibly null" error
 
     let active = true;
 
@@ -49,7 +48,6 @@ export default function CustomersPage() {
           .order("customer_name", { ascending: true });
 
         if (error) throw error;
-
         if (active) setCustomers(data || []);
       } catch (err: any) {
         if (active) setError(err.message);
@@ -64,18 +62,21 @@ export default function CustomersPage() {
     };
   }, [supabase]);
 
+  // Client-side filtering
   const filteredCustomers = useMemo(() => {
     if (!search.trim()) return customers;
-    const query = search.toLowerCase();
-    return customers.filter((customer) => {
+
+    const q = search.toLowerCase();
+
+    return customers.filter((c) => {
       const fields = [
-        customer.customer_name,
-        customer.contact_name,
-        customer.email,
-        customer.phone,
-        customer.mobile,
+        c.customer_name,
+        c.contact_name,
+        c.email,
+        c.phone,
+        c.mobile,
       ];
-      return fields.some((value) => value?.toLowerCase().includes(query));
+      return fields.some((v) => v?.toLowerCase().includes(q));
     });
   }, [customers, search]);
 
@@ -90,6 +91,7 @@ export default function CustomersPage() {
             Keep every customer organised, searchable, and ready for your next job.
           </p>
         </div>
+
         <Link href="/customers/new" className="btn btn-primary">
           Add Customer
         </Link>
@@ -106,6 +108,7 @@ export default function CustomersPage() {
               placeholder="Search by name, contact, phone, or email"
             />
           </div>
+
           <div className="tag">{customers.length} total</div>
         </div>
 
@@ -118,9 +121,7 @@ export default function CustomersPage() {
             <span className="text-right">View</span>
           </div>
 
-          {loading && (
-            <div className="empty-state">Loading customers…</div>
-          )}
+          {loading && <div className="empty-state">Loading customers…</div>}
 
           {error && !loading && (
             <div className="empty-state" style={{ color: "#fca5a5" }}>
@@ -154,18 +155,20 @@ export default function CustomersPage() {
                       {customer.contact_name || "No contact"}
                     </p>
                   </div>
+
                   <p className="text-sm text-[var(--muted)] hidden md:block">
                     {customer.contact_name || "—"}
                   </p>
+
                   <p className="text-sm text-[var(--muted)] truncate">
                     {customer.email || "—"}
                   </p>
+
                   <p className="text-sm text-[var(--muted)]">
                     {customer.phone || customer.mobile || "—"}
                   </p>
-                  <div className="flex items-center justify-end text-[var(--muted)]">
-                    →
-                  </div>
+
+                  <div className="flex items-center justify-end text-[var(--muted)]">→</div>
                 </button>
               ))}
             </div>
