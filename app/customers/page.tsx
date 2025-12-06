@@ -32,6 +32,11 @@ export default function CustomersPage() {
     return createClient(supabaseUrl!, supabaseAnonKey!);
   }, []);
 
+  console.log(
+  "CUSTOMERS PAGE SUPABASE ENVS",
+  { supabaseUrl, hasAnonKey: !!supabaseAnonKey }
+);
+
   useEffect(() => {
     if (!supabase) {
       setError("Missing Supabase environment variables");
