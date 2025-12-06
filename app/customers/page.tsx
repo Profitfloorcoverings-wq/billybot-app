@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 "use client";
 
 import Link from "next/link";
@@ -5,10 +6,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
 
 type Customer = {
   id: string;
@@ -27,7 +24,17 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  const supabase = useMemo(() => {
+    if (!supabaseUrl || !supabaseAnonKey) return null;
+    return createClient(supabaseUrl, supabaseAnonKey);
+  }, []);
+
   useEffect(() => {
+    if (!supabase) return;
+
     let active = true;
 
     async function load() {
@@ -54,7 +61,7 @@ export default function CustomersPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [supabase]);
 
   const filteredCustomers = useMemo(() => {
     if (!search.trim()) return customers;
