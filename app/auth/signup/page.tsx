@@ -62,7 +62,7 @@ export default function SignUpPage() {
       }
 
       persistSession(data.session ?? null);
-      router.push("/settings");
+      router.push("/pricing");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err

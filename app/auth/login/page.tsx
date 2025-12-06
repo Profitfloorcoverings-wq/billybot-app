@@ -48,7 +48,7 @@ export default function LoginPage() {
       persistSession(data.session ?? null);
 
       // Redirect user
-      router.replace("/settings");
+      router.replace("/pricing");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
