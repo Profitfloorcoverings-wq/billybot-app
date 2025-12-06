@@ -8,8 +8,8 @@ const navItems = [
   { label: "Chat", href: "/chat" },
   { label: "Quotes", href: "/quotes", watchQuotes: true },
   { label: "Customers", href: "/customers" },
-  { label: "Jobs", href: "/jobs" },
-  { label: "Settings", href: "/settings" },
+  { label: "Pricing", href: "/settings" },
+  { label: "Account", href: "/account" },
 ];
 
 const QUOTES_LAST_VIEWED_KEY = "quotes_last_viewed_at";

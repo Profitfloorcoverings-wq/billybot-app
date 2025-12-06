@@ -31,10 +31,10 @@ useEffect(() => {
     setLoading(true);
 
     // TEMP FIX: Hard-code your profile ID here
-    const hardCodedProfileId = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
+    const profile_id = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
 
     try {
-      const data = await fetchCustomers(hardCodedProfileId);
+      const data = await fetchCustomers(profile_id);
       if (active) setCustomers(data);
     } catch (err: any) {
       if (active) setError(err.message);
