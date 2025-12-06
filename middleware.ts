@@ -52,7 +52,7 @@ export async function middleware(req: NextRequest) {
     const { data: clientProfile } = await supabase
       .from("clients")
       .select("is_onboarded")
-      .eq("user_id", session.user.id)
+      .eq("id", session.user.id)
       .maybeSingle();
 
     isOnboarded = clientProfile?.is_onboarded ?? false;

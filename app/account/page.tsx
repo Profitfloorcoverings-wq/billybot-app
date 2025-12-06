@@ -60,7 +60,7 @@ export default function AccountPage() {
           .select(
             "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
           )
-          .eq("user_id", userData.user.id)
+          .eq("id", userData.user.id)
           .maybeSingle();
 
         if (clientError) {
@@ -107,7 +107,7 @@ export default function AccountPage() {
       }
 
       const { error: upsertError } = await supabase.from("clients").upsert({
-        user_id: userData.user.id,
+        id: userData.user.id,
         ...profile,
         is_onboarded: true,
       });
