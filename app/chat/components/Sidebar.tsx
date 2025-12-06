@@ -73,7 +73,7 @@ export default function Sidebar() {
 
     void syncSession();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event: string, session) => {
       setIsAuthenticated(!!session?.user);
     });
 
