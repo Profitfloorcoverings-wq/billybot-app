@@ -36,11 +36,15 @@ export default function AccountPage() {
 
   const [profile, setProfile] = useState<ClientProfile>(EMPTY_PROFILE);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [userId, setUserId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loadingPortal, setLoadingPortal] = useState(false);
+  const [isSageConnected, setIsSageConnected] = useState(false);
+  const [isXeroConnected, setIsXeroConnected] = useState(false);
+  const [isQuickBooksConnected, setIsQuickBooksConnected] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -55,7 +59,31 @@ export default function AccountPage() {
           return;
         }
 
+        setUserId(userData.user.id);
         setUserEmail(userData.user.email ?? "");
+
+        const [{ data: sage }, { data: xero }, { data: quickbooks }] =
+          await Promise.all([
+            supabase
+              .from("sage_connections")
+              .select("id")
+              .eq("user_id", userData.user.id)
+              .maybeSingle(),
+            supabase
+              .from("xero_connections")
+              .select("id")
+              .eq("user_id", userData.user.id)
+              .maybeSingle(),
+            supabase
+              .from("quickbooks_connections")
+              .select("id")
+              .eq("user_id", userData.user.id)
+              .maybeSingle(),
+          ]);
+
+        setIsSageConnected(Boolean(sage?.id));
+        setIsXeroConnected(Boolean(xero?.id));
+        setIsQuickBooksConnected(Boolean(quickbooks?.id));
 
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
@@ -132,6 +160,13 @@ export default function AccountPage() {
 
   function updateField(key: keyof ClientProfile, value: string) {
     setProfile((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleConnect(service: "sage" | "xero" | "quickbooks") {
+    if (!userId) return;
+
+    const url = `https://tradiebrain.app.n8n.cloud/webhook/start-oauth?service=${service}&user_id=${userId}`;
+    window.location.href = url;
   }
 
   async function handleManageBilling() {
@@ -324,6 +359,43 @@ export default function AccountPage() {
         >
           {loadingPortal ? "Loading…" : "Manage subscription"}
         </button>
+      </div>
+
+      <h2 className="section-title mt-10">Linked Accounts</h2>
+      <p className="section-subtitle">
+        Connect your accounting software so BillyBot can create quotes directly inside your system.
+      </p>
+
+      <div className="grid gap-4 mt-6">
+        <div className="card flex justify-between items-center p-4">
+          <div>
+            <h3 className="font-semibold">Sage</h3>
+            <p className="text-sm opacity-70">{isSageConnected ? "Connected" : "Not connected"}</p>
+          </div>
+          <button className="btn btn-primary" onClick={() => handleConnect("sage")}>
+            {isSageConnected ? "Reconnect" : "Connect"}
+          </button>
+        </div>
+
+        <div className="card flex justify-between items-center p-4">
+          <div>
+            <h3 className="font-semibold">Xero</h3>
+            <p className="text-sm opacity-70">{isXeroConnected ? "Connected" : "Not connected"}</p>
+          </div>
+          <button className="btn btn-primary" onClick={() => handleConnect("xero")}>
+            {isXeroConnected ? "Reconnect" : "Connect"}
+          </button>
+        </div>
+
+        <div className="card flex justify-between items-center p-4">
+          <div>
+            <h3 className="font-semibold">QuickBooks</h3>
+            <p className="text-sm opacity-70">{isQuickBooksConnected ? "Connected" : "Not connected"}</p>
+          </div>
+          <button className="btn btn-primary" onClick={() => handleConnect("quickbooks")}>
+            {isQuickBooksConnected ? "Reconnect" : "Connect"}
+          </button>
+        </div>
       </div>
 
       <div className="card stack gap-3 mt-4">
