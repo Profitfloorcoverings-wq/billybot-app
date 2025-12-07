@@ -11,6 +11,15 @@ const PROTECTED_ROUTES = [
   "/account",
 ];
 
+const PUBLIC_ROUTES = [
+  "/terms",
+  "/privacy",
+  "/legal/terms",
+  "/legal/privacy",
+  "/legal/dpa",
+  "/legal/eula",
+];
+
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
 
@@ -39,21 +48,28 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession();
 
   const pathname = req.nextUrl.pathname;
+
+  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+    return res;
+  }
+
   const isProtected = PROTECTED_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
 
   // --- ONBOARDING LOGIC ---
   let isOnboarded = true;
+  let isVerifiedAccuracyWarning = true;
 
   if (session?.user) {
     const { data: clientProfile } = await supabase
       .from("clients")
-      .select("is_onboarded")
+      .select("is_onboarded, is_verified_accuracy_warning")
       .eq("id", session.user.id)
       .maybeSingle();
 
     isOnboarded = clientProfile?.is_onboarded ?? false;
+    isVerifiedAccuracyWarning = clientProfile?.is_verified_accuracy_warning ?? false;
   }
 
   const onboardingExemptRoutes = [
@@ -61,6 +77,10 @@ export async function middleware(req: NextRequest) {
     "/auth/login",
     "/auth/signup",
   ];
+
+  const verificationWarningRoute = "/account/verification-warning";
+
+  const isVerificationWarningRoute = pathname.startsWith(verificationWarningRoute);
 
   const isOnboardingRoute = onboardingExemptRoutes.some((route) =>
     pathname.startsWith(route)
@@ -75,6 +95,11 @@ export async function middleware(req: NextRequest) {
   // User logged in but NOT onboarded → force into setup flow
   if (session && !isOnboarded && !isOnboardingRoute) {
     const redirectUrl = new URL("/account/setup", req.url);
+    return NextResponse.redirect(redirectUrl, { headers: res.headers });
+  }
+
+  if (session && isOnboarded && !isVerifiedAccuracyWarning && !isVerificationWarningRoute) {
+    const redirectUrl = new URL(verificationWarningRoute, req.url);
     return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 

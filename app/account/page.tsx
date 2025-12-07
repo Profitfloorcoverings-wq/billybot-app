@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -323,6 +324,39 @@ export default function AccountPage() {
         >
           {loadingPortal ? "Loading…" : "Manage subscription"}
         </button>
+      </div>
+
+      <div className="card stack gap-3">
+        <h2 className="section-title text-2xl">Legal</h2>
+        <div className="stack">
+          <Link
+            href="/legal/terms"
+            className="text-[var(--brand1)] font-semibold hover:underline"
+          >
+            Terms of Service
+          </Link>
+          <Link
+            href="/legal/privacy"
+            className="text-[var(--brand1)] font-semibold hover:underline"
+          >
+            Privacy Policy
+          </Link>
+          <Link
+            href="/legal/dpa"
+            className="text-[var(--brand1)] font-semibold hover:underline"
+          >
+            Data Processing Agreement
+          </Link>
+          <Link
+            href="/legal/eula"
+            className="text-[var(--brand1)] font-semibold hover:underline"
+          >
+            EULA
+          </Link>
+        </div>
+        <p className="text-xs text-[var(--muted)]">
+          By using BillyBot you agree to our Terms, Privacy Policy, DPA and EULA.
+        </p>
       </div>
     </div>
   );

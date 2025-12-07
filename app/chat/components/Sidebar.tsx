@@ -13,6 +13,10 @@ const navItems = [
   { label: "Pricing", href: "/pricing" },
   { label: "Requests", href: "/requests" },
   { label: "Account", href: "/account" },
+  { label: "Terms of Service", href: "/legal/terms" },
+  { label: "Privacy Policy", href: "/legal/privacy" },
+  { label: "Data Processing Agreement", href: "/legal/dpa" },
+  { label: "EULA", href: "/legal/eula" },
 ];
 
 const QUOTES_LAST_VIEWED_KEY = "quotes_last_viewed_at";
