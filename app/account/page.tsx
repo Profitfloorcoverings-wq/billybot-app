@@ -315,11 +315,11 @@ export default function AccountPage() {
         ) : null}
       </div>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end mt-6">
         <button
           onClick={handleManageBilling}
           disabled={loadingPortal}
-          className="mt-6 px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium"
+          className="btn btn-primary"
         >
           {loadingPortal ? "Loading…" : "Manage subscription"}
         </button>
