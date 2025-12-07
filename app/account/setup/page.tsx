@@ -104,7 +104,7 @@ export default function AccountSetupPage() {
         throw upsertError;
       }
 
-      router.push("/chat");
+      router.push("/account/accept-terms");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err

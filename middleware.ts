@@ -51,19 +51,22 @@ export async function middleware(req: NextRequest) {
 
   // --- ONBOARDING LOGIC ---
   let isOnboarded = true;
+  let termsAccepted = true;
 
   if (session?.user) {
     const { data: clientProfile } = await supabase
       .from("clients")
-      .select("is_onboarded")
+      .select("is_onboarded, terms_accepted")
       .eq("id", session.user.id)
       .maybeSingle();
 
     isOnboarded = clientProfile?.is_onboarded ?? false;
+    termsAccepted = clientProfile?.terms_accepted ?? false;
   }
 
   const onboardingExemptRoutes = [
     "/account/setup",
+    "/account/accept-terms",
     "/auth/login",
     "/auth/signup",
   ];
@@ -81,6 +84,11 @@ export async function middleware(req: NextRequest) {
   // User logged in but NOT onboarded → force into setup flow
   if (session && !isOnboarded && !isOnboardingRoute) {
     const redirectUrl = new URL("/account/setup", req.url);
+    return NextResponse.redirect(redirectUrl, { headers: res.headers });
+  }
+
+  if (session && isOnboarded && !termsAccepted && !isOnboardingRoute) {
+    const redirectUrl = new URL("/account/accept-terms", req.url);
     return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 
