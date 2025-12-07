@@ -36,11 +36,15 @@ export default function AccountPage() {
 
   const [profile, setProfile] = useState<ClientProfile>(EMPTY_PROFILE);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [userId, setUserId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loadingPortal, setLoadingPortal] = useState(false);
+  const [isSageConnected, setIsSageConnected] = useState(false);
+  const [isXeroConnected, setIsXeroConnected] = useState(false);
+  const [isQuickBooksConnected, setIsQuickBooksConnected] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -55,7 +59,31 @@ export default function AccountPage() {
           return;
         }
 
+        setUserId(userData.user.id);
         setUserEmail(userData.user.email ?? "");
+
+        const [{ data: sage }, { data: xero }, { data: quickbooks }] =
+          await Promise.all([
+            supabase
+              .from("sage_connections")
+              .select("id")
+              .eq("user_id", userData.user.id)
+              .maybeSingle(),
+            supabase
+              .from("xero_connections")
+              .select("id")
+              .eq("user_id", userData.user.id)
+              .maybeSingle(),
+            supabase
+              .from("quickbooks_connections")
+              .select("id")
+              .eq("user_id", userData.user.id)
+              .maybeSingle(),
+          ]);
+
+        setIsSageConnected(Boolean(sage?.id));
+        setIsXeroConnected(Boolean(xero?.id));
+        setIsQuickBooksConnected(Boolean(quickbooks?.id));
 
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
@@ -134,6 +162,13 @@ export default function AccountPage() {
     setProfile((prev) => ({ ...prev, [key]: value }));
   }
 
+  function handleConnect(service: "sage" | "xero" | "quickbooks") {
+    if (!userId) return;
+
+    const url = `https://tradiebrain.app.n8n.cloud/webhook/start-oauth?service=${service}&user_id=${userId}`;
+    window.location.href = url;
+  }
+
   async function handleManageBilling() {
     try {
       setLoadingPortal(true);
@@ -157,10 +192,16 @@ export default function AccountPage() {
     }
   }
 
+  const providerConfigs: { key: "sage" | "xero" | "quickbooks"; label: string; connected: boolean }[] = [
+    { key: "sage", label: "Sage", connected: isSageConnected },
+    { key: "xero", label: "Xero", connected: isXeroConnected },
+    { key: "quickbooks", label: "QuickBooks", connected: isQuickBooksConnected },
+  ];
+
   return (
-    <div className="page-container">
+    <div className="page-container stack gap-6">
       <div className="section-header">
-        <div className="stack">
+        <div className="stack gap-1">
           <h1 className="section-title">Account</h1>
           <p className="section-subtitle">Manage your profile and sign out.</p>
         </div>
@@ -169,31 +210,42 @@ export default function AccountPage() {
         </button>
       </div>
 
-      <div className="card stack gap-6">
+      <div className="card stack gap-4">
+        <div className="stack gap-1">
+          <h2 className="section-title">Profile Information</h2>
+          <p className="section-subtitle">Your account identity and onboarding status.</p>
+        </div>
+
+        <div className="inline-flex items-center rounded-full px-3 py-1 text-xs bg-white/10 text-white/80 w-fit">
+          {profile.is_onboarded ? "Onboarded" : "Not onboarded"}
+        </div>
+
         {loading ? <p className="section-subtitle">Loading account…</p> : null}
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
-        {success ? (
-          <p className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/40 rounded-lg p-3">
-            {success}
-          </p>
+        {success ? <p className="text-sm text-emerald-300">{success}</p> : null}
+
+        {!loading && !error ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="stack gap-1">
+              <p className="section-subtitle">Email</p>
+              <p className="text-base font-semibold">{userEmail || "—"}</p>
+            </div>
+            <div className="stack gap-1">
+              <p className="section-subtitle">User ID</p>
+              <p className="text-sm font-mono break-all">{userId}</p>
+            </div>
+          </div>
         ) : null}
+      </div>
+
+      <div className="card stack gap-4">
+        <div className="stack gap-1">
+          <h2 className="section-title">Business Information</h2>
+          <p className="section-subtitle">Update the details used across your quotes.</p>
+        </div>
 
         {!loading && !error ? (
           <form onSubmit={handleSubmit} className="stack gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="stack">
-                <p className="section-subtitle">Email</p>
-                <p className="text-lg font-semibold text-white">{userEmail || "—"}</p>
-              </div>
-
-              <div className="stack">
-                <p className="section-subtitle">Status</p>
-                <p className="text-lg font-semibold text-white">
-                  {profile.is_onboarded ? "Onboarded" : "Not onboarded"}
-                </p>
-              </div>
-            </div>
-
             <div className="grid gap-4 md:grid-cols-2">
               <div className="field-group">
                 <label className="field-label" htmlFor="business_name">
@@ -304,11 +356,7 @@ export default function AccountPage() {
             </div>
 
             <div className="flex justify-end">
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={saving || loading}
-              >
+              <button type="submit" className="btn btn-primary" disabled={saving || loading}>
                 {saving ? "Saving..." : "Save changes"}
               </button>
             </div>
@@ -316,30 +364,65 @@ export default function AccountPage() {
         ) : null}
       </div>
 
-      <div className="flex justify-end mt-6">
-        <button
-          onClick={handleManageBilling}
-          disabled={loadingPortal}
-          className="btn btn-primary"
-        >
+      <div className="card stack gap-4">
+        <div className="stack gap-1">
+          <h2 className="section-title">Linked Accounts</h2>
+          <p className="section-subtitle">
+            Connect your accounting software so BillyBot can create quotes inside your system.
+          </p>
+        </div>
+
+        <div className="stack gap-3">
+          {providerConfigs.map((provider) => (
+            <div
+              key={provider.key}
+              className="flex items-center justify-between rounded-lg border border-white/10 px-4 py-3"
+            >
+              <div className="stack gap-1">
+                <p className="font-semibold">{provider.label}</p>
+                <p className="section-subtitle">
+                  {provider.connected ? "Connected" : "Not connected"}
+                </p>
+              </div>
+              <button className="btn btn-primary" onClick={() => handleConnect(provider.key)}>
+                {provider.connected ? "Reconnect" : "Connect"}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card stack gap-4">
+        <div className="stack gap-1">
+          <h2 className="section-title">Subscription</h2>
+          <p className="section-subtitle">Manage your billing and plan details.</p>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="inline-flex items-center rounded-full px-3 py-1 text-xs bg-white/10 text-white/80">
+            Premium access
+          </div>
+        </div>
+
+        <button onClick={handleManageBilling} disabled={loadingPortal} className="btn btn-primary w-full">
           {loadingPortal ? "Loading…" : "Manage subscription"}
         </button>
       </div>
 
-      <div className="card stack gap-3 mt-4">
-        <p className="section-subtitle">Legal</p>
-        <div className="stack">
-          <Link
-            href="/terms"
-            className="font-semibold text-indigo-200 transition hover:text-white"
-          >
-            Terms of Service
+      <div className="card stack gap-4">
+        <div className="stack gap-1">
+          <h2 className="section-title">Legal</h2>
+          <p className="section-subtitle">Important documents for using BillyBot.</p>
+        </div>
+
+        <div className="stack gap-3">
+          <Link href="/legal/terms" className="flex items-center justify-between">
+            <span className="font-semibold">Terms of Service</span>
+            <span className="section-subtitle">View</span>
           </Link>
-          <Link
-            href="/privacy"
-            className="font-semibold text-indigo-200 transition hover:text-white"
-          >
-            Privacy Policy
+          <Link href="/legal/privacy" className="flex items-center justify-between">
+            <span className="font-semibold">Privacy Policy</span>
+            <span className="section-subtitle">View</span>
           </Link>
         </div>
       </div>
