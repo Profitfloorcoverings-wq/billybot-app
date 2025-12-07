@@ -39,6 +39,7 @@ export default function AccountPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [loadingPortal, setLoadingPortal] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -130,6 +131,29 @@ export default function AccountPage() {
 
   function updateField(key: keyof ClientProfile, value: string) {
     setProfile((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleManageBilling() {
+    try {
+      setLoadingPortal(true);
+
+      const res = await fetch("/api/billing/manage", {
+        method: "POST",
+      });
+
+      const data = await res.json();
+
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        alert("Unable to open billing portal.");
+      }
+    } catch (err) {
+      console.error("Billing portal error:", err);
+      alert("Error opening billing portal.");
+    } finally {
+      setLoadingPortal(false);
+    }
   }
 
   return (
@@ -289,6 +313,16 @@ export default function AccountPage() {
             </div>
           </form>
         ) : null}
+      </div>
+
+      <div className="flex justify-end mt-6">
+        <button
+          onClick={handleManageBilling}
+          disabled={loadingPortal}
+          className="btn btn-primary"
+        >
+          {loadingPortal ? "Loading…" : "Manage subscription"}
+        </button>
       </div>
     </div>
   );
