@@ -39,6 +39,12 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession();
 
   const pathname = req.nextUrl.pathname;
+  const publicRoutes = ["/terms", "/privacy"];
+
+  if (publicRoutes.some((route) => pathname.startsWith(route))) {
+    return res;
+  }
+
   const isProtected = PROTECTED_ROUTES.some((route) =>
     pathname.startsWith(route)
   );

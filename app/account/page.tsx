@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/client";
@@ -323,6 +324,24 @@ export default function AccountPage() {
         >
           {loadingPortal ? "Loading…" : "Manage subscription"}
         </button>
+      </div>
+
+      <div className="card stack gap-3 mt-4">
+        <p className="section-subtitle">Legal</p>
+        <div className="stack">
+          <Link
+            href="/terms"
+            className="font-semibold text-indigo-200 transition hover:text-white"
+          >
+            Terms of Service
+          </Link>
+          <Link
+            href="/privacy"
+            className="font-semibold text-indigo-200 transition hover:text-white"
+          >
+            Privacy Policy
+          </Link>
+        </div>
       </div>
     </div>
   );
