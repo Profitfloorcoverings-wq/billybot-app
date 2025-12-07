@@ -11,6 +11,7 @@ const navItems = [
   { label: "Quotes", href: "/quotes", watchQuotes: true },
   { label: "Customers", href: "/customers" },
   { label: "Pricing", href: "/pricing" },
+  { label: "Requests", href: "/requests" },
   { label: "Account", href: "/account" },
 ];
 
