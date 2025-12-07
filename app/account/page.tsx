@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -323,6 +324,24 @@ export default function AccountPage() {
         >
           {loadingPortal ? "Loading…" : "Manage subscription"}
         </button>
+      </div>
+
+      <div className="card stack gap-3">
+        <h2 className="section-title text-2xl">Legal</h2>
+        <div className="stack">
+          <Link
+            href="/terms"
+            className="text-[var(--brand1)] font-semibold hover:underline"
+          >
+            Terms of Service
+          </Link>
+          <Link
+            href="/privacy"
+            className="text-[var(--brand1)] font-semibold hover:underline"
+          >
+            Privacy Policy
+          </Link>
+        </div>
       </div>
     </div>
   );

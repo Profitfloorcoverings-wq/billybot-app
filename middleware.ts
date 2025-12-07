@@ -11,6 +11,8 @@ const PROTECTED_ROUTES = [
   "/account",
 ];
 
+const PUBLIC_ROUTES = ["/terms", "/privacy"];
+
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
 
@@ -39,6 +41,11 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession();
 
   const pathname = req.nextUrl.pathname;
+
+  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
+    return res;
+  }
+
   const isProtected = PROTECTED_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
