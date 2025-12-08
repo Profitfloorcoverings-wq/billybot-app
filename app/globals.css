@@ -854,21 +854,22 @@ textarea::placeholder {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.14);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   padding: 6px;
-  box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.12);
+  box-shadow: none;
 }
 
 /* Logos */
 .integration-logo {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   object-fit: contain;
   display: block;
+  border-radius: 8px;
 }
 
 /* Text */

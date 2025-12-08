@@ -202,19 +202,19 @@ export default function AccountPage() {
       key: "sage",
       label: "Sage",
       connected: isSageConnected,
-      logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/sage.svg",
+      logo: "https://logos-world.net/wp-content/uploads/2021/08/Sage-Logo.png",
     },
     {
       key: "xero",
       label: "Xero",
       connected: isXeroConnected,
-      logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/xero.svg",
+      logo: "https://download.logo.wine/logo/Xero_(software)/Xero_(software)-Logo.wine.png",
     },
     {
       key: "quickbooks",
       label: "QuickBooks",
       connected: isQuickBooksConnected,
-      logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/intuitquickbooks.svg",
+      logo: "https://download.logo.wine/logo/QuickBooks/QuickBooks-Logo.wine.png",
     },
   ];
 
