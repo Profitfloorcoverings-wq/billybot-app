@@ -192,10 +192,15 @@ export default function AccountPage() {
     }
   }
 
-  const providerConfigs: { key: "sage" | "xero" | "quickbooks"; label: string; connected: boolean }[] = [
-    { key: "sage", label: "Sage", connected: isSageConnected },
-    { key: "xero", label: "Xero", connected: isXeroConnected },
-    { key: "quickbooks", label: "QuickBooks", connected: isQuickBooksConnected },
+  const providerConfigs: {
+    key: "sage" | "xero" | "quickbooks";
+    label: string;
+    connected: boolean;
+    logo: string;
+  }[] = [
+    { key: "sage", label: "Sage", connected: isSageConnected, logo: "/sage.svg" },
+    { key: "xero", label: "Xero", connected: isXeroConnected, logo: "/xero.svg" },
+    { key: "quickbooks", label: "QuickBooks", connected: isQuickBooksConnected, logo: "/quickbooks.svg" },
   ];
 
   return (
@@ -374,16 +379,23 @@ export default function AccountPage() {
 
         <div className="stack gap-3">
           {providerConfigs.map((provider) => (
-            <div
-              key={provider.key}
-              className="flex items-center justify-between rounded-lg border border-white/10 px-4 py-3"
-            >
-              <div className="stack gap-1">
-                <p className="font-semibold">{provider.label}</p>
-                <p className="section-subtitle">
-                  {provider.connected ? "Connected" : "Not connected"}
-                </p>
+            <div key={provider.key} className="linked-account-badge">
+              <div className="linked-account-badge-left">
+                <div className="linked-account-badge-logo-wrap">
+                  <img
+                    src={provider.logo}
+                    alt={`${provider.label} logo`}
+                    className="linked-account-badge-logo"
+                  />
+                </div>
+                <div className="linked-account-badge-text">
+                  <p className="linked-account-badge-title">{provider.label}</p>
+                  <p className="linked-account-badge-sub">
+                    {provider.connected ? "Connected" : "Not connected"}
+                  </p>
+                </div>
               </div>
+
               <button className="btn btn-primary" onClick={() => handleConnect(provider.key)}>
                 {provider.connected ? "Reconnect" : "Connect"}
               </button>
