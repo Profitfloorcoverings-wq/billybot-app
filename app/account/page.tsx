@@ -202,19 +202,19 @@ export default function AccountPage() {
       key: "sage",
       label: "Sage",
       connected: isSageConnected,
-      logo: "https://brandslogos.com/wp-content/uploads/images/sage-logo.png",
+      logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/sage.svg",
     },
     {
       key: "xero",
       label: "Xero",
       connected: isXeroConnected,
-      logo: "https://upload.wikimedia.org/wikipedia/commons/5/5d/Xero_software_logo.svg",
+      logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/xero.svg",
     },
     {
       key: "quickbooks",
       label: "QuickBooks",
       connected: isQuickBooksConnected,
-      logo: "https://upload.wikimedia.org/wikipedia/commons/8/8e/Intuit_QuickBooks_logo.svg",
+      logo: "https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/intuitquickbooks.svg",
     },
   ];
 
