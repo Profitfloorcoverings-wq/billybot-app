@@ -192,10 +192,30 @@ export default function AccountPage() {
     }
   }
 
-  const providerConfigs: { key: "sage" | "xero" | "quickbooks"; label: string; connected: boolean }[] = [
-    { key: "sage", label: "Sage", connected: isSageConnected },
-    { key: "xero", label: "Xero", connected: isXeroConnected },
-    { key: "quickbooks", label: "QuickBooks", connected: isQuickBooksConnected },
+  const providerConfigs: {
+    key: "sage" | "xero" | "quickbooks";
+    label: string;
+    connected: boolean;
+    logo: string;
+  }[] = [
+    {
+      key: "sage",
+      label: "Sage",
+      connected: isSageConnected,
+      logo: "https://brandslogos.com/wp-content/uploads/images/sage-logo.png",
+    },
+    {
+      key: "xero",
+      label: "Xero",
+      connected: isXeroConnected,
+      logo: "https://upload.wikimedia.org/wikipedia/commons/5/5d/Xero_software_logo.svg",
+    },
+    {
+      key: "quickbooks",
+      label: "QuickBooks",
+      connected: isQuickBooksConnected,
+      logo: "https://upload.wikimedia.org/wikipedia/commons/8/8e/Intuit_QuickBooks_logo.svg",
+    },
   ];
 
   return (
@@ -376,14 +396,25 @@ export default function AccountPage() {
           {providerConfigs.map((provider) => (
             <div
               key={provider.key}
-              className="flex items-center justify-between rounded-lg border border-white/10 px-4 py-3"
+              className={`integration-badge ${provider.connected ? "integration-connected" : ""}`}
             >
-              <div className="stack gap-1">
-                <p className="font-semibold">{provider.label}</p>
-                <p className="section-subtitle">
-                  {provider.connected ? "Connected" : "Not connected"}
-                </p>
+              <div className="integration-left">
+                <div className="integration-logo-wrap">
+                  <img
+                    src={provider.logo}
+                    alt={`${provider.label} logo`}
+                    className="integration-logo"
+                  />
+                </div>
+
+                <div className="integration-text">
+                  <p className="integration-title">{provider.label}</p>
+                  <p className="integration-sub">
+                    {provider.connected ? "Connected" : "Not connected"}
+                  </p>
+                </div>
               </div>
+
               <button className="btn btn-primary" onClick={() => handleConnect(provider.key)}>
                 {provider.connected ? "Reconnect" : "Connect"}
               </button>
