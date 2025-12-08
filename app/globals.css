@@ -817,3 +817,70 @@ textarea::placeholder {
     justify-content: flex-start;
   }
 }
+
+/* ENTERPRISE TRUST BADGE UI */
+.linked-account-badge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  background: radial-gradient(circle at top left, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 75%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.25);
+  transition: transform 0.12s ease, box-shadow 0.15s ease;
+}
+
+.linked-account-badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 22px rgba(37, 99, 235, 0.25);
+}
+
+.linked-account-badge-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.linked-account-badge-logo-wrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.linked-account-badge-logo {
+  width: 26px;
+  height: auto;
+  opacity: 0.95;
+}
+
+.linked-account-badge-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.linked-account-badge-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f3f4f6;
+}
+
+.linked-account-badge-sub {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  letter-spacing: 0.01em;
+}
+
+/* Prevent global stack/p styling from interfering */
+.linked-account-badge p {
+  margin: 0;
+  line-height: 1.25;
+}
