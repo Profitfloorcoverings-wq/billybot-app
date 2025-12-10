@@ -196,11 +196,10 @@ export default function AccountPage() {
     key: "sage" | "xero" | "quickbooks";
     label: string;
     connected: boolean;
-    logo: string;
   }[] = [
-    { key: "sage", label: "Sage", connected: isSageConnected, logo: "/sage.svg" },
-    { key: "xero", label: "Xero", connected: isXeroConnected, logo: "/xero.svg" },
-    { key: "quickbooks", label: "QuickBooks", connected: isQuickBooksConnected, logo: "/quickbooks.svg" },
+    { key: "sage", label: "Sage", connected: isSageConnected },
+    { key: "xero", label: "Xero", connected: isXeroConnected },
+    { key: "quickbooks", label: "QuickBooks", connected: isQuickBooksConnected },
   ];
 
   return (
@@ -381,13 +380,6 @@ export default function AccountPage() {
           {providerConfigs.map((provider) => (
             <div key={provider.key} className="linked-account-badge">
               <div className="linked-account-badge-left">
-                <div className="linked-account-badge-logo-wrap">
-                  <img
-                    src={provider.logo}
-                    alt={`${provider.label} logo`}
-                    className="linked-account-badge-logo"
-                  />
-                </div>
                 <div className="linked-account-badge-text">
                   <p className="linked-account-badge-title">{provider.label}</p>
                   <p className="linked-account-badge-sub">
