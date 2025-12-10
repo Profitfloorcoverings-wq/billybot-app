@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { createClient } from "@/utils/supabase/client";
 
 type BooleanMap = Record<string, boolean>;
 type NumericMap = Record<string, string>;
-
 type MarkupMap = Record<
   string,
   {
@@ -13,76 +15,99 @@ type MarkupMap = Record<
   }
 >;
 
-const serviceOptions = [
-  "Domestic carpets",
-  "Commercial carpets",
-  "Carpet tiles",
-  "LVT",
-  "Domestic vinyl",
-  "Safety / commercial vinyl",
-  "Laminate",
-  "Solid or engineered wood",
-  "Altro Whiterock (wall cladding)",
-  "Ceramic tiles",
+type ServiceOption = { label: string; column: string };
+type MarkupOption = {
+  label: string;
+  valueColumn: string;
+  typeColumn: string;
+};
+type NumericField = { label: string; column: string };
+
+const serviceOptions: ServiceOption[] = [
+  { label: "Domestic carpets", column: "service_domestic_carpet" },
+  { label: "Commercial carpets", column: "service_commercial_carpet" },
+  { label: "Carpet tiles", column: "service_carpet_tiles" },
+  { label: "LVT", column: "service_lvt" },
+  { label: "Domestic vinyl", column: "service_domestic_vinyl" },
+  { label: "Safety / commercial vinyl", column: "service_commercial_vinyl" },
+  { label: "Altro Whiterock (wall cladding)", column: "service_wall_cladding" },
 ];
 
-const markupOptions = [
-  "Domestic carpet markup",
-  "Commercial carpet markup",
-  "Carpet tiles markup",
-  "LVT markup",
-  "Domestic vinyl markup",
-  "Safety vinyl markup",
-  "Laminate markup",
-  "Wood markup",
-  "Whiterock markup",
-  "Ceramic tiles markup",
+const markupOptions: MarkupOption[] = [
+  {
+    label: "Domestic carpet markup",
+    valueColumn: "markup_domestic_carpet_value",
+    typeColumn: "markup_domestic_carpet_type",
+  },
+  {
+    label: "Commercial carpet markup",
+    valueColumn: "markup_commercial_carpet_value",
+    typeColumn: "markup_commercial_carpet_type",
+  },
+  {
+    label: "Carpet tiles markup",
+    valueColumn: "markup_carpet_tiles_value",
+    typeColumn: "markup_carpet_tiles_type",
+  },
+  {
+    label: "LVT markup",
+    valueColumn: "markup_lvt_value",
+    typeColumn: "markup_lvt_type",
+  },
+  {
+    label: "Domestic vinyl markup",
+    valueColumn: "markup_domestic_vinyl_value",
+    typeColumn: "markup_domestic_vinyl_type",
+  },
+  {
+    label: "Safety vinyl markup",
+    valueColumn: "markup_commercial_vinyl_value",
+    typeColumn: "markup_commercial_vinyl_type",
+  },
+  {
+    label: "Whiterock markup",
+    valueColumn: "markup_wall_cladding_value",
+    typeColumn: "markup_wall_cladding_type",
+  },
 ];
 
-const materialPriceFields = [
-  "LVT material price per m²",
-  "Ceramic tiles material price per m²",
-  "Domestic carpet material price per m²",
-  "Commercial carpet material price per m²",
-  "Safety flooring material price per m²",
-  "Domestic vinyl material price per m²",
-  "Commercial vinyl material price per m²",
-  "Carpet tiles material price per m²",
-  "Wall cladding material price per m²",
-  "Gripper material price per metre",
-  "Underlay material price per m²",
-  "Coved skirting material price per metre",
-  "Weld rod material price per roll",
-  "Adhesive material price per m²",
-  "Ply board material price per m²",
-  "Latex material price per m²",
-  "Door bars material price per metre",
-  "Stair nosings material price per metre",
-  "Entrance matting material price per m²",
+const materialPriceFields: NumericField[] = [
+  { label: "LVT material price per m²", column: "mat_lvt_m2" },
+  { label: "Ceramic tiles material price per m²", column: "mat_ceramic_tiles_m2" },
+  {
+    label: "Domestic carpet material price per m²",
+    column: "mat_domestic_carpet_m2",
+  },
+  {
+    label: "Commercial carpet material price per m²",
+    column: "mat_commercial_carpet_m2",
+  },
+  { label: "Safety flooring material price per m²", column: "mat_safety_m2" },
+  { label: "Domestic vinyl material price per m²", column: "mat_domestic_vinyl_m2" },
+  { label: "Commercial vinyl material price per m²", column: "mat_commercial_vinyl_m2" },
+  { label: "Wall cladding material price per m²", column: "mat_wall_cladding_m2" },
 ];
 
-const labourPriceFields = [
-  "Domestic carpet labour per m²",
-  "Commercial carpet labour per m²",
-  "LVT labour per m²",
-  "Ceramic tile labour per m²",
-  "Safety flooring labour per m²",
-  "Domestic vinyl labour per m²",
-  "Commercial vinyl labour per m²",
-  "Carpet tiles labour per m²",
-  "Wall cladding labour per m²",
-  "Coved skirting labour per metre",
-  "Ply boarding labour per m²",
-  "Latex labour per m²",
-  "Stair nosings labour per metre",
-  "Entrance matting labour per m²",
-  "General labour per m²",
-  "Uplift existing flooring labour per m²",
-  "Waste disposal labour per m²",
-  "Furniture removal labour per room",
+const labourPriceFields: NumericField[] = [
+  { label: "Domestic carpet labour per m²", column: "lab_domestic_carpet_m2" },
+  { label: "Commercial carpet labour per m²", column: "lab_commercial_carpet_m2" },
+  { label: "LVT labour per m²", column: "lab_lvt_m2" },
+  { label: "Ceramic tile labour per m²", column: "lab_ceramic_tiles_m2" },
+  { label: "Safety flooring labour per m²", column: "lab_safety_m2" },
+  { label: "Domestic vinyl labour per m²", column: "lab_domestic_vinyl_m2" },
+  { label: "Commercial vinyl labour per m²", column: "lab_commercial_vinyl_m2" },
+  { label: "Wall cladding labour per m²", column: "lab_wall_cladding_m2" },
+  { label: "Coved skirting labour per metre", column: "lab_coved_m" },
+  { label: "Ply boarding labour per m²", column: "lab_ply_m2" },
+  { label: "Latex labour per m²", column: "lab_latex_m2" },
 ];
 
-const smallJobFields = ["Minimum job charge", "Day rate per fitter"];
+const smallJobFields: NumericField[] = [
+  { label: "Minimum job charge", column: "small_job_charge" },
+  { label: "Day rate per fitter", column: "day_rate_per_fitter" },
+];
+
+const BREAKPOINT_DEFAULT = "[]";
 
 function createBooleanState(keys: string[]): BooleanMap {
   return keys.reduce<BooleanMap>((acc, key) => {
@@ -98,11 +123,21 @@ function createNumericState(keys: string[]): NumericMap {
   }, {});
 }
 
-function createMarkupState(keys: string[]): MarkupMap {
-  return keys.reduce<MarkupMap>((acc, key) => {
-    acc[key] = { value: "", type: "%" };
+function createMarkupState(options: MarkupOption[]): MarkupMap {
+  return options.reduce<MarkupMap>((acc, option) => {
+    acc[option.valueColumn] = { value: "", type: "%" };
     return acc;
   }, {});
+}
+
+function numberToInput(value?: number | null) {
+  return value === null || typeof value === "undefined" ? "" : String(value);
+}
+
+function toNumeric(value: string) {
+  if (!value && value !== "0") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function Toggle({
@@ -181,8 +216,11 @@ function NumberField({
 }
 
 export default function PricingPage() {
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+
   const [serviceToggles, setServiceToggles] = useState<BooleanMap>(() =>
-    createBooleanState(serviceOptions)
+    createBooleanState(serviceOptions.map((option) => option.column))
   );
 
   const [markupState, setMarkupState] = useState<MarkupMap>(() =>
@@ -190,30 +228,211 @@ export default function PricingPage() {
   );
 
   const [materialPrices, setMaterialPrices] = useState<NumericMap>(() =>
-    createNumericState(materialPriceFields)
+    createNumericState(materialPriceFields.map((field) => field.column))
   );
 
   const [labourPrices, setLabourPrices] = useState<NumericMap>(() =>
-    createNumericState(labourPriceFields)
+    createNumericState(labourPriceFields.map((field) => field.column))
   );
 
   const [smallJobs, setSmallJobs] = useState<NumericMap>(() =>
-    createNumericState(smallJobFields)
+    createNumericState(smallJobFields.map((field) => field.column))
   );
 
   const [breakpointsEnabled, setBreakpointsEnabled] = useState(false);
-  const [breakpointRules, setBreakpointRules] = useState(
-    "Lower per-m² rate after 50m²\nPremium after 5 rooms"
-  );
+  const [breakpointRules, setBreakpointRules] = useState(BREAKPOINT_DEFAULT);
   const [vatRegistered, setVatRegistered] = useState(true);
-  const [labourDisplay, setLabourDisplay] = useState<"split" | "main">(
-    "split"
-  );
+  const [labourDisplay, setLabourDisplay] = useState<"split" | "main">("split");
+  const [profileId, setProfileId] = useState<string | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
 
   const sortedServiceOptions = useMemo(
-    () => [...serviceOptions].sort((a, b) => a.localeCompare(b)),
+    () => [...serviceOptions].sort((a, b) => a.label.localeCompare(b.label)),
     []
   );
+
+  useEffect(() => {
+    async function loadSettings() {
+      setLoading(true);
+      setError(null);
+      setStatus(null);
+
+      const { data, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !data?.user) {
+        router.push("/auth/login");
+        return;
+      }
+
+      setProfileId(data.user.id);
+
+      const { data: settings, error: settingsError } = await supabase
+        .from("pricing_settings")
+        .select("*")
+        .eq("profile_id", data.user.id)
+        .maybeSingle();
+
+      if (settingsError) {
+        setError(settingsError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (settings) {
+        setVatRegistered(settings.vat_registered ?? true);
+        setLabourDisplay(settings.separate_labour === false ? "main" : "split");
+
+        setServiceToggles((prev) => {
+          const next = { ...prev };
+          serviceOptions.forEach(({ column }) => {
+            next[column] = settings[column] ?? prev[column];
+          });
+          return next;
+        });
+
+        setMarkupState((prev) => {
+          const next = { ...prev };
+          markupOptions.forEach(({ valueColumn, typeColumn }) => {
+            next[valueColumn] = {
+              value: numberToInput(settings[valueColumn]),
+              type: settings[typeColumn] === "£" ? "£" : "%",
+            };
+          });
+          return next;
+        });
+
+        setMaterialPrices((prev) => {
+          const next = { ...prev };
+          materialPriceFields.forEach(({ column }) => {
+            next[column] = numberToInput(settings[column]);
+          });
+          return next;
+        });
+
+        setLabourPrices((prev) => {
+          const next = { ...prev };
+          labourPriceFields.forEach(({ column }) => {
+            next[column] = numberToInput(settings[column]);
+          });
+          return next;
+        });
+
+        setSmallJobs((prev) => {
+          const next = { ...prev };
+          smallJobFields.forEach(({ column }) => {
+            next[column] = numberToInput(settings[column]);
+          });
+          return next;
+        });
+
+        const bpValue = settings.breakpoints_json;
+        const serializedBreakpoints = bpValue
+          ? typeof bpValue === "string"
+            ? bpValue
+            : JSON.stringify(bpValue)
+          : BREAKPOINT_DEFAULT;
+
+        setBreakpointRules(serializedBreakpoints || BREAKPOINT_DEFAULT);
+        setBreakpointsEnabled(Boolean(serializedBreakpoints && serializedBreakpoints !== BREAKPOINT_DEFAULT));
+      }
+
+      setLoading(false);
+    }
+
+    void loadSettings();
+  }, [router, supabase]);
+
+  async function handleSave() {
+    setSaving(true);
+    setError(null);
+    setStatus(null);
+
+    try {
+      const { data, error: userError } = await supabase.auth.getUser();
+
+      if (userError || !data?.user) {
+        throw new Error("You must be signed in to update pricing settings.");
+      }
+
+      const currentProfileId = data.user.id;
+      setProfileId(currentProfileId);
+
+      let parsedBreakpoints: unknown = [];
+
+      if (breakpointsEnabled) {
+        try {
+          parsedBreakpoints = JSON.parse(breakpointRules || BREAKPOINT_DEFAULT);
+        } catch (parseErr) {
+          throw new Error("Breakpoint rules must be valid JSON.");
+        }
+      }
+
+      const payload: Record<string, unknown> = {
+        vat_registered: vatRegistered,
+        separate_labour: labourDisplay === "split",
+        small_job_charge: toNumeric(smallJobs.small_job_charge),
+        day_rate_per_fitter: toNumeric(smallJobs.day_rate_per_fitter),
+        breakpoints_json: breakpointsEnabled ? parsedBreakpoints : [],
+        updated_at: new Date(),
+      };
+
+      serviceOptions.forEach(({ column }) => {
+        payload[column] = serviceToggles[column];
+      });
+
+      markupOptions.forEach(({ valueColumn, typeColumn }) => {
+        payload[valueColumn] = toNumeric(markupState[valueColumn]?.value ?? "");
+        payload[typeColumn] = markupState[valueColumn]?.type ?? "%";
+      });
+
+      materialPriceFields.forEach(({ column }) => {
+        payload[column] = toNumeric(materialPrices[column]);
+      });
+
+      labourPriceFields.forEach(({ column }) => {
+        payload[column] = toNumeric(labourPrices[column]);
+      });
+
+      const response = await fetch("/api/pricing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profileId: currentProfileId, settings: payload }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? "Unable to save pricing settings");
+      }
+
+      const { profile_json } = (await response.json()) as { profile_json?: unknown };
+
+      if (profile_json) {
+        console.debug("Pricing profile rebuilt", profile_json);
+      }
+
+      setStatus("Pricing updated successfully");
+    } catch (err) {
+      setError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to save pricing settings"
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="page-container">
+        <p className="section-subtitle">Loading pricing settings...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="page-container">
@@ -227,6 +446,18 @@ export default function PricingPage() {
         <div className="tag">Pricing settings</div>
       </div>
 
+      {error ? (
+        <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
+          {error}
+        </div>
+      ) : null}
+
+      {status ? (
+        <div className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/50 rounded-lg p-3">
+          {status}
+        </div>
+      ) : null}
+
       <div className="settings-grid">
         <div className="card stack">
           <div className="settings-section-heading">
@@ -237,17 +468,15 @@ export default function PricingPage() {
           </div>
           <div className="settings-tiles">
             {sortedServiceOptions.map((service) => (
-              <div key={service} className="setting-tile setting-tile-row">
+              <div key={service.column} className="setting-tile setting-tile-row">
                 <div className="stack">
-                  <span className="setting-label">{service}</span>
-                  <span className="setting-hint">
-                    Control whether this service is offered.
-                  </span>
+                  <span className="setting-label">{service.label}</span>
+                  <span className="setting-hint">Control whether this service is offered.</span>
                 </div>
                 <Toggle
-                  checked={serviceToggles[service]}
+                  checked={serviceToggles[service.column]}
                   onChange={(value) =>
-                    setServiceToggles((prev) => ({ ...prev, [service]: value }))
+                    setServiceToggles((prev) => ({ ...prev, [service.column]: value }))
                   }
                 />
               </div>
@@ -265,12 +494,12 @@ export default function PricingPage() {
             </div>
           </div>
           <div className="settings-tiles">
-            {markupOptions.map((label) => {
-              const { value, type } = markupState[label];
+            {markupOptions.map((option) => {
+              const { value, type } = markupState[option.valueColumn];
               return (
-                <div key={label} className="setting-tile setting-tile-row">
+                <div key={option.valueColumn} className="setting-tile setting-tile-row">
                   <div className="stack">
-                    <span className="setting-label">{label}</span>
+                    <span className="setting-label">{option.label}</span>
                     <span className="setting-hint">Markup applied to materials.</span>
                   </div>
                   <div className="setting-actions">
@@ -282,17 +511,20 @@ export default function PricingPage() {
                       onChange={(e) =>
                         setMarkupState((prev) => ({
                           ...prev,
-                          [label]: { ...prev[label], value: e.target.value },
+                          [option.valueColumn]: { ...prev[option.valueColumn], value: e.target.value },
                         }))
                       }
                     />
                     <OptionToggle
                       value={type}
                       options={["£", "%"]}
-                      onChange={(option) =>
+                      onChange={(optionValue) =>
                         setMarkupState((prev) => ({
                           ...prev,
-                          [label]: { ...prev[label], type: option as "£" | "%" },
+                          [option.valueColumn]: {
+                            ...prev[option.valueColumn],
+                            type: optionValue as "£" | "%",
+                          },
                         }))
                       }
                     />
@@ -314,14 +546,12 @@ export default function PricingPage() {
           </div>
         </div>
         <div className="settings-grid-compact">
-          {materialPriceFields.map((label) => (
+          {materialPriceFields.map((field) => (
             <NumberField
-              key={label}
-              label={label}
-              value={materialPrices[label]}
-              onChange={(val) =>
-                setMaterialPrices((prev) => ({ ...prev, [label]: val }))
-              }
+              key={field.column}
+              label={field.label}
+              value={materialPrices[field.column]}
+              onChange={(val) => setMaterialPrices((prev) => ({ ...prev, [field.column]: val }))}
             />
           ))}
         </div>
@@ -335,14 +565,12 @@ export default function PricingPage() {
           </div>
         </div>
         <div className="settings-grid-compact">
-          {labourPriceFields.map((label) => (
+          {labourPriceFields.map((field) => (
             <NumberField
-              key={label}
-              label={label}
-              value={labourPrices[label]}
-              onChange={(val) =>
-                setLabourPrices((prev) => ({ ...prev, [label]: val }))
-              }
+              key={field.column}
+              label={field.label}
+              value={labourPrices[field.column]}
+              onChange={(val) => setLabourPrices((prev) => ({ ...prev, [field.column]: val }))}
             />
           ))}
         </div>
@@ -357,12 +585,12 @@ export default function PricingPage() {
             </div>
           </div>
           <div className="settings-grid-compact">
-            {smallJobFields.map((label) => (
+            {smallJobFields.map((field) => (
               <NumberField
-                key={label}
-                label={label}
-                value={smallJobs[label]}
-                onChange={(val) => setSmallJobs((prev) => ({ ...prev, [label]: val }))}
+                key={field.column}
+                label={field.label}
+                value={smallJobs[field.column]}
+                onChange={(val) => setSmallJobs((prev) => ({ ...prev, [field.column]: val }))}
               />
             ))}
           </div>
@@ -373,7 +601,7 @@ export default function PricingPage() {
             <div className="stack">
               <h3 className="section-title text-lg">Breakpoint rules</h3>
               <p className="section-subtitle">
-                Enable breakpoints to apply special rules for certain sizes.
+                Provide JSON breakpoint rules to apply special logic for certain sizes.
               </p>
             </div>
             <Toggle
@@ -384,7 +612,7 @@ export default function PricingPage() {
           <textarea
             className="input-fluid breakpoint-textarea"
             rows={5}
-            placeholder="Describe breakpoint logic here..."
+            placeholder="Provide a JSON array of breakpoint rules"
             disabled={!breakpointsEnabled}
             value={breakpointRules}
             onChange={(e) => setBreakpointRules(e.target.value)}
@@ -399,10 +627,7 @@ export default function PricingPage() {
               <h3 className="section-title text-lg">VAT settings</h3>
               <p className="section-subtitle">Toggle VAT registration on or off.</p>
             </div>
-            <Toggle
-              checked={vatRegistered}
-              onChange={(val) => setVatRegistered(val)}
-            />
+            <Toggle checked={vatRegistered} onChange={(val) => setVatRegistered(val)} />
           </div>
         </div>
 
@@ -427,6 +652,17 @@ export default function PricingPage() {
             />
           </div>
         </div>
+      </div>
+
+      <div className="flex justify-end mt-6">
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={handleSave}
+          disabled={saving || loading || !profileId}
+        >
+          {saving ? "Saving..." : "Save changes"}
+        </button>
       </div>
     </div>
   );
