@@ -12,6 +12,8 @@ type Quote = {
   client_id?: string | null;
   created_at?: string | null;
   status?: string | null;
+  customer_name?: string | null;
+  job_ref?: string | null;
 };
 
 type QuotesResponse = {
@@ -23,6 +25,7 @@ export default function QuotesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [initialLastViewed, setInitialLastViewed] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     setInitialLastViewed(localStorage.getItem(QUOTES_LAST_VIEWED_KEY));
@@ -78,7 +81,27 @@ export default function QuotesPage() {
     return Number.isNaN(time) ? null : time;
   }, [initialLastViewed]);
 
+  const filteredQuotes = useMemo(() => {
+    if (!search.trim()) return quotes;
+    const query = search.toLowerCase();
+
+    return quotes.filter((quote) => {
+      const idLabel = (quote.quote_reference || `Quote ${quote.id || ""}`)
+        .toString()
+        .toLowerCase();
+      const customer = quote.customer_name?.toLowerCase() || "";
+      const job = quote.job_ref?.toLowerCase() || "";
+      const rawDate = quote.created_at?.toLowerCase() || "";
+      const formattedDate = formatDate(quote.created_at).toLowerCase();
+
+      return [idLabel, customer, job, rawDate, formattedDate].some((value) =>
+        value.includes(query)
+      );
+    });
+  }, [quotes, search]);
+
   const hasQuotes = quotes.length > 0;
+  const hasFilteredQuotes = filteredQuotes.length > 0;
 
   return (
     <div className="page-container">
@@ -92,7 +115,7 @@ export default function QuotesPage() {
         <div className="tag">Live feed</div>
       </div>
 
-      <div className="card stack">
+      <div className="stack gap-4">
         {loading && <div className="empty-state">Loading your quotes…</div>}
 
         {error && !loading && <div className="empty-state">{error}</div>}
@@ -105,54 +128,72 @@ export default function QuotesPage() {
         )}
 
         {!loading && !error && hasQuotes && (
-          <div className="table-card">
-            <div className="hidden md:grid grid-cols-[1.2fr_1fr_1fr_auto] bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-              <span>Quote</span>
-              <span>Date</span>
-              <span>Status</span>
-              <span className="text-right">Action</span>
+          <div className="stack gap-4">
+            <div className="card stack">
+              <div className="stack md:row md:items-center md:justify-between">
+                <div className="stack">
+                  <p className="section-subtitle">Search</p>
+                  <input
+                    className="input-fluid"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by quote ID, customer, job, or date"
+                  />
+                </div>
+
+                <div className="tag">
+                  {hasFilteredQuotes ? `${filteredQuotes.length} showing` : "0 showing"}
+                </div>
+              </div>
             </div>
 
-            {quotes.map((quote) => {
-              const isNew = unseenCutoff
-                ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
-                : true;
+            {hasFilteredQuotes ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredQuotes.map((quote) => {
+                  const isNew = unseenCutoff
+                    ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
+                    : true;
 
-              return (
-                <div
-                  key={quote.id}
-                  className="list-row md:grid md:grid-cols-[1.2fr_1fr_1fr_auto] w-full"
-                >
-                  <div className="stack gap-1">
-                    <p className="text-[15px] font-semibold text-white">
-                      {quote.quote_reference || "Pending reference"}
-                    </p>
-                    <p className="text-sm text-[var(--muted)] md:hidden">{formatDate(quote.created_at)}</p>
-                  </div>
+                  const customerName = quote.customer_name?.trim() || "Unknown customer";
+                  const jobRef = quote.job_ref?.trim() || "No job description";
+                  const createdDate = formatDate(quote.created_at) || "Date unavailable";
+                  const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
 
-                  <p className="text-sm text-[var(--muted)] hidden md:block">
-                    {formatDate(quote.created_at)}
-                  </p>
-
-                  <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
-                    <span className="status-pill">{quote.status || "Pending"}</span>
-                    {isNew ? <span className="tag">New</span> : null}
-                  </div>
-
-                  <div className="flex items-center justify-end gap-3">
-                    <Link
-                      href={quote.pdf_url ?? "#"}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-secondary"
+                  return (
+                    <div
+                      key={quote.id}
+                      className="card quote-tile flex h-full flex-col gap-4 min-h-[220px]"
                     >
-                      Open PDF
-                    </Link>
-                    <span className="text-[var(--muted)]">→</span>
-                  </div>
-                </div>
-              );
-            })}
+                      <div className="flex items-start justify-between">
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                          <span className="tag">{quoteLabel}</span>
+                        </div>
+                        {isNew ? <span className="tag">New</span> : null}
+                      </div>
+
+                      <div className="stack gap-2">
+                        <p className="text-lg font-semibold leading-tight text-white">{customerName}</p>
+                        <p className="text-sm text-[var(--muted)]">{jobRef}</p>
+                        <p className="text-xs text-[var(--muted)]">Created {createdDate}</p>
+                      </div>
+
+                      <div className="mt-auto flex justify-center">
+                        <Link
+                          href={quote.pdf_url ?? "#"}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-primary w-full justify-center text-center md:w-auto"
+                        >
+                          Open PDF
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="empty-state">No quotes match your search.</div>
+            )}
           </div>
         )}
       </div>
