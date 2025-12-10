@@ -148,7 +148,7 @@ export default function QuotesPage() {
             </div>
 
             {hasFilteredQuotes ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {filteredQuotes.map((quote) => {
                   const isNew = unseenCutoff
                     ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
@@ -160,34 +160,32 @@ export default function QuotesPage() {
                   const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
 
                   return (
-                    <div
+                    <article
                       key={quote.id}
-                      className="card quote-tile flex h-full flex-col gap-4 min-h-[220px]"
+                      className="quote-card flex flex-col"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                          <span className="tag">{quoteLabel}</span>
-                        </div>
-                        {isNew ? <span className="tag">New</span> : null}
-                      </div>
+                      <header className="flex items-center justify-between mb-1">
+                        <span className="tag text-xs">Q-{quoteLabel}</span>
+                        {isNew && <span className="tag text-xs">New</span>}
+                      </header>
 
-                      <div className="stack gap-2">
-                        <p className="text-lg font-semibold leading-tight text-white">{customerName}</p>
+                      <div className="flex-1 flex flex-col gap-1">
+                        <p className="font-semibold text-base text-white">{customerName}</p>
                         <p className="text-sm text-[var(--muted)]">{jobRef}</p>
                         <p className="text-xs text-[var(--muted)]">Created {createdDate}</p>
                       </div>
 
-                      <div className="mt-auto flex justify-center">
+                      <footer className="pt-2">
                         <Link
                           href={quote.pdf_url ?? "#"}
                           target="_blank"
                           rel="noreferrer"
-                          className="btn btn-primary w-full justify-center text-center md:w-auto"
+                          className="btn btn-primary w-full text-center"
                         >
                           Open PDF
                         </Link>
-                      </div>
-                    </div>
+                      </footer>
+                    </article>
                   );
                 })}
               </div>
