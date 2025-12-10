@@ -842,23 +842,6 @@ textarea::placeholder {
   gap: 16px;
 }
 
-.linked-account-badge-logo-wrap {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.linked-account-badge-logo {
-  width: 26px;
-  height: auto;
-  opacity: 0.95;
-}
-
 .linked-account-badge-text {
   display: flex;
   flex-direction: column;
