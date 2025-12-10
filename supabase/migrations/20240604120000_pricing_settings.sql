@@ -16,7 +16,7 @@ create table public.pricing_settings (
   service_commercial_vinyl boolean not null default true,
   service_wall_cladding boolean not null default true,
 
-  -- markup settings
+  -- markup values and types
   markup_domestic_carpet_value numeric,
   markup_domestic_carpet_type text not null default '%',
   markup_commercial_carpet_value numeric,
@@ -42,7 +42,7 @@ create table public.pricing_settings (
   mat_commercial_vinyl_m2 numeric,
   mat_wall_cladding_m2 numeric,
 
-  -- extras (required by buildPricingProfile)
+  -- extras
   mat_ply_m2 numeric,
   mat_weld numeric,
   mat_coved_m2 numeric,
@@ -58,6 +58,7 @@ create table public.pricing_settings (
   -- labour prices
   lab_domestic_carpet_m2 numeric,
   lab_commercial_carpet_m2 numeric,
+  lab_carpet_tiles_m2 numeric,
   lab_lvt_m2 numeric,
   lab_ceramic_tiles_m2 numeric,
   lab_safety_m2 numeric,
@@ -67,9 +68,8 @@ create table public.pricing_settings (
   lab_coved_m numeric,
   lab_ply_m2 numeric,
   lab_latex_m2 numeric,
-  lab_carpet_tiles_m2 numeric,
 
-  -- rules
+  -- small job and rules
   small_job_charge numeric,
   min_labour_charge numeric,
   day_rate_per_fitter numeric,
