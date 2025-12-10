@@ -45,7 +45,9 @@ export async function GET(req: Request) {
 
     const { data: quotes, error } = await supabase
       .from("quotes")
-      .select("id, quote_reference, pdf_url, client_id, created_at")
+      .select(
+        "id, quote_reference, pdf_url, client_id, created_at, customer_name, job_ref"
+      )
       .eq("client_id", profileId)
       .order("created_at", { ascending: false });
 
