@@ -243,12 +243,12 @@ export default function PricingPage() {
   const [breakpointRules, setBreakpointRules] = useState(BREAKPOINT_DEFAULT);
   const [vatRegistered, setVatRegistered] = useState(true);
   const [labourDisplay, setLabourDisplay] = useState<"split" | "main">("split");
-  const [profileId, setProfileId] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+
+  const markUnsaved = () => setIsSaved(false);
 
   const sortedServiceOptions = useMemo(
     () => [...serviceOptions].sort((a, b) => a.label.localeCompare(b.label)),
@@ -259,7 +259,6 @@ export default function PricingPage() {
     async function loadSettings() {
       setLoading(true);
       setError(null);
-      setStatus(null);
 
       const { data, error: userError } = await supabase.auth.getUser();
 
@@ -267,8 +266,6 @@ export default function PricingPage() {
         router.push("/auth/login");
         return;
       }
-
-      setProfileId(data.user.id);
 
       const { data: settings, error: settingsError } = await supabase
         .from("pricing_settings")
@@ -347,9 +344,7 @@ export default function PricingPage() {
   }, [router, supabase]);
 
   async function handleSave() {
-    setSaving(true);
     setError(null);
-    setStatus(null);
 
     try {
       const { data, error: userError } = await supabase.auth.getUser();
@@ -359,7 +354,6 @@ export default function PricingPage() {
       }
 
       const currentProfileId = data.user.id;
-      setProfileId(currentProfileId);
 
       let parsedBreakpoints: unknown = [];
 
@@ -414,15 +408,13 @@ export default function PricingPage() {
         console.debug("Pricing profile rebuilt", profile_json);
       }
 
-      setStatus("Pricing updated successfully");
+      setIsSaved(true);
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
           ? String((err as { message?: string }).message)
           : "Unable to save pricing settings"
       );
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -452,12 +444,6 @@ export default function PricingPage() {
         </div>
       ) : null}
 
-      {status ? (
-        <div className="text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/50 rounded-lg p-3">
-          {status}
-        </div>
-      ) : null}
-
       <div className="settings-grid">
         <div className="card stack">
           <div className="settings-section-heading">
@@ -475,9 +461,10 @@ export default function PricingPage() {
                 </div>
                 <Toggle
                   checked={serviceToggles[service.column]}
-                  onChange={(value) =>
-                    setServiceToggles((prev) => ({ ...prev, [service.column]: value }))
-                  }
+                  onChange={(value) => {
+                    markUnsaved();
+                    setServiceToggles((prev) => ({ ...prev, [service.column]: value }));
+                  }}
                 />
               </div>
             ))}
@@ -508,25 +495,27 @@ export default function PricingPage() {
                       type="number"
                       inputMode="decimal"
                       value={value}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        markUnsaved();
                         setMarkupState((prev) => ({
                           ...prev,
                           [option.valueColumn]: { ...prev[option.valueColumn], value: e.target.value },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                     <OptionToggle
                       value={type}
                       options={["£", "%"]}
-                      onChange={(optionValue) =>
+                      onChange={(optionValue) => {
+                        markUnsaved();
                         setMarkupState((prev) => ({
                           ...prev,
                           [option.valueColumn]: {
                             ...prev[option.valueColumn],
                             type: optionValue as "£" | "%",
                           },
-                        }))
-                      }
+                        }));
+                      }}
                     />
                   </div>
                 </div>
@@ -551,7 +540,10 @@ export default function PricingPage() {
               key={field.column}
               label={field.label}
               value={materialPrices[field.column]}
-              onChange={(val) => setMaterialPrices((prev) => ({ ...prev, [field.column]: val }))}
+              onChange={(val) => {
+                markUnsaved();
+                setMaterialPrices((prev) => ({ ...prev, [field.column]: val }));
+              }}
             />
           ))}
         </div>
@@ -570,7 +562,10 @@ export default function PricingPage() {
               key={field.column}
               label={field.label}
               value={labourPrices[field.column]}
-              onChange={(val) => setLabourPrices((prev) => ({ ...prev, [field.column]: val }))}
+              onChange={(val) => {
+                markUnsaved();
+                setLabourPrices((prev) => ({ ...prev, [field.column]: val }));
+              }}
             />
           ))}
         </div>
@@ -590,7 +585,10 @@ export default function PricingPage() {
                 key={field.column}
                 label={field.label}
                 value={smallJobs[field.column]}
-                onChange={(val) => setSmallJobs((prev) => ({ ...prev, [field.column]: val }))}
+                onChange={(val) => {
+                  markUnsaved();
+                  setSmallJobs((prev) => ({ ...prev, [field.column]: val }));
+                }}
               />
             ))}
           </div>
@@ -606,7 +604,10 @@ export default function PricingPage() {
             </div>
             <Toggle
               checked={breakpointsEnabled}
-              onChange={(val) => setBreakpointsEnabled(val)}
+              onChange={(val) => {
+                markUnsaved();
+                setBreakpointsEnabled(val);
+              }}
             />
           </div>
           <textarea
@@ -615,7 +616,10 @@ export default function PricingPage() {
             placeholder="Provide a JSON array of breakpoint rules"
             disabled={!breakpointsEnabled}
             value={breakpointRules}
-            onChange={(e) => setBreakpointRules(e.target.value)}
+            onChange={(e) => {
+              markUnsaved();
+              setBreakpointRules(e.target.value);
+            }}
           />
         </div>
       </div>
@@ -627,7 +631,13 @@ export default function PricingPage() {
               <h3 className="section-title text-lg">VAT settings</h3>
               <p className="section-subtitle">Toggle VAT registration on or off.</p>
             </div>
-            <Toggle checked={vatRegistered} onChange={(val) => setVatRegistered(val)} />
+            <Toggle
+              checked={vatRegistered}
+              onChange={(val) => {
+                markUnsaved();
+                setVatRegistered(val);
+              }}
+            />
           </div>
         </div>
 
@@ -646,9 +656,10 @@ export default function PricingPage() {
                   : "Keep labour on main quote lines"
               }
               options={["Split labour into notes", "Keep labour on main quote lines"]}
-              onChange={(val) =>
-                setLabourDisplay(val === "Split labour into notes" ? "split" : "main")
-              }
+              onChange={(val) => {
+                markUnsaved();
+                setLabourDisplay(val === "Split labour into notes" ? "split" : "main");
+              }}
             />
           </div>
         </div>
@@ -659,9 +670,9 @@ export default function PricingPage() {
           type="button"
           className="btn btn-primary"
           onClick={handleSave}
-          disabled={saving || loading || !profileId}
+          disabled={isSaved}
         >
-          {saving ? "Saving..." : "Save changes"}
+          {isSaved ? "Saved" : "Save changes"}
         </button>
       </div>
     </div>
