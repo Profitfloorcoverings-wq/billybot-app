@@ -12,6 +12,8 @@ type Quote = {
   client_id?: string | null;
   created_at?: string | null;
   status?: string | null;
+  customer_name?: string | null;
+  job_ref?: string | null;
 };
 
 type QuotesResponse = {
@@ -126,6 +128,12 @@ export default function QuotesPage() {
                   <div className="stack gap-1">
                     <p className="text-[15px] font-semibold text-white">
                       {quote.quote_reference || "Pending reference"}
+                    </p>
+                    <p className="text-sm text-[var(--muted)]">
+                      {quote.customer_name || "Unknown customer"}
+                    </p>
+                    <p className="text-sm text-[var(--muted)]">
+                      {quote.job_ref || "No job reference"}
                     </p>
                     <p className="text-sm text-[var(--muted)] md:hidden">{formatDate(quote.created_at)}</p>
                   </div>
