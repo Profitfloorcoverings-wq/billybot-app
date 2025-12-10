@@ -12,6 +12,8 @@ type Quote = {
   client_id?: string | null;
   created_at?: string | null;
   status?: string | null;
+  customer_name?: string | null;
+  job_ref?: string | null;
 };
 
 type QuotesResponse = {
@@ -106,8 +108,10 @@ export default function QuotesPage() {
 
         {!loading && !error && hasQuotes && (
           <div className="table-card">
-            <div className="hidden md:grid grid-cols-[1.2fr_1fr_1fr_auto] bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
+            <div className="hidden md:grid grid-cols-[1.2fr_1fr_1fr_1fr_1fr_auto] bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
               <span>Quote</span>
+              <span>Customer</span>
+              <span>Job Ref</span>
               <span>Date</span>
               <span>Status</span>
               <span className="text-right">Action</span>
@@ -121,15 +125,27 @@ export default function QuotesPage() {
               return (
                 <div
                   key={quote.id}
-                  className="list-row md:grid md:grid-cols-[1.2fr_1fr_1fr_auto] w-full"
+                  className="list-row md:grid md:grid-cols-[1.2fr_1fr_1fr_1fr_1fr_auto] w-full"
                 >
                   <div className="stack gap-1">
                     <p className="text-[15px] font-semibold text-white">
                       {quote.quote_reference || "Pending reference"}
                     </p>
-                    <p className="text-sm text-[var(--muted)] md:hidden">{formatDate(quote.created_at)}</p>
+                    <div className="flex flex-wrap gap-3 text-xs text-[var(--muted)] md:hidden">
+                      <span>
+                        Customer: {quote.customer_name?.trim() || "Unknown customer"}
+                      </span>
+                      <span>Job: {quote.job_ref?.trim() || "Pending job ref"}</span>
+                      <span>Created: {formatDate(quote.created_at)}</span>
+                    </div>
                   </div>
 
+                  <p className="text-sm text-[var(--muted)] hidden md:block">
+                    {quote.customer_name?.trim() || "Unknown customer"}
+                  </p>
+                  <p className="text-sm text-[var(--muted)] hidden md:block">
+                    {quote.job_ref?.trim() || "Pending job ref"}
+                  </p>
                   <p className="text-sm text-[var(--muted)] hidden md:block">
                     {formatDate(quote.created_at)}
                   </p>
