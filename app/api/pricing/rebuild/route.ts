@@ -4,7 +4,7 @@ import { rebuildPricingProfile } from "@/lib/pricing/rebuildPricingProfile";
 
 export async function POST(req: Request) {
   try {
-    const { profileId } = await req.json();
+    const { profileId } = (await req.json()) as { profileId?: string };
 
     if (!profileId) {
       return NextResponse.json({ error: "Missing profileId" }, { status: 400 });
@@ -12,11 +12,15 @@ export async function POST(req: Request) {
 
     const pricingProfile = await rebuildPricingProfile(profileId);
 
+    if (!pricingProfile || typeof pricingProfile !== "object") {
+      throw new Error("Unable to rebuild pricing profile");
+    }
+
     return NextResponse.json({
       success: true,
       profile_json: pricingProfile,
     });
-  } catch (err) {
+  } catch (err: unknown) {
     console.error("PRICING REBUILD ERROR:", err);
     return NextResponse.json(
       {

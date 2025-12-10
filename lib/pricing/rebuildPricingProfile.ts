@@ -22,27 +22,23 @@ export async function rebuildPricingProfile(profileId: string) {
     throw settingsError;
   }
 
-  const { data: client, error: clientError } = await supabase
-    .from("clients")
-    .select("vat_registered")
-    .eq("id", profileId)
-    .maybeSingle();
-
-  if (clientError) {
-    throw clientError;
+  if (!settings) {
+    throw new Error("Pricing settings not found for profile");
   }
 
-  const vatRegistered = client?.vat_registered ?? settings?.vat_registered ?? false;
-
-  const pricingProfile = buildPricingProfile({
-    settings: settings ?? {},
-    vatRegistered,
+  const profileJson = buildPricingProfile({
+    settings,
+    vatRegistered: settings.vat_registered,
   });
 
+  if (!profileJson || typeof profileJson !== "object") {
+    throw new Error("Unable to rebuild pricing profile");
+  }
+
   const { error: upsertError } = await supabase.from("pricing_profiles").upsert({
-    id: profileId,
-    profile_json: pricingProfile,
-    vat_registered: vatRegistered,
+    profile_id: profileId,
+    profile_json: profileJson,
+    vat_registered: profileJson.vat_registered,
     effective_from: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   });
@@ -51,5 +47,5 @@ export async function rebuildPricingProfile(profileId: string) {
     throw upsertError;
   }
 
-  return pricingProfile;
+  return profileJson;
 }
