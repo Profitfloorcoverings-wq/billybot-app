@@ -94,7 +94,7 @@ export default function QuotesPage() {
         <div className="tag">Live feed</div>
       </div>
 
-      <div className="card stack">
+      <div className="stack gap-4">
         {loading && <div className="empty-state">Loading your quotes…</div>}
 
         {error && !loading && <div className="empty-state">{error}</div>}
@@ -107,64 +107,48 @@ export default function QuotesPage() {
         )}
 
         {!loading && !error && hasQuotes && (
-          <div className="table-card">
-            <div className="hidden md:grid grid-cols-[1.2fr_1fr_1fr_1fr_1fr_auto] bg-white/5 px-4 py-3 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-              <span>Quote</span>
-              <span>Customer</span>
-              <span>Job Ref</span>
-              <span>Date</span>
-              <span>Status</span>
-              <span className="text-right">Action</span>
-            </div>
-
+          <div className="stack gap-4">
             {quotes.map((quote) => {
               const isNew = unseenCutoff
                 ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
                 : true;
 
+              const customerName = quote.customer_name?.trim() || "Unknown customer";
+              const jobRef = quote.job_ref?.trim() || "Pending job reference";
+              const createdDate = formatDate(quote.created_at) || "Date unavailable";
+              const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
+
               return (
-                <div
-                  key={quote.id}
-                  className="list-row md:grid md:grid-cols-[1.2fr_1fr_1fr_1fr_1fr_auto] w-full"
-                >
-                  <div className="stack gap-1">
-                    <p className="text-[15px] font-semibold text-white">
-                      {quote.quote_reference || "Pending reference"}
-                    </p>
-                    <div className="flex flex-wrap gap-3 text-xs text-[var(--muted)] md:hidden">
-                      <span>
-                        Customer: {quote.customer_name?.trim() || "Unknown customer"}
-                      </span>
-                      <span>Job: {quote.job_ref?.trim() || "Pending job ref"}</span>
-                      <span>Created: {formatDate(quote.created_at)}</span>
+                <div key={quote.id} className="card quote-card">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="stack gap-2">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                        <span className="tag">{quoteLabel}</span>
+                        {isNew ? <span className="tag">New</span> : null}
+                      </div>
+
+                      <div className="stack gap-1">
+                        <p className="text-lg font-semibold leading-tight text-white">{customerName}</p>
+                        <p className="text-sm text-[var(--muted)]">Job: {jobRef}</p>
+                      </div>
+
+                      <p className="text-xs text-[var(--muted)]">Created {createdDate}</p>
                     </div>
-                  </div>
 
-                  <p className="text-sm text-[var(--muted)] hidden md:block">
-                    {quote.customer_name?.trim() || "Unknown customer"}
-                  </p>
-                  <p className="text-sm text-[var(--muted)] hidden md:block">
-                    {quote.job_ref?.trim() || "Pending job ref"}
-                  </p>
-                  <p className="text-sm text-[var(--muted)] hidden md:block">
-                    {formatDate(quote.created_at)}
-                  </p>
+                    <div className="flex flex-col gap-3 md:ml-auto md:flex-row md:items-center">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="status-pill">{quote.status || "Pending"}</span>
+                      </div>
 
-                  <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
-                    <span className="status-pill">{quote.status || "Pending"}</span>
-                    {isNew ? <span className="tag">New</span> : null}
-                  </div>
-
-                  <div className="flex items-center justify-end gap-3">
-                    <Link
-                      href={quote.pdf_url ?? "#"}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="btn btn-secondary"
-                    >
-                      Open PDF
-                    </Link>
-                    <span className="text-[var(--muted)]">→</span>
+                      <Link
+                        href={quote.pdf_url ?? "#"}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary"
+                      >
+                        Open PDF
+                      </Link>
+                    </div>
                   </div>
                 </div>
               );
