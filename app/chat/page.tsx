@@ -350,10 +350,11 @@ export default function ChatPage() {
             <div className="flex items-end gap-3">
               <button
                 type="button"
-                onClick={attachedFiles.length ? clearAllFiles : openFilePicker}
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line)] bg-[rgba(255,255,255,0.04)] text-lg font-bold text-white shadow-[0_8px_20px_rgba(0,0,0,0.25)] transition hover:border-[var(--brand2)] hover:shadow-[0_0_0_4px_rgba(59,130,246,0.18)] focus:outline-none"
+                onClick={openFilePicker}
+                className="chat-upload-btn"
+                aria-label="Upload files"
               >
-                {attachedFiles.length ? "×" : "+"}
+                📎
               </button>
 
               <textarea
