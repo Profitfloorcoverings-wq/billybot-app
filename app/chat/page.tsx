@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, KeyboardEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  KeyboardEvent,
+  ChangeEvent,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 
@@ -38,10 +45,12 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const initialLoadRef = useRef(true);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const supabase: SupabaseClient | null = useMemo(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -162,6 +171,7 @@ export default function ChatPage() {
     setSending(true);
     const userText = input.trim();
     setInput("");
+    clearAllFiles();
 
     try {
       const res = await fetch("/api/chat", {
@@ -225,6 +235,26 @@ export default function ChatPage() {
       sendMessage();
     }
   }
+
+  const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setAttachedFiles(files);
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllFiles = () => {
+    setAttachedFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
 
   const renderMessage = (m: Message) => {
     if (m.type === "quote") {
@@ -291,13 +321,58 @@ export default function ChatPage() {
 
         <div className="chat-input-row">
           <div className="chat-input-shell">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              placeholder="Tell BillyBot what you need."
-              className="chat-input resize-none"
+            {attachedFiles.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2 text-sm text-white">
+                {attachedFiles.map((file, index) => {
+                  const isPdf = file.type === "application/pdf";
+                  return (
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[rgba(255,255,255,0.04)] px-3 py-2"
+                    >
+                      <span className="font-semibold">{file.name}</span>
+                      <span className="rounded-full bg-[rgba(59,130,246,0.16)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--brand2)]">
+                        {isPdf ? "PDF" : "Image"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(index)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--line)] text-sm font-bold text-white transition hover:border-[var(--brand2)] hover:text-[var(--brand2)]"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex items-end gap-3">
+              <button
+                type="button"
+                onClick={attachedFiles.length ? clearAllFiles : openFilePicker}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--line)] bg-[rgba(255,255,255,0.04)] text-lg font-bold text-white shadow-[0_8px_20px_rgba(0,0,0,0.25)] transition hover:border-[var(--brand2)] hover:shadow-[0_0_0_4px_rgba(59,130,246,0.18)] focus:outline-none"
+              >
+                {attachedFiles.length ? "×" : "+"}
+              </button>
+
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                placeholder="Tell BillyBot what you need."
+                className="chat-input resize-none"
+              />
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
             />
           </div>
 
