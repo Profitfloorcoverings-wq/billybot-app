@@ -166,12 +166,10 @@ export default function ChatPage() {
   }, [supabase, conversationId]);
 
   async function sendMessage() {
-    if (!input.trim() || sending) return;
+    const userText = input.trim();
+    if (!userText || sending) return;
 
     setSending(true);
-    const userText = input.trim();
-    setInput("");
-    clearAllFiles();
 
     try {
       const res = await fetch("/api/chat", {
@@ -213,6 +211,9 @@ export default function ChatPage() {
         setMessages((prev) => [...prev, ...incoming]);
         scrollToBottom();
       }
+
+      setInput("");
+      clearAllFiles();
     } catch (err) {
       console.error("Chat error:", err);
       setMessages((prev) => [
@@ -230,7 +231,9 @@ export default function ChatPage() {
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key !== "Enter" || e.shiftKey) return;
+
+    if (input.trim() && !sending) {
       e.preventDefault();
       sendMessage();
     }
