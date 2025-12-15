@@ -342,48 +342,45 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="chat-input-row" style={{ alignItems: "center", gap: "12px" }}>
-            <div className="chat-input-shell" style={{ padding: "12px 16px", gap: "12px" }}>
-              <button
-                type="button"
-                onClick={openFilePicker}
-                className="chat-upload-btn"
-                aria-label="Upload files"
+          <div className="chat-input-row">
+            <button
+              type="button"
+              onClick={openFilePicker}
+              className="chat-upload-btn"
+              aria-label="Upload files"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+                className="chat-upload-icon"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  focusable="false"
-                  className="chat-upload-icon"
-                >
-                  <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
-                </svg>
-              </button>
+                <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
+              </svg>
+            </button>
 
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={1}
-                placeholder="Tell BillyBot what you need."
-                className="chat-input resize-none"
-              />
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder="Tell BillyBot what you need."
+              className="chat-input resize-none"
+            />
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
 
             <button
               onClick={sendMessage}
               disabled={!input.trim() || sending}
               className="chat-send-btn flex items-center justify-center gap-2"
-              style={{ height: "56px", padding: "0 20px" }}
             >
               {sending ? (
                 <span className="flex items-center gap-2">
