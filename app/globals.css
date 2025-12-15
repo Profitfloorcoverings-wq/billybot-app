@@ -643,7 +643,7 @@ textarea::placeholder {
   filter: brightness(1.03);
 }
 
-.chat-input {
+.chat-input-shell .chat-input {
   flex: 1;
   min-width: 0;
   min-height: 38px;
@@ -659,7 +659,7 @@ textarea::placeholder {
   overflow-y: auto;
 }
 
-.chat-input::placeholder {
+.chat-input-shell .chat-input::placeholder {
   color: rgba(148, 163, 184, 0.8);
 }
 
