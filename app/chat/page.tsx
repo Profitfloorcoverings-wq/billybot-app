@@ -342,25 +342,23 @@ export default function ChatPage() {
 
         <div className="chat-input-row">
           <div className="chat-input-shell">
-            <div className="flex items-end gap-3">
-              <button
-                type="button"
-                onClick={openFilePicker}
-                className="chat-upload-btn"
-                aria-label="Upload files"
-              >
-                📎
-              </button>
+            <button
+              type="button"
+              onClick={openFilePicker}
+              className="chat-upload-btn"
+              aria-label="Upload files"
+            >
+              📎
+            </button>
 
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={1}
-                placeholder="Tell BillyBot what you need."
-                className="chat-input resize-none"
-              />
-            </div>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder="Tell BillyBot what you need."
+              className="chat-input resize-none"
+            />
 
             <input
               ref={fileInputRef}
