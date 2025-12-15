@@ -605,7 +605,7 @@ textarea::placeholder {
 
 .chat-input-row {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 10px;
   margin-top: 10px;
 }
@@ -613,7 +613,6 @@ textarea::placeholder {
 .chat-input-shell {
   flex: 1;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   min-width: 0;
@@ -646,12 +645,15 @@ textarea::placeholder {
 
 .chat-input {
   flex: 1;
+  min-width: 0;
+  min-height: 38px;
   border: none;
   outline: none;
   background: transparent;
   color: var(--text);
   font-size: 14px;
-  padding: 9px 0;
+  line-height: 1.4;
+  padding: 10px 0;
   resize: none;
   max-height: 200px;
   overflow-y: auto;
