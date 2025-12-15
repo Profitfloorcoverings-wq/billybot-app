@@ -115,7 +115,7 @@ export default function QuotesPage() {
         <div className="tag">Live feed</div>
       </div>
 
-      <div className="stack gap-4">
+      <div className="flex flex-col gap-4">
         {loading && <div className="empty-state">Loading your quotes…</div>}
 
         {error && !loading && <div className="empty-state">{error}</div>}
@@ -128,10 +128,10 @@ export default function QuotesPage() {
         )}
 
         {!loading && !error && hasQuotes && (
-          <div className="stack gap-4">
-            <div className="card stack">
-              <div className="stack md:row md:items-center md:justify-between">
-                <div className="stack">
+          <div className="flex flex-col gap-4">
+            <div className="card">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-2">
                   <p className="section-subtitle">Search</p>
                   <input
                     className="input-fluid"
@@ -148,7 +148,7 @@ export default function QuotesPage() {
             </div>
 
             {hasFilteredQuotes ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredQuotes.map((quote) => {
                   const isNew = unseenCutoff
                     ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
@@ -160,10 +160,7 @@ export default function QuotesPage() {
                   const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
 
                   return (
-                    <div
-                      key={quote.id}
-                      className="card quote-tile flex h-full flex-col gap-4 min-h-[220px]"
-                    >
+                    <div key={quote.id} className="card p-6 flex flex-col justify-between gap-4">
                       <div className="flex items-start justify-between">
                         <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
                           <span className="tag">{quoteLabel}</span>
@@ -171,18 +168,18 @@ export default function QuotesPage() {
                         {isNew ? <span className="tag">New</span> : null}
                       </div>
 
-                      <div className="stack gap-2">
+                      <div className="flex flex-col gap-2">
                         <p className="text-lg font-semibold leading-tight text-white">{customerName}</p>
                         <p className="text-sm text-[var(--muted)]">{jobRef}</p>
                         <p className="text-xs text-[var(--muted)]">Created {createdDate}</p>
                       </div>
 
-                      <div className="mt-auto flex justify-center">
+                      <div className="flex justify-start">
                         <Link
                           href={quote.pdf_url ?? "#"}
                           target="_blank"
                           rel="noreferrer"
-                          className="btn btn-primary w-full justify-center text-center md:w-auto"
+                          className="btn btn-primary"
                         >
                           Open PDF
                         </Link>
