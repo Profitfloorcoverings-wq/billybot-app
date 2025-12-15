@@ -591,6 +591,9 @@ textarea::placeholder {
   color: var(--text);
   font-size: 14px;
   padding: 9px 0;
+  resize: none;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .chat-input::placeholder {
