@@ -342,8 +342,8 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="chat-input-row">
-            <div className="chat-input-shell">
+          <div className="chat-input-row" style={{ alignItems: "center", gap: "12px" }}>
+            <div className="chat-input-shell" style={{ padding: "12px 16px", gap: "12px" }}>
               <button
                 type="button"
                 onClick={openFilePicker}
@@ -382,7 +382,8 @@ export default function ChatPage() {
             <button
               onClick={sendMessage}
               disabled={!input.trim() || sending}
-              className="chat-send-btn"
+              className="chat-send-btn flex items-center justify-center gap-2"
+              style={{ height: "56px", padding: "0 20px" }}
             >
               {sending ? (
                 <span className="flex items-center gap-2">
