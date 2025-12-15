@@ -172,10 +172,48 @@ export default function ChatPage() {
     setSending(true);
 
     try {
+      const filesPayload = attachedFiles.length
+        ? await Promise.all(
+            attachedFiles.map(
+              (file) =>
+                new Promise<{
+                  name: string;
+                  type: string;
+                  size: number;
+                  base64: string;
+                }>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    if (typeof reader.result !== "string") {
+                      reject(new Error("File conversion failed"));
+                      return;
+                    }
+
+                    resolve({
+                      name: file.name,
+                      type: file.type,
+                      size: file.size,
+                      base64: reader.result,
+                    });
+                  };
+                  reader.onerror = () => reject(new Error("File conversion failed"));
+                  reader.readAsDataURL(file);
+                })
+            )
+          )
+        : null;
+
+      const payload = filesPayload
+        ? {
+            message: userText,
+            files: filesPayload,
+          }
+        : { message: userText };
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
