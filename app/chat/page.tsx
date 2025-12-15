@@ -348,7 +348,14 @@ export default function ChatPage() {
               className="chat-upload-btn"
               aria-label="Upload files"
             >
-              📎
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+                className="chat-upload-icon"
+              >
+                <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
+              </svg>
             </button>
 
             <textarea
