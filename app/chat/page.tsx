@@ -319,34 +319,29 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
+        {attachedFiles.length > 0 && (
+          <div className="chat-attachment-row">
+            <span className="chat-attachment-label">Attachments</span>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {attachedFiles.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="chat-attachment-pill">
+                  <span className="chat-attachment-name">{file.name}</span>
+                  <button
+                    type="button"
+                    className="chat-attachment-remove"
+                    aria-label={`Remove ${file.name}`}
+                    onClick={() => removeFile(index)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="chat-input-row">
           <div className="chat-input-shell">
-            {attachedFiles.length > 0 && (
-              <div className="mb-3 flex flex-wrap gap-2 text-sm text-white">
-                {attachedFiles.map((file, index) => {
-                  const isPdf = file.type === "application/pdf";
-                  return (
-                    <div
-                      key={`${file.name}-${index}`}
-                      className="flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[rgba(255,255,255,0.04)] px-3 py-2"
-                    >
-                      <span className="font-semibold">{file.name}</span>
-                      <span className="rounded-full bg-[rgba(59,130,246,0.16)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-[var(--brand2)]">
-                        {isPdf ? "PDF" : "Image"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(index)}
-                        className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--line)] text-sm font-bold text-white transition hover:border-[var(--brand2)] hover:text-[var(--brand2)]"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
             <div className="flex items-end gap-3">
               <button
                 type="button"
