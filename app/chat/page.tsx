@@ -319,8 +319,8 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {attachedFiles.length > 0 && (
-          <div className="chat-attachment-row">
+        <div className="chat-composer">
+          <div className={`chat-attachment-row ${attachedFiles.length ? "is-visible" : ""}`}>
             <span className="chat-attachment-label">Attachments</span>
             <div className="flex flex-1 flex-wrap gap-2">
               {attachedFiles.map((file, index) => (
@@ -338,60 +338,61 @@ export default function ChatPage() {
               ))}
             </div>
           </div>
-        )}
 
-        <div className="chat-input-row">
-          <div className="chat-input-shell">
-            <button
-              type="button"
-              onClick={openFilePicker}
-              className="chat-upload-btn"
-              aria-label="Upload files"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                focusable="false"
-                className="chat-upload-icon"
+          <div className="chat-input-row">
+            <div className="chat-input-shell">
+              <button
+                type="button"
+                onClick={openFilePicker}
+                className="chat-upload-btn"
+                aria-label="Upload files"
               >
-                <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
-              </svg>
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  focusable="false"
+                  className="chat-upload-icon"
+                >
+                  <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
+                </svg>
+              </button>
+
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                placeholder="Tell BillyBot what you need."
+                className="chat-input resize-none"
+              />
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,application/pdf"
+                multiple
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </div>
+
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim() || sending}
+              className="chat-send-btn"
+            >
+              {sending ? (
+                <span className="flex items-center gap-2">
+                  <span className="chat-send-loader" aria-hidden />
+                  <span className="text-sm font-semibold">Working…</span>
+                </span>
+              ) : (
+                "Send"
+              )}
             </button>
-
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              placeholder="Tell BillyBot what you need."
-              className="chat-input resize-none"
-            />
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,application/pdf"
-              multiple
-              onChange={handleFileSelect}
-              className="hidden"
-            />
           </div>
-
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || sending}
-            className="chat-send-btn"
-          >
-            {sending ? (
-              <span className="flex items-center gap-2">
-                <span className="chat-send-loader" aria-hidden />
-                <span className="text-sm font-semibold">Working…</span>
-              </span>
-            ) : (
-              "Send"
-            )}
-          </button>
         </div>
+
       </div>
     </div>
   );
