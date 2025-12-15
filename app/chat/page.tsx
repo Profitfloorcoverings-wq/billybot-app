@@ -172,14 +172,19 @@ export default function ChatPage() {
     setSending(true);
 
     try {
-      const formData = new FormData();
-      formData.append("message", userText);
-      formData.append("conversationId", conversationId ?? "");
-      attachedFiles.forEach((file) => formData.append("files[]", file));
+const formData = new FormData();
+formData.append("message", userText);
+formData.append("conversationId", conversationId ?? "");
 
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        body: formData,
+attachedFiles.forEach((file) => {
+  formData.append("files", file);
+});
+
+const res = await fetch("/api/chat", {
+  method: "POST",
+  body: formData,
+});
+
       });
 
       if (!res.ok) {
