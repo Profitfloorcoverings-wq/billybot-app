@@ -167,7 +167,10 @@ export default function ChatPage() {
 
   async function sendMessage() {
     const userText = input.trim();
-    if (!userText || sending) return;
+    const hasAttachments = attachedFiles.length > 0;
+    const hasContent = !!userText || hasAttachments;
+
+    if (!hasContent || sending) return;
 
     setSending(true);
 
@@ -263,7 +266,7 @@ export default function ChatPage() {
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key !== "Enter" || e.shiftKey) return;
 
-    if (input.trim() && !sending) {
+    if ((input.trim() || attachedFiles.length > 0) && !sending) {
       e.preventDefault();
       sendMessage();
     }
@@ -409,7 +412,7 @@ export default function ChatPage() {
 
             <button
               onClick={sendMessage}
-              disabled={!input.trim() || sending}
+              disabled={(!input.trim() && attachedFiles.length === 0) || sending}
               className="chat-send-btn flex items-center justify-center gap-2"
             >
               {sending ? (
