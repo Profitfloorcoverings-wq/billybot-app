@@ -31,6 +31,13 @@ export async function POST(req: Request) {
       );
     }
 
+    if (!conversation.profile_id) {
+      return NextResponse.json(
+        { error: "Conversation profile_id is missing" },
+        { status: 422 }
+      );
+    }
+
     const { error } = await supabase.from("messages").insert({
       conversation_id,
       profile_id: conversation.profile_id,
