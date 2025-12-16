@@ -52,6 +52,7 @@ export async function POST(req: Request) {
 
     const forwardedBody = {
       ...body,
+      profile_id: userId,
       message: typeof body?.message === "string" ? body.message : "",
       files: Array.isArray(body?.files) ? body.files : [],
       conversation_id: conversationId,
