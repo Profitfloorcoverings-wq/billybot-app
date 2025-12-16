@@ -88,8 +88,8 @@ export default function ChatPage() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, payload) => {
-      setSession(payload?.session ?? null);
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
       setAuthLoading(false);
     });
 
