@@ -50,11 +50,29 @@ export async function POST(req: Request) {
       }
     }
 
+    const message = typeof body?.message === "string" ? body.message : "";
+    const files = Array.isArray(body?.files) ? body.files : [];
+
+    const messageType = files.length > 0 && message === "" ? "file" : "text";
+
+    const { error: messageInsertError } = await supabase.from("messages").insert({
+      conversation_id: conversationId,
+      profile_id: userId,
+      role: "user",
+      type: messageType,
+      content: message,
+      created_at: new Date().toISOString(),
+    });
+
+    if (messageInsertError) {
+      throw messageInsertError;
+    }
+
     const forwardedBody = {
       ...body,
       profile_id: userId,
-      message: typeof body?.message === "string" ? body.message : "",
-      files: Array.isArray(body?.files) ? body.files : [],
+      message,
+      files,
       conversation_id: conversationId,
     };
 
