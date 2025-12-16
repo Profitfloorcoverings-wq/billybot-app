@@ -694,7 +694,7 @@ textarea::placeholder {
   font-size: 14px;
   font-weight: 600;
   background: linear-gradient(135deg, var(--orange-1), var(--orange-2));
-  color: #0b0f1a;
+  color: #fff;
   box-shadow: 0 0 16px var(--orange-glow);
   transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
 }
