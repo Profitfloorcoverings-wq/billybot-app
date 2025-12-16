@@ -1,182 +1,31 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-import { getUserFromCookies } from "@/utils/supabase/auth";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const n8nWebhook = process.env.N8N_WEBHOOK_URL!;
-
-type MessageRow = {
-  id: number;
-  role: "user" | "assistant";
-  content: string;
-  type?: string | null;
-  quote_reference?: string | null;
-  conversation_id: string;
-  created_at?: string;
-};
-
-type ChatRequest = {
-  message?: string;
-};
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as ChatRequest;
-    const { message } = body;
+    const body = await req.json();
 
-    if (!message) {
-      return NextResponse.json({ error: "Missing message" }, { status: 400 });
-    }
-
-    const user = await getUserFromCookies();
-    const profileId = user?.id;
-
-    if (!profileId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // ---------------------------
-    // 1. Find or create conversation
-    // ---------------------------
-    const { data: convos, error: convoSelectErr } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("profile_id", profileId)
-      .order("created_at", { ascending: true })
-      .limit(1);
-
-    if (convoSelectErr) throw convoSelectErr;
-
-    let conversation = convos?.[0];
-
-    if (!conversation) {
-      const { data: newConvo, error: convoInsertErr } = await supabase
-        .from("conversations")
-        .insert({
-          title: "BillyBot chat",
-          profile_id: profileId,
-        })
-        .select()
-        .single();
-
-      if (convoInsertErr) throw convoInsertErr;
-      conversation = newConvo;
-    }
-
-    const conversationId: string = conversation.id;
-    const conversationProfileId: string =
-      (conversation as { profile_id?: string }).profile_id || profileId;
-
-    // ---------------------------
-    // 2. Load history only
-    // ---------------------------
-    if (message === "__LOAD_HISTORY__") {
-      const { data: history, error: histErr } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: true });
-
-      if (histErr) throw histErr;
-
-      return NextResponse.json({
-        conversation_id: conversationId,
-        messages: (history as MessageRow[] | null) ?? [],
-      });
-    }
-
-    // ---------------------------
-    // 3. Insert user message
-    // ---------------------------
-    const { data: insertedUser, error: userMsgErr } = await supabase
-      .from("messages")
-      .insert({
-        conversation_id: conversationId,
-        role: "user",
-        type: "text",
-        content: message,
-        profile_id: conversationProfileId,
-      })
-      .select()
-      .single();
-
-    if (userMsgErr) throw userMsgErr;
-
-    // Reload history for context for n8n
-    const { data: history, error: histErr } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: true });
-
-    if (histErr) throw histErr;
-
-    // ---------------------------
-    // 4. Send to n8n
-    // ---------------------------
     const n8nRes = await fetch(n8nWebhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message,
-        conversation_id: conversationId,
-        history,
-        profile_id: profileId,
-      }),
+      body: JSON.stringify(body),
     });
 
-    if (!n8nRes.ok) {
-      const text = await n8nRes.text();
-      console.error("n8n error", n8nRes.status, text);
-      throw new Error("n8n webhook failed");
-    }
+    const responseBody = await n8nRes.text();
 
-    const botData = (await n8nRes.json()) as { reply?: string };
-    const botReply =
-      typeof botData.reply === "string"
-        ? botData.reply
-        : "BillyBot didn’t reply.";
-
-    // ---------------------------
-    // 5. Insert assistant message
-    // ---------------------------
-    const { data: assistantMessage, error: botMsgErr } = await supabase
-      .from("messages")
-      .insert({
-        conversation_id: conversationId,
-        role: "assistant",
-        type: "text",
-        content: botReply,
-        profile_id: conversationProfileId,
-      })
-      .select()
-      .single();
-
-    if (botMsgErr) throw botMsgErr;
-
-    // ---------------------------
-    // 6. Return FULL response (your PR version)
-    // ---------------------------
-    return NextResponse.json({
-      reply: botReply,
-      conversation_id: conversationId,
-      userMessage: insertedUser as MessageRow,
-      assistantMessage: assistantMessage as MessageRow,
+    return new Response(responseBody, {
+      status: n8nRes.status,
+      statusText: n8nRes.statusText,
+      headers: new Headers(n8nRes.headers),
     });
-  } catch (err: unknown) {
-    console.error("Chat route error:", err);
-    return NextResponse.json(
-      {
-        error:
-          err && typeof err === "object" && "message" in err
-            ? String((err as { message?: string }).message)
-            : "Server error",
-      },
-      { status: 500 }
-    );
+  } catch (err) {
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message?: string }).message)
+        : "Server error";
+
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 }
