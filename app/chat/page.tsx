@@ -167,16 +167,34 @@ export default function ChatPage() {
 
   async function sendMessage() {
     const userText = input.trim();
-    const hasAttachments = attachedFiles.length > 0;
+    const filesToSend = attachedFiles;
+    const hasAttachments = filesToSend.length > 0;
     const hasContent = !!userText || hasAttachments;
 
     if (!hasContent || sending) return;
 
     setSending(true);
 
+    if (hasAttachments) {
+      const attachmentMessage: Message = {
+        id: `attachment-${Date.now()}`,
+        role: "user",
+        type: "file",
+        content:
+          filesToSend.length === 1
+            ? "\ud83d\udcce 1 attachment sent"
+            : `\ud83d\udcce ${filesToSend.length} attachments sent`,
+      };
+
+      setMessages((prev) => [...prev, attachmentMessage]);
+    }
+
+    setInput("");
+    clearAllFiles();
+
     try {
       const filesPayload = await Promise.all(
-        attachedFiles.map(
+        filesToSend.map(
           (file) =>
             new Promise<{ name: string; type: string; size: number; base64: string }>((resolve, reject) => {
               const reader = new FileReader();
