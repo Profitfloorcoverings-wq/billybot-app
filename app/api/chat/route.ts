@@ -50,7 +50,12 @@ export async function POST(req: Request) {
       }
     }
 
-    const forwardedBody = { ...body, conversation_id: conversationId };
+    const forwardedBody = {
+      ...body,
+      message: typeof body?.message === "string" ? body.message : "",
+      files: Array.isArray(body?.files) ? body.files : [],
+      conversation_id: conversationId,
+    };
 
     const n8nRes = await fetch(n8nWebhook, {
       method: "POST",
