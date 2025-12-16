@@ -248,16 +248,7 @@ export default function ChatPage() {
       setInput("");
       clearAllFiles();
     } catch (err) {
-      console.error("Chat error:", err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          role: "assistant",
-          content: "Error: Could not reach BillyBot.",
-          type: "text",
-        },
-      ]);
+      console.warn("Chat request failed or delayed. Awaiting realtime reply.", err);
     } finally {
       setSending(false);
     }
