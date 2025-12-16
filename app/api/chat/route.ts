@@ -20,9 +20,26 @@ export async function POST(req: Request) {
     const body = await req.json();
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    let conversationId: string | null = body?.conversation_id ?? null;
+    const resolveConversationId = async () => {
+      const requestedConversationId = body?.conversation_id ? String(body.conversation_id) : null;
 
-    if (!conversationId) {
+      if (requestedConversationId) {
+        const { data: requestedConversation, error: requestedConversationError } = await supabase
+          .from("conversations")
+          .select("id")
+          .eq("id", requestedConversationId)
+          .eq("profile_id", userId)
+          .maybeSingle();
+
+        if (requestedConversationError) {
+          throw requestedConversationError;
+        }
+
+        if (requestedConversation?.id) {
+          return requestedConversation.id;
+        }
+      }
+
       const { data: existingConversation, error: existingConversationError } = await supabase
         .from("conversations")
         .select("id")
@@ -36,21 +53,51 @@ export async function POST(req: Request) {
       }
 
       if (existingConversation?.id) {
-        conversationId = existingConversation.id;
-      } else {
-        conversationId = crypto.randomUUID();
-
-        const { error: conversationInsertError } = await supabase
-          .from("conversations")
-          .insert({ id: conversationId, profile_id: userId });
-
-        if (conversationInsertError) {
-          throw conversationInsertError;
-        }
+        return existingConversation.id;
       }
-    }
+
+      const newConversationId = crypto.randomUUID();
+
+      const { error: conversationInsertError } = await supabase
+        .from("conversations")
+        .insert({ id: newConversationId, profile_id: userId });
+
+      if (conversationInsertError) {
+        throw conversationInsertError;
+      }
+
+      return newConversationId;
+    };
 
     const message = typeof body?.message === "string" ? body.message : "";
+
+    if (message === "__LOAD_HISTORY__") {
+      const conversationId = await resolveConversationId();
+
+      const { data: historyMessages, error: historyError } = await supabase
+        .from("messages")
+        .select("id, role, content, type, conversation_id, quote_reference, created_at")
+        .eq("conversation_id", conversationId)
+        .eq("profile_id", userId)
+        .order("created_at", { ascending: true });
+
+      if (historyError) {
+        throw historyError;
+      }
+
+      return new Response(
+        JSON.stringify({
+          conversation_id: conversationId,
+          messages: historyMessages ?? [],
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const conversationId = await resolveConversationId();
     const files = Array.isArray(body?.files) ? body.files : [];
 
     const messageType = files.length > 0 && message === "" ? "file" : "text";
