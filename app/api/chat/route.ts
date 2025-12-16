@@ -96,6 +96,26 @@ export async function POST(req: Request) {
         ? { ...(parsedResponse as Record<string, unknown>), conversation_id: conversationId }
         : { conversation_id: conversationId, data: parsedResponse };
 
+    if (
+      parsedResponse &&
+      typeof parsedResponse === "object" &&
+      "reply" in parsedResponse &&
+      typeof (parsedResponse as { reply?: unknown }).reply === "string"
+    ) {
+      const url = new URL(req.url);
+      const systemEndpoint = new URL("/api/chat/system", url);
+      const systemRes = await fetch(systemEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reply: (parsedResponse as { reply: string }).reply, conversation_id: conversationId }),
+      });
+
+      if (!systemRes.ok) {
+        const errorText = await systemRes.text();
+        throw new Error(`Failed to persist assistant reply: ${errorText}`);
+      }
+    }
+
     return new Response(JSON.stringify(payload), {
       status: n8nRes.status,
       statusText: n8nRes.statusText,
