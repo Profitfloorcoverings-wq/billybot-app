@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 const n8nWebhook = process.env.N8N_WEBHOOK_URL!;
 
 export async function POST(req: Request) {
