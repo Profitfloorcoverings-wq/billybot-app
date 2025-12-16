@@ -18,8 +18,22 @@ export async function POST(req: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const { data: conversation, error: conversationError } = await supabase
+      .from("conversations")
+      .select("profile_id")
+      .eq("id", conversation_id)
+      .single();
+
+    if (conversationError || !conversation) {
+      return NextResponse.json(
+        { error: "Conversation not found" },
+        { status: 404 }
+      );
+    }
+
     const { error } = await supabase.from("messages").insert({
       conversation_id,
+      profile_id: conversation.profile_id,
       role: "assistant",
       type: "text",
       content: reply,
