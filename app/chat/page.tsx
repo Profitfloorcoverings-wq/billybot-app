@@ -84,6 +84,21 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
+    if (!supabase) return;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, payload) => {
+      setSession(payload?.session ?? null);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  useEffect(() => {
     if (!session) return;
 
     async function loadHistory() {
