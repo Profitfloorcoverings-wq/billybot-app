@@ -315,23 +315,17 @@ export default function ChatPage() {
           <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{label}</div>
 
           <a
+            className="flex items-center justify-between rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-4 py-3 text-[var(--text)] shadow-md transition hover:border-[var(--orange-2)] hover:bg-[rgba(15,23,42,0.98)]"
             href={m.content}
             target="_blank"
             rel="noreferrer"
-            className="group flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[rgba(255,255,255,0.04)] px-4 py-3 text-[var(--text)] shadow-md transition hover:border-[rgba(255,255,255,0.18)]"
+            aria-label={`Open ${label}`}
           >
-            {/* PDF badge (neutral, not orange) */}
-            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] text-white font-extrabold tracking-wide">
+            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--orange-1)] text-white shadow-lg">
               PDF
             </span>
 
-            {/* Copy */}
-            <div className="min-w-0 flex-1">
-              <div className="truncate font-semibold">{label}</div>
-            </div>
-
-            {/* Open CTA (orange) */}
-            <span className="inline-flex items-center justify-center rounded-full bg-[#f97316] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(249,115,22,0.25)] transition group-hover:opacity-95">
+            <span className="inline-flex items-center justify-center rounded-xl bg-[var(--orange-1)] px-3 py-2 text-sm font-semibold text-white shadow-[0_0_14px_var(--orange-glow)] transition hover:brightness-105">
               Open
             </span>
           </a>
