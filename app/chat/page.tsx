@@ -308,26 +308,34 @@ export default function ChatPage() {
 
   const renderMessage = (m: Message) => {
     if (m.type === "quote") {
-      const label = m.quote_reference ? `Quote ${m.quote_reference}` : "Quote";
-
+      const label = m.quote_reference ? `QUOTE ${m.quote_reference}` : "QUOTE";
       return (
         <div className="space-y-2">
           <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{label}</div>
 
           <a
-            className="flex items-center justify-between rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-4 py-3 text-[var(--text)] shadow-md transition hover:border-[var(--orange-2)] hover:bg-[rgba(15,23,42,0.98)]"
             href={m.content}
             target="_blank"
             rel="noreferrer"
             aria-label={`Open ${label}`}
+            className="group flex items-center gap-4 rounded-2xl border border-[rgba(148,163,184,0.35)] bg-[rgba(15,23,42,0.92)] px-4 py-3 shadow-[0_14px_38px_rgba(0,0,0,0.35)] transition hover:border-[rgba(251,146,60,0.7)] hover:bg-[rgba(15,23,42,0.98)]"
           >
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--orange-1)] text-white shadow-lg">
-              PDF
-            </span>
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] shadow-[0_0_18px_var(--orange-glow)]">
+              <span className="text-sm font-extrabold tracking-[0.12em] text-white">PDF</span>
+            </div>
 
-            <span className="inline-flex items-center justify-center rounded-xl bg-[var(--orange-1)] px-3 py-2 text-sm font-semibold text-white shadow-[0_0_14px_var(--orange-glow)] transition hover:brightness-105">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold text-white">
+                Quote ready
+              </div>
+              <div className="truncate text-xs text-[var(--muted)]">
+                Click to open PDF
+              </div>
+            </div>
+
+            <div className="flex items-center justify-center rounded-xl bg-[rgba(255,255,255,0.06)] px-4 py-2 text-sm font-semibold text-white ring-1 ring-inset ring-[rgba(148,163,184,0.35)] transition group-hover:bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] group-hover:ring-transparent group-hover:shadow-[0_0_16px_var(--orange-glow)]">
               Open
-            </span>
+            </div>
           </a>
         </div>
       );
