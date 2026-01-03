@@ -309,22 +309,32 @@ export default function ChatPage() {
   const renderMessage = (m: Message) => {
     if (m.type === "quote") {
       const label = m.quote_reference ? `Quote ${m.quote_reference}` : "Quote";
+
       return (
-        <div className="space-y-1">
+        <div className="space-y-2">
           <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{label}</div>
+
           <a
-            className="flex items-center gap-2 rounded-2xl border border-[var(--line)] bg-[rgba(37,99,235,0.12)] px-4 py-3 text-[var(--text)] shadow-md transition hover:border-[var(--brand2)] hover:bg-[rgba(59,130,246,0.16)]"
             href={m.content}
             target="_blank"
             rel="noreferrer"
+            className="group flex items-center gap-3 rounded-2xl border border-[var(--line)] bg-[rgba(255,255,255,0.04)] px-4 py-3 text-[var(--text)] shadow-md transition hover:border-[rgba(255,255,255,0.18)]"
           >
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--brand1)] text-white shadow-lg">
+            {/* PDF badge (neutral, not orange) */}
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.08)] text-white font-extrabold tracking-wide">
               PDF
             </span>
-            <div className="flex flex-col">
-              <span className="font-semibold">{label} is ready</span>
-              <span className="text-sm text-[var(--muted)]">Tap to open the download</span>
+
+            {/* Copy */}
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-semibold">{label}.pdf</div>
+              <div className="truncate text-sm text-[var(--muted)]">Tap to open</div>
             </div>
+
+            {/* Open CTA (orange) */}
+            <span className="inline-flex items-center justify-center rounded-full bg-[#f97316] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(249,115,22,0.25)] transition group-hover:opacity-95">
+              Open
+            </span>
           </a>
         </div>
       );
