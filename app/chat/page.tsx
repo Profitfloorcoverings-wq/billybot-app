@@ -309,6 +309,8 @@ export default function ChatPage() {
   const renderMessage = (m: Message) => {
     if (m.type === "quote") {
       const label = m.quote_reference ? `QUOTE ${m.quote_reference}` : "QUOTE";
+      const fileName = m.quote_reference ? `Quote ${m.quote_reference}.pdf` : "Quote.pdf";
+
       return (
         <div className="space-y-2">
           <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{label}</div>
@@ -317,24 +319,22 @@ export default function ChatPage() {
             href={m.content}
             target="_blank"
             rel="noreferrer"
-            aria-label={`Open ${label}`}
-            className="group flex items-center gap-4 rounded-2xl border border-[rgba(148,163,184,0.35)] bg-[rgba(15,23,42,0.92)] px-4 py-3 shadow-[0_14px_38px_rgba(0,0,0,0.35)] transition hover:border-[rgba(251,146,60,0.7)] hover:bg-[rgba(15,23,42,0.98)]"
+            aria-label={`Open ${fileName}`}
+            style={{ width: "min(360px, 100%)" }}
+            className="block overflow-hidden rounded-2xl border border-[rgba(148,163,184,0.35)] bg-[rgba(15,23,42,0.92)] shadow-[0_14px_38px_rgba(0,0,0,0.35)] transition hover:border-[rgba(251,146,60,0.75)]"
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] shadow-[0_0_18px_var(--orange-glow)]">
-              <span className="text-sm font-extrabold tracking-[0.12em] text-white">PDF</span>
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-semibold text-white">
-                Quote ready
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] shadow-[0_0_18px_var(--orange-glow)]">
+                <span className="text-sm font-extrabold tracking-[0.12em] text-white">PDF</span>
               </div>
-              <div className="truncate text-xs text-[var(--muted)]">
-                Click to open PDF
-              </div>
-            </div>
 
-            <div className="flex items-center justify-center rounded-xl bg-[rgba(255,255,255,0.06)] px-4 py-2 text-sm font-semibold text-white ring-1 ring-inset ring-[rgba(148,163,184,0.35)] transition group-hover:bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] group-hover:ring-transparent group-hover:shadow-[0_0_16px_var(--orange-glow)]">
-              Open
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold text-white">{fileName}</div>
+              </div>
+
+              <div className="flex-shrink-0 rounded-xl bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_16px_var(--orange-glow)] transition hover:brightness-110">
+                Open
+              </div>
             </div>
           </a>
         </div>
