@@ -328,10 +328,6 @@ export default function ChatPage() {
                 PDF
               </div>
 
-              <div className="flex flex-1 items-center">
-                <span className="text-sm font-semibold text-white">Quote ready</span>
-              </div>
-
               <div className="rounded-xl bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-3 py-2 text-sm font-bold text-white shadow-[0_0_16px_var(--orange-glow)] transition group-hover:brightness-105">
                 Open
               </div>
