@@ -309,30 +309,30 @@ export default function ChatPage() {
   const renderMessage = (m: Message) => {
     if (m.type === "quote") {
       const label = m.quote_reference ? `QUOTE ${m.quote_reference}` : "QUOTE";
-      const fileName = m.quote_reference ? `Quote ${m.quote_reference}.pdf` : "Quote.pdf";
 
       return (
         <div className="space-y-2">
-          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">{label}</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+            {label}
+          </div>
 
           <a
             href={m.content}
             target="_blank"
             rel="noreferrer"
-            aria-label={`Open ${fileName}`}
-            style={{ width: "min(360px, 100%)" }}
-            className="block overflow-hidden rounded-2xl border border-[rgba(148,163,184,0.35)] bg-[rgba(15,23,42,0.92)] shadow-[0_14px_38px_rgba(0,0,0,0.35)] transition hover:border-[rgba(251,146,60,0.75)]"
+            aria-label={`Open ${label}`}
+            className="group block w-[min(360px,100%)] overflow-hidden rounded-2xl border border-[rgba(148,163,184,0.35)] bg-[rgba(15,23,42,0.92)] shadow-[0_12px_28px_rgba(0,0,0,0.35)] transition hover:border-[rgba(249,115,22,0.55)]"
           >
-            <div className="flex items-center gap-3 px-4 py-3">
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] shadow-[0_0_18px_var(--orange-glow)]">
-                <span className="text-sm font-extrabold tracking-[0.12em] text-white">PDF</span>
+            <div className="flex items-center gap-3 p-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] text-sm font-extrabold text-white shadow-[0_0_18px_var(--orange-glow)]">
+                PDF
               </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold text-white">{fileName}</div>
+              <div className="flex flex-1 items-center">
+                <span className="text-sm font-semibold text-white">Quote ready</span>
               </div>
 
-              <div className="flex-shrink-0 rounded-xl bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_16px_var(--orange-glow)] transition hover:brightness-110">
+              <div className="rounded-xl bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-3 py-2 text-sm font-bold text-white shadow-[0_0_16px_var(--orange-glow)] transition group-hover:brightness-105">
                 Open
               </div>
             </div>
