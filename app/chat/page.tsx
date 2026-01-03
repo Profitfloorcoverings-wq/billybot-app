@@ -327,8 +327,7 @@ export default function ChatPage() {
 
             {/* Copy */}
             <div className="min-w-0 flex-1">
-              <div className="truncate font-semibold">{label}.pdf</div>
-              <div className="truncate text-sm text-[var(--muted)]">Tap to open</div>
+              <div className="truncate font-semibold">{label}</div>
             </div>
 
             {/* Open CTA (orange) */}
