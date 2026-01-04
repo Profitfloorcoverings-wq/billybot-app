@@ -34,7 +34,7 @@ export async function loginAction(
     ? Math.max(session.expires_at - Math.floor(Date.now() / 1000), 3600)
     : 3600 * 24 * 7;
 
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
 
   cookieStore.set("sb-access-token", session.access_token, {
     path: "/",
