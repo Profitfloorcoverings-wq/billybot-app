@@ -321,21 +321,10 @@ export default function ChatPage() {
             target="_blank"
             rel="noreferrer"
             aria-label={`Open ${label}`}
-            className="group block w-[min(420px,100%)]"
+            className="block w-[min(360px,100%)]"
           >
-            <div className="flex items-center gap-4 rounded-2xl border border-[rgba(148,163,184,0.35)] bg-[rgba(15,23,42,0.92)] p-4 shadow-[0_12px_28px_rgba(0,0,0,0.35)] transition hover:border-[rgba(249,115,22,0.60)]">
-              {/* PDF tile */}
-              <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[rgba(255,255,255,0.06)] text-sm font-extrabold text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.10)]">
-                PDF
-              </div>
-
-              {/* Spacer pushes Open to the right */}
-              <div className="flex-1" />
-
-              {/* Open button */}
-              <div className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-6 py-3 text-sm font-bold text-white shadow-[0_0_16px_var(--orange-glow)] transition group-hover:brightness-105">
-                Open
-              </div>
+            <div className="rounded-2xl border border-[rgba(249,115,22,0.55)] bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-5 py-4 text-center text-sm font-extrabold text-white shadow-[0_0_18px_var(--orange-glow)] transition hover:brightness-105">
+              Open
             </div>
           </a>
         </div>
