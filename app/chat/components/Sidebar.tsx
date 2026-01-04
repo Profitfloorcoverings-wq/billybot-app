@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { createClient } from "@/utils/supabase/client";
 import { getSession } from "@/utils/supabase/session";
 
 const navItems = [
@@ -67,6 +68,7 @@ export default function Sidebar() {
 
   useEffect(() => {
     let isMounted = true;
+    const supabase = createClient();
 
     async function syncSession() {
       const session = await getSession();
@@ -77,9 +79,14 @@ export default function Sidebar() {
     }
 
     void syncSession();
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
+      setIsAuthenticated(!!session?.user);
+    });
 
     return () => {
       isMounted = false;
+      data.subscription.unsubscribe();
     };
   }, []);
 
