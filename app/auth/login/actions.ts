@@ -12,8 +12,12 @@ export async function loginAction(
   _prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
-  const email = String(formData.get("email") ?? "");
+  const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+
+  if (!email || !password) {
+    return { error: "Missing email or password" };
+  }
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",

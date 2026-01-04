@@ -41,6 +41,7 @@ export default function LoginPage() {
               <label className="field-label" htmlFor="email">Email</label>
               <input
                 id="email"
+                name="email"
                 type="email"
                 className="input-fluid"
                 value={email}
@@ -54,6 +55,7 @@ export default function LoginPage() {
               <label className="field-label" htmlFor="password">Password</label>
               <input
                 id="password"
+                name="password"
                 type="password"
                 className="input-fluid"
                 value={password}
