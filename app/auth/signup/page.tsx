@@ -3,21 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useMemo, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
 
 import { createClient } from "@/utils/supabase/client";
-
-function persistSession(session: Session | null) {
-  if (!session) return;
-  const maxAge = session.expires_at
-    ? Math.max(session.expires_at - Math.floor(Date.now() / 1000), 60 * 60)
-    : 60 * 60 * 24 * 7;
-
-  document.cookie = `sb-access-token=${session.access_token}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
-  if (session.refresh_token) {
-    document.cookie = `sb-refresh-token=${session.refresh_token}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
-  }
-}
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -61,7 +48,6 @@ export default function SignUpPage() {
         throw insertError;
       }
 
-      persistSession(data.session ?? null);
       router.push("/pricing");
     } catch (err) {
       setError(

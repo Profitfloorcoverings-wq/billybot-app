@@ -21,23 +21,21 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value;
+        getAll() {
+          return req.cookies.getAll();
         },
-        set(name: string, value: string, options: any) {
-          res.cookies.set({ name, value, ...options });
-        },
-        remove(name: string, options: any) {
-          res.cookies.set({ name, value: "", ...options });
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            res.cookies.set({ name, value, ...options });
+          });
         },
       },
     }
   );
 
-  // Get session
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const pathname = req.nextUrl.pathname;
   const publicRoutes = ["/terms", "/privacy"];
@@ -46,7 +44,7 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  if (session && pathname.startsWith("/auth")) {
+  if (user && pathname.startsWith("/auth")) {
     const redirectUrl = new URL("/chat", req.url);
     return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
@@ -59,11 +57,11 @@ export async function middleware(req: NextRequest) {
   let isOnboarded = true;
   let termsAccepted = true;
 
-  if (session?.user) {
+  if (user) {
     const { data: clientProfile } = await supabase
       .from("clients")
       .select("is_onboarded, terms_accepted")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .maybeSingle();
 
     isOnboarded = clientProfile?.is_onboarded ?? false;
@@ -82,18 +80,18 @@ export async function middleware(req: NextRequest) {
   );
 
   // If no session AND route is protected → redirect to login
-  if (isProtected && !session) {
+  if (isProtected && !user) {
     const redirectUrl = new URL("/auth/login", req.url);
     return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 
   // User logged in but NOT onboarded → force into setup flow
-  if (session && !isOnboarded && !isOnboardingRoute) {
+  if (user && !isOnboarded && !isOnboardingRoute) {
     const redirectUrl = new URL("/account/setup", req.url);
     return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 
-  if (session && isOnboarded && !termsAccepted && !isOnboardingRoute) {
+  if (user && isOnboarded && !termsAccepted && !isOnboardingRoute) {
     const redirectUrl = new URL("/account/accept-terms", req.url);
     return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
