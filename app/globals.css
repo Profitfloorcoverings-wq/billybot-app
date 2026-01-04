@@ -529,6 +529,19 @@ textarea::placeholder {
   color: #fff;
 }
 
+.chat-bubble-user,
+.chat-bubble-user .prose {
+  color: #fff;
+}
+
+.chat-bubble-user .prose :is(p, li, ul, ol, pre, blockquote, a, span, strong, em) {
+  color: #fff;
+}
+
+.chat-bubble-user .prose a {
+  text-decoration: underline;
+}
+
 .chat-badge {
   display: inline-block;
   font-size: 11px;
