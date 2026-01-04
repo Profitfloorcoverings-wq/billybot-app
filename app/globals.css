@@ -464,7 +464,12 @@ textarea::placeholder {
   background: rgba(37, 99, 235, 0.12);
   border: 1px solid rgba(59, 130, 246, 0.4);
   font-size: 12px;
-  color: #bfdbfe;
+  color: var(--accent1);
+}
+
+.chat-pill span,
+.chat-pill p {
+  color: var(--accent1);
 }
 
 .chat-subtitle {
