@@ -51,7 +51,7 @@ export default function LoginPage() {
       persistSession(data.session ?? null);
 
       // Redirect user
-      router.push("/chat");
+      router.replace("/chat");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
