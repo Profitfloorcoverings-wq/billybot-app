@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 
 type AuthenticatedUser = {
   id: string;
@@ -32,22 +33,39 @@ function getServerClient(useServiceRole = false) {
 
 export async function getUserFromCookies(): Promise<AuthenticatedUser | null> {
   const cookieStore = await cookies();
-  const accessToken = cookieStore.get("sb-access-token")?.value;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Missing Supabase environment variables");
+  }
 
-  if (!accessToken) return null;
+  const supabase = createServerClient(supabaseUrl!, supabaseAnonKey!, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          cookieStore.set({ name, value, ...options });
+        });
+      },
+    },
+  });
 
-  const supabase = getServerClient(true);
-  const { data, error } = await supabase.auth.getUser(accessToken);
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
 
-  if (error || !data?.user) return null;
+  if (error || !user) return null;
+
+  const serviceClient = getServerClient(true);
 
   let businessName: string | null = null;
-  let email = data.user.email ?? null;
+  let email = user.email ?? null;
 
-  const { data: client } = await supabase
+  const { data: client } = await serviceClient
     .from("clients")
     .select("business_name, email")
-    .eq("id", data.user.id)
+    .eq("id", user.id)
     .maybeSingle();
 
   if (client) {
@@ -56,7 +74,7 @@ export async function getUserFromCookies(): Promise<AuthenticatedUser | null> {
   }
 
   return {
-    id: data.user.id,
+    id: user.id,
     email,
     business_name: businessName,
   };

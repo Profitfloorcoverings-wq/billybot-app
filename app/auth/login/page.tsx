@@ -3,27 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useMemo, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
 
 import { createClient } from "@/utils/supabase/client";
-
-// Store session in cookies for SSR awareness (non-blocking)
-function persistSession(session: Session | null) {
-  if (!session) return;
-
-  const maxAge = session.expires_at
-    ? Math.max(session.expires_at - Math.floor(Date.now() / 1000), 3600)
-    : 3600 * 24 * 7;
-
-  const secureFlag = window.location.protocol === "https:" ? "; Secure" : "";
-  const cookieSettings = `Path=/; Max-Age=${maxAge}; SameSite=Lax${secureFlag}`;
-
-  document.cookie = `sb-access-token=${session.access_token}; ${cookieSettings}`;
-
-  if (session.refresh_token) {
-    document.cookie = `sb-refresh-token=${session.refresh_token}; ${cookieSettings}`;
-  }
-}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,15 +21,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (signInError) throw signInError;
-
-      // Save session locally
-      persistSession(data.session ?? null);
 
       // Redirect user
       router.replace("/chat");

@@ -2,24 +2,30 @@
 
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
 export async function GET() {
   const cookieStore = await cookies();
-
-  const tokens = ["sb-access-token", "sb-refresh-token"];
   const response = NextResponse.redirect("/auth/login");
 
-  tokens.forEach((name) => {
-    const existing = cookieStore.get(name);
-    if (existing) {
-      response.cookies.set({
-        name,
-        value: "",
-        path: "/",
-        maxAge: 0,
-      });
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set({ name, value, ...options });
+          });
+        },
+      },
     }
-  });
+  );
+
+  await supabase.auth.signOut();
 
   return response;
 }

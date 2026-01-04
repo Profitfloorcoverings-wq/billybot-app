@@ -4,9 +4,11 @@ import { createServerClient } from "@/utils/supabase/server";
 
 export default async function Home() {
   const supabase = await createServerClient();
-  const { data } = await supabase.auth.getSession();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (data.session) {
+  if (user) {
     redirect("/chat");
   }
 
