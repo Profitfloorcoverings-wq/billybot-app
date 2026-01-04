@@ -8,6 +8,7 @@ const PROTECTED_ROUTES = [
   "/quotes",
   "/customers",
   "/pricing",
+  "/requests",
   "/account",
 ];
 
@@ -43,6 +44,11 @@ export async function middleware(req: NextRequest) {
 
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
     return res;
+  }
+
+  if (session && pathname.startsWith("/auth")) {
+    const redirectUrl = new URL("/chat", req.url);
+    return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 
   const isProtected = PROTECTED_ROUTES.some((route) =>
@@ -97,10 +103,6 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/chat/:path*",
-    "/quotes/:path*",
-    "/customers/:path*",
-    "/pricing/:path*",
-    "/account/:path*",
+    "/((?!_next/static|_next/image|favicon.ico).*)",
   ],
 };
