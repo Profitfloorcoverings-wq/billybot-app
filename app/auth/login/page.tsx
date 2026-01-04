@@ -1,67 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { type FormEvent, useMemo, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
+import { useState } from "react";
+import { useFormState, useFormStatus } from "react-dom";
 
-import { createClient } from "@/utils/supabase/client";
+import { loginAction } from "./actions";
 
-// Store session in cookies for SSR awareness (non-blocking)
-function persistSession(session: Session | null) {
-  if (!session) return;
+type LoginState = {
+  error: string | null;
+};
 
-  const maxAge = session.expires_at
-    ? Math.max(session.expires_at - Math.floor(Date.now() / 1000), 3600)
-    : 3600 * 24 * 7;
+function SubmitButton() {
+  const { pending } = useFormStatus();
 
-  const secureFlag = window.location.protocol === "https:" ? "; Secure" : "";
-  const cookieSettings = `Path=/; Max-Age=${maxAge}; SameSite=Lax${secureFlag}`;
-
-  document.cookie = `sb-access-token=${session.access_token}; ${cookieSettings}`;
-
-  if (session.refresh_token) {
-    document.cookie = `sb-refresh-token=${session.refresh_token}; ${cookieSettings}`;
-  }
+  return (
+    <button type="submit" className="btn btn-primary" disabled={pending}>
+      {pending ? "Logging in…" : "Log in"}
+    </button>
+  );
 }
 
 export default function LoginPage() {
-  const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
-
+  const [state, formAction] = useFormState<LoginState, FormData>(loginAction, {
+    error: null,
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) throw signInError;
-
-      // Save session locally
-      persistSession(data.session ?? null);
-
-      // Redirect user
-      router.replace("/chat");
-    } catch (err) {
-      setError(
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message?: string }).message)
-          : "Unable to log in"
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <div className="min-h-screen bg-[var(--bg1)] text-[var(--text)] px-4 py-12 flex items-center justify-center">
@@ -72,7 +36,7 @@ export default function LoginPage() {
             <p className="section-subtitle">Log in to continue chatting</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="stack gap-4">
+          <form action={formAction} className="stack gap-4">
             <div className="field-group">
               <label className="field-label" htmlFor="email">Email</label>
               <input
@@ -99,15 +63,13 @@ export default function LoginPage() {
               />
             </div>
 
-            {error && (
+            {state.error && (
               <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
-                {error}
+                {state.error}
               </div>
             )}
 
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? "Logging in…" : "Log in"}
-            </button>
+            <SubmitButton />
           </form>
 
           <p className="text-center text-sm text-[var(--muted)]">
