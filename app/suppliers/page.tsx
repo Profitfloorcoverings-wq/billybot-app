@@ -389,10 +389,10 @@ export default function SuppliersPricingPage() {
                       <th>Product</th>
                       <th>Category</th>
                       <th>UOM</th>
-                      <th>Price</th>
-                      <th>Roll</th>
-                      <th>Cut</th>
-                      <th>m²</th>
+                      <th>Each</th>
+                      <th>Roll £/m²</th>
+                      <th>Cut £/m²</th>
+                      <th>Sheet £/m²</th>
                       <th>£/m</th>
                       <th>Updated</th>
                     </tr>
