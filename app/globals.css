@@ -205,6 +205,12 @@ textarea::placeholder {
   min-width: 96px;
   padding-right: 1.5rem;
   text-align: center;
+  font-size: 16px;
+  outline: none;
+}
+
+.supplierPriceInput:focus {
+  outline: none;
 }
 
 input[type=number].supplierPriceInput::-webkit-outer-spin-button,
@@ -235,6 +241,13 @@ input[type=number].supplierPriceInput {
   border-radius: 14px;
   overflow: hidden;
   box-shadow: var(--shadow-soft);
+}
+
+.suppliers-table-card {
+  overflow-x: auto;
+  overflow-y: hidden;
+  transform: none;
+  will-change: auto;
 }
 
 .data-table {
