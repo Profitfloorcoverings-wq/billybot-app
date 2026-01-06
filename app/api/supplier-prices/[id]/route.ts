@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { getUserFromCookies } from "@/utils/supabase/auth";
@@ -27,9 +27,9 @@ type SupplierPrice = Omit<RawSupplierPrice, "ItemRef.value"> & {
 };
 
 type SupplierPriceUpdate = {
-  product_name: string;
-  uom: string;
-  price: number;
+  product_name: string | null;
+  uom: string | null;
+  price: number | null;
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,8 +44,8 @@ function normalizePrice(price: RawSupplierPrice): SupplierPrice {
 }
 
 export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     if (!supabaseUrl || !supabaseServiceKey) {
@@ -62,43 +62,55 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = params;
+    const { id } = await context.params;
     if (!id) {
       return NextResponse.json({ error: "Missing supplier price id" }, { status: 400 });
     }
 
     const body = (await req.json()) as Partial<SupplierPriceUpdate>;
-    const productName = body.product_name;
-    const uom = body.uom;
-    const rawPrice = body.price;
-    const parsedPrice =
-      typeof rawPrice === "string" ? Number(rawPrice) : typeof rawPrice === "number" ? rawPrice : null;
 
-    if (
-      typeof productName !== "string" ||
-      typeof uom !== "string" ||
-      parsedPrice === null ||
-      !Number.isFinite(parsedPrice)
-    ) {
-      return NextResponse.json({ error: "Invalid update payload" }, { status: 400 });
+    const updatePayload: Partial<SupplierPriceUpdate> = {};
+
+    if (Object.prototype.hasOwnProperty.call(body, "product_name")) {
+      if (typeof body.product_name !== "string" && body.product_name !== null) {
+        return NextResponse.json({ error: "Invalid product_name" }, { status: 400 });
+      }
+      updatePayload.product_name = body.product_name ?? null;
     }
 
-    if (parsedPrice < 0) {
-      return NextResponse.json(
-        { error: "Price must be greater than or equal to 0" },
-        { status: 400 }
-      );
+    if (Object.prototype.hasOwnProperty.call(body, "uom")) {
+      if (typeof body.uom !== "string" && body.uom !== null) {
+        return NextResponse.json({ error: "Invalid uom" }, { status: 400 });
+      }
+      updatePayload.uom = body.uom ?? null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "price")) {
+      const rawPrice = body.price;
+      if (rawPrice === null) {
+        updatePayload.price = null;
+      } else if (typeof rawPrice === "number") {
+        if (!Number.isFinite(rawPrice) || rawPrice < 0) {
+          return NextResponse.json(
+            { error: "Price must be a finite number greater than or equal to 0" },
+            { status: 400 }
+          );
+        }
+        updatePayload.price = rawPrice;
+      } else {
+        return NextResponse.json({ error: "Invalid price" }, { status: 400 });
+      }
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data, error } = await supabase
       .from("supplier_prices")
-      .update({
-        product_name: productName,
-        uom,
-        price: parsedPrice,
-      })
+      .update(updatePayload)
       .eq("id", id)
       .eq("client_id", profileId)
       .select(
