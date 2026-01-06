@@ -155,6 +155,13 @@ export default function SuppliersPricingPage() {
     }).format(date);
   };
 
+  const formatValue = (value?: number | string | null) => {
+    if (value === null || value === undefined || value === "") {
+      return "—";
+    }
+    return value;
+  };
+
   const supplierOptions = useMemo(() => {
     const names = new Set<string>();
     prices.forEach((price) => {
@@ -305,7 +312,6 @@ export default function SuppliersPricingPage() {
           <div className="stack">
             <h3 className="section-title text-lg">Email price lists to pricelists@billybot.ai</h3>
             <p className="section-subtitle">Accepted: PDF, Excel, CSV</p>
-            <p className="section-subtitle">Subject format: “Supplier – Your Company”</p>
           </div>
           <p className="text-sm text-[var(--muted)]">Prices appear once processed.</p>
         </div>
@@ -387,14 +393,13 @@ export default function SuppliersPricingPage() {
                       <th>Roll</th>
                       <th>Cut</th>
                       <th>m²</th>
-                      <th>Source</th>
+                      <th>£/m</th>
                       <th>Updated</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredPrices.map((price) => {
                       const isEditing = activeEditId === price.id;
-                      const productIdLabel = price.product_id || price.item_ref_value || "";
                       const updatedLabel = formatDate(price.updated_at || price.created_at);
                       const isSaving = savingId === price.id;
 
@@ -414,11 +419,6 @@ export default function SuppliersPricingPage() {
                                   {price.product_name || "Untitled"}
                                 </p>
                               )}
-                              {productIdLabel ? (
-                                <span className="text-xs text-[var(--muted)]">
-                                  {productIdLabel}
-                                </span>
-                              ) : null}
                             </div>
                           </td>
                           <td>{price.category || "—"}</td>
@@ -449,10 +449,10 @@ export default function SuppliersPricingPage() {
                               "—"
                             )}
                           </td>
-                          <td>{price.roll_price ?? "—"}</td>
-                          <td>{price.cut_price ?? "—"}</td>
-                          <td>{price.m2_price ?? "—"}</td>
-                          <td>{price.price_source || "—"}</td>
+                          <td>{formatValue(price.roll_price)}</td>
+                          <td>{formatValue(price.cut_price)}</td>
+                          <td>{formatValue(price.m2_price)}</td>
+                          <td>{formatValue(price.price_per_m)}</td>
                           <td>
                             <div className="stack gap-2">
                               <span>{updatedLabel || "—"}</span>
