@@ -35,6 +35,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isSearching = search.trim().length > 0;
 
   useEffect(() => {
     let active = true;
@@ -108,7 +109,11 @@ export default function CustomersPage() {
             />
           </div>
 
-          <div className="tag">{customers.length} total</div>
+          <div className="tag">
+            {isSearching
+              ? `${filteredCustomers.length} of ${customers.length} total`
+              : `${customers.length} total`}
+          </div>
         </div>
 
         <div className="table-card">
@@ -121,13 +126,27 @@ export default function CustomersPage() {
 
           {!loading && !error && filteredCustomers.length === 0 && (
             <div className="empty-state stack items-center">
-              <h3 className="section-title">No customers yet</h3>
+              <h3 className="section-title">
+                {isSearching ? "No matches found" : "No customers yet"}
+              </h3>
               <p className="section-subtitle">
-                Add your first customer to get started.
+                {isSearching
+                  ? "Try a different search or clear your filter."
+                  : "Add your first customer to get started."}
               </p>
-              <Link href="/customers/new" className="btn btn-primary">
-                Add Customer
-              </Link>
+              {isSearching ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setSearch("")}
+                >
+                  Clear search
+                </button>
+              ) : (
+                <Link href="/customers/new" className="btn btn-primary">
+                  Add Customer
+                </Link>
+              )}
             </div>
           )}
 
