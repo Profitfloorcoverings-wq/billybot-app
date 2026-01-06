@@ -271,7 +271,9 @@ export default function SuppliersPricingPage() {
     const hasInvalidNumber = numericFields.some((field) => {
       const value = normalized[field];
       if (value === null || value === undefined) return false;
-      return !Number.isFinite(value) || value < 0;
+      if (value === "") return true;
+      const num = typeof value === "number" ? value : Number(value);
+      return !Number.isFinite(num) || num < 0;
     });
 
     if (hasInvalidNumber) {
