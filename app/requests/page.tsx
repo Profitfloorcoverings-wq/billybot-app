@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
+import HelpSection from "@/app/requests/HelpSection";
 
 export default function RequestsPage() {
   const supabase = useMemo(() => createClient(), []);
@@ -89,6 +90,10 @@ export default function RequestsPage() {
             </button>
           </div>
         </form>
+      </div>
+
+      <div className="mt-10">
+        <HelpSection />
       </div>
     </main>
   );
