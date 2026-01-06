@@ -382,145 +382,148 @@ export default function SuppliersPricingPage() {
             </div>
 
             {hasFilteredPrices ? (
-              <div className="table-card">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Supplier</th>
-                      <th>Product</th>
-                      <th>Category</th>
-                      <th>UOM</th>
-                      <th>Each</th>
-                      <th>Roll £/m²</th>
-                      <th>Cut £/m²</th>
-                      <th>£/m²</th>
-                      <th>£/m</th>
-                      <th>Updated</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredPrices.map((price) => {
-                      const isEditing = editingId === price.id;
-                      const updatedLabel = formatDate(price.updated_at || price.created_at);
-                      const isSaving = savingId === price.id;
+              <div className="table-card scrollable-table">
+                <div className="relative w-full overflow-x-auto">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Supplier</th>
+                        <th>Product</th>
+                        <th>Category</th>
+                        <th>UOM</th>
+                        <th>Each</th>
+                        <th>Roll £/m²</th>
+                        <th>Cut £/m²</th>
+                        <th>£/m²</th>
+                        <th>£/m</th>
+                        <th>Updated</th>
+                        <th className="sticky-cell">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPrices.map((price) => {
+                        const isEditing = editingId === price.id;
+                        const updatedLabel = formatDate(price.updated_at || price.created_at);
+                        const isSaving = savingId === price.id;
 
-                      return (
-                        <tr key={price.id}>
-                          <td>{price.supplier_name || "—"}</td>
-                          <td>
-                            <div className="stack gap-1">
-                              <p className="font-semibold text-[15px] text-white">
-                                {price.product_name || "Untitled"}
-                              </p>
-                            </div>
-                          </td>
-                          <td>{price.category || "—"}</td>
-                          <td>{price.uom || "—"}</td>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                className="input-fluid supplierPriceInput"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={editValues?.price ?? ""}
-                                onChange={(e) => updateField("price", e.target.value)}
-                              />
-                            ) : price.price !== null && price.price !== undefined ? (
-                              price.price
-                            ) : (
-                              "—"
-                            )}
-                          </td>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                className="input-fluid supplierPriceInput"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={editValues?.roll_price ?? ""}
-                                onChange={(e) => updateField("roll_price", e.target.value)}
-                              />
-                            ) : (
-                              formatValue(price.roll_price)
-                            )}
-                          </td>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                className="input-fluid supplierPriceInput"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={editValues?.cut_price ?? ""}
-                                onChange={(e) => updateField("cut_price", e.target.value)}
-                              />
-                            ) : (
-                              formatValue(price.cut_price)
-                            )}
-                          </td>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                className="input-fluid supplierPriceInput"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={editValues?.m2_price ?? ""}
-                                onChange={(e) => updateField("m2_price", e.target.value)}
-                              />
-                            ) : (
-                              formatValue(price.m2_price)
-                            )}
-                          </td>
-                          <td>
-                            {isEditing ? (
-                              <input
-                                className="input-fluid supplierPriceInput"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={editValues?.price_per_m ?? ""}
-                                onChange={(e) => updateField("price_per_m", e.target.value)}
-                              />
-                            ) : (
-                              formatValue(price.price_per_m)
-                            )}
-                          </td>
-                          <td>
-                            <div className="stack gap-2">
-                              <span>{updatedLabel || "—"}</span>
-                              {isSaving ? (
-                                <span className="text-xs text-[var(--muted)]">Saving…</span>
-                              ) : isEditing ? (
-                                <div className="flex flex-wrap gap-2">
-                                  <button
-                                    className="btn btn-primary"
-                                    onClick={() => saveEdit(price)}
-                                  >
-                                    Save
-                                  </button>
-                                  <button className="btn btn-secondary" onClick={cancelEdit}>
-                                    Cancel
-                                  </button>
-                                </div>
+                        return (
+                          <tr key={price.id}>
+                            <td>{price.supplier_name || "—"}</td>
+                            <td>
+                              <div className="stack gap-1">
+                                <p className="font-semibold text-[15px] text-white">
+                                  {price.product_name || "Untitled"}
+                                </p>
+                              </div>
+                            </td>
+                            <td>{price.category || "—"}</td>
+                            <td>{price.uom || "—"}</td>
+                            <td>
+                              {isEditing ? (
+                                <input
+                                  className="input-fluid supplierPriceInput"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={editValues?.price ?? ""}
+                                  onChange={(e) => updateField("price", e.target.value)}
+                                />
+                              ) : price.price !== null && price.price !== undefined ? (
+                                price.price
                               ) : (
-                                <button
-                                  className="btn btn-secondary"
-                                  onClick={() => startEdit(price)}
-                                  disabled={!!editingId}
-                                >
-                                  Edit
-                                </button>
+                                "—"
                               )}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            </td>
+                            <td>
+                              {isEditing ? (
+                                <input
+                                  className="input-fluid supplierPriceInput"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={editValues?.roll_price ?? ""}
+                                  onChange={(e) => updateField("roll_price", e.target.value)}
+                                />
+                              ) : (
+                                formatValue(price.roll_price)
+                              )}
+                            </td>
+                            <td>
+                              {isEditing ? (
+                                <input
+                                  className="input-fluid supplierPriceInput"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={editValues?.cut_price ?? ""}
+                                  onChange={(e) => updateField("cut_price", e.target.value)}
+                                />
+                              ) : (
+                                formatValue(price.cut_price)
+                              )}
+                            </td>
+                            <td>
+                              {isEditing ? (
+                                <input
+                                  className="input-fluid supplierPriceInput"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={editValues?.m2_price ?? ""}
+                                  onChange={(e) => updateField("m2_price", e.target.value)}
+                                />
+                              ) : (
+                                formatValue(price.m2_price)
+                              )}
+                            </td>
+                            <td>
+                              {isEditing ? (
+                                <input
+                                  className="input-fluid supplierPriceInput"
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={editValues?.price_per_m ?? ""}
+                                  onChange={(e) => updateField("price_per_m", e.target.value)}
+                                />
+                              ) : (
+                                formatValue(price.price_per_m)
+                              )}
+                            </td>
+                            <td>{updatedLabel || "—"}</td>
+                            <td className="sticky-cell">
+                              <div className="stack gap-2">
+                                {isSaving ? (
+                                  <span className="text-xs text-[var(--muted)]">Saving…</span>
+                                ) : isEditing ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    <button
+                                      className="btn btn-primary"
+                                      onClick={() => saveEdit(price)}
+                                    >
+                                      Save
+                                    </button>
+                                    <button className="btn btn-secondary" onClick={cancelEdit}>
+                                      Cancel
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    className="btn btn-secondary"
+                                    onClick={() => startEdit(price)}
+                                    disabled={!!editingId}
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : (
               <div className="empty-state">No supplier prices match your filters.</div>
