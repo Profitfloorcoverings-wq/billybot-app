@@ -27,9 +27,11 @@ type SupplierPrice = Omit<RawSupplierPrice, "ItemRef.value"> & {
 };
 
 type SupplierPriceUpdate = {
-  product_name: string | null;
-  uom: string | null;
   price: number | null;
+  roll_price: number | null;
+  cut_price: number | null;
+  m2_price: number | null;
+  price_per_m: number | null;
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -71,35 +73,42 @@ export async function PATCH(
 
     const updatePayload: Partial<SupplierPriceUpdate> = {};
 
-    if (Object.prototype.hasOwnProperty.call(body, "product_name")) {
-      if (typeof body.product_name !== "string" && body.product_name !== null) {
-        return NextResponse.json({ error: "Invalid product_name" }, { status: 400 });
+    const updateNumberField = (
+      key: keyof SupplierPriceUpdate,
+      label: string
+    ) => {
+      if (!Object.prototype.hasOwnProperty.call(body, key)) return;
+      const rawValue = body[key];
+      if (rawValue === null) {
+        updatePayload[key] = null;
+        return;
       }
-      updatePayload.product_name = body.product_name ?? null;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(body, "uom")) {
-      if (typeof body.uom !== "string" && body.uom !== null) {
-        return NextResponse.json({ error: "Invalid uom" }, { status: 400 });
-      }
-      updatePayload.uom = body.uom ?? null;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(body, "price")) {
-      const rawPrice = body.price;
-      if (rawPrice === null) {
-        updatePayload.price = null;
-      } else if (typeof rawPrice === "number") {
-        if (!Number.isFinite(rawPrice) || rawPrice < 0) {
-          return NextResponse.json(
-            { error: "Price must be a finite number greater than or equal to 0" },
-            { status: 400 }
-          );
+      if (typeof rawValue === "number") {
+        if (!Number.isFinite(rawValue) || rawValue < 0) {
+          throw new Error(`${label} must be a finite number greater than or equal to 0`);
         }
-        updatePayload.price = rawPrice;
-      } else {
-        return NextResponse.json({ error: "Invalid price" }, { status: 400 });
+        updatePayload[key] = rawValue;
+        return;
       }
+      throw new Error(`Invalid ${label}`);
+    };
+
+    try {
+      updateNumberField("price", "price");
+      updateNumberField("roll_price", "roll_price");
+      updateNumberField("cut_price", "cut_price");
+      updateNumberField("m2_price", "m2_price");
+      updateNumberField("price_per_m", "price_per_m");
+    } catch (err: unknown) {
+      return NextResponse.json(
+        {
+          error:
+            err && typeof err === "object" && "message" in err
+              ? String((err as { message?: string }).message)
+              : "Invalid fields",
+        },
+        { status: 400 }
+      );
     }
 
     if (Object.keys(updatePayload).length === 0) {
