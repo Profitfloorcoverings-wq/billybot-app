@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
 
@@ -30,9 +30,11 @@ type SupplierPricesResponse = {
 };
 
 type SupplierPriceUpdate = {
-  product_name: string;
-  uom: string;
-  price: number;
+  price: string;
+  roll_price: string;
+  cut_price: string;
+  m2_price: string;
+  price_per_m: string;
 };
 
 const normalizeRealtime = (price: SupplierPrice | null) => {
@@ -53,37 +55,37 @@ export default function SuppliersPricingPage() {
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState(EMPTY_OPTION);
   const [categoryFilter, setCategoryFilter] = useState(EMPTY_OPTION);
-  const [activeEditId, setActiveEditId] = useState<string | number | null>(null);
+  const [editingId, setEditingId] = useState<string | number | null>(null);
   const [editValues, setEditValues] = useState<SupplierPriceUpdate | null>(null);
   const [savingId, setSavingId] = useState<string | number | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadPrices() {
-      try {
-        setError(null);
-        const res = await fetch("/api/supplier-prices", { cache: "no-store" });
-        if (!res.ok) {
-          throw new Error(`Failed to load supplier prices (${res.status})`);
-        }
-
-        const data = (await res.json()) as SupplierPricesResponse;
-        const list = Array.isArray(data.prices) ? data.prices : [];
-        setPrices(list);
-      } catch (err) {
-        console.error("Supplier prices load error", err);
-        setError(
-          err && typeof err === "object" && "message" in err
-            ? String((err as { message?: string }).message)
-            : "Unable to load supplier prices"
-        );
-      } finally {
-        setLoading(false);
+  const loadPrices = useCallback(async () => {
+    try {
+      setError(null);
+      const res = await fetch("/api/supplier-prices", { cache: "no-store" });
+      if (!res.ok) {
+        throw new Error(`Failed to load supplier prices (${res.status})`);
       }
-    }
 
-    loadPrices();
+      const data = (await res.json()) as SupplierPricesResponse;
+      const list = Array.isArray(data.prices) ? data.prices : [];
+      setPrices(list);
+    } catch (err) {
+      console.error("Supplier prices load error", err);
+      setError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to load supplier prices"
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadPrices();
+  }, [loadPrices]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -205,48 +207,46 @@ export default function SuppliersPricingPage() {
 
   const startEdit = (price: SupplierPrice) => {
     if (savingId) return;
-    setActiveEditId(price.id);
+    setEditingId(price.id);
     setEditValues({
-      product_name: price.product_name ?? "",
-      uom: price.uom ?? "",
-      price: price.price ?? 0,
+      price: price.price?.toString() ?? "",
+      roll_price: price.roll_price?.toString() ?? "",
+      cut_price: price.cut_price?.toString() ?? "",
+      m2_price: price.m2_price?.toString() ?? "",
+      price_per_m: price.price_per_m?.toString() ?? "",
     });
   };
 
   const cancelEdit = () => {
     if (savingId) return;
-    setActiveEditId(null);
+    setEditingId(null);
     setEditValues(null);
   };
 
   const updateField = (field: keyof SupplierPriceUpdate, value: string) => {
     if (!editValues) return;
-    if (field === "price") {
-      const parsed = Number(value);
-      setEditValues({ ...editValues, price: Number.isNaN(parsed) ? editValues.price : parsed });
-      return;
-    }
     setEditValues({ ...editValues, [field]: value });
+  };
+
+  const toNumberOrNull = (value: string | number | null | undefined) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === "number") return Number.isFinite(value) ? value : null;
+    const normalized = value.trim();
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isNaN(parsed) ? null : parsed;
   };
 
   const saveEdit = async (price: SupplierPrice) => {
     if (!editValues || savingId) return;
 
     const normalized = {
-      product_name: editValues.product_name.trim(),
-      uom: editValues.uom.trim(),
-      price: editValues.price,
+      price: toNumberOrNull(editValues.price),
+      roll_price: toNumberOrNull(editValues.roll_price),
+      cut_price: toNumberOrNull(editValues.cut_price),
+      m2_price: toNumberOrNull(editValues.m2_price),
+      price_per_m: toNumberOrNull(editValues.price_per_m),
     };
-
-    if (!normalized.product_name || !normalized.uom || !Number.isFinite(normalized.price)) {
-      setError("Please provide product name, UOM, and a valid price.");
-      return;
-    }
-
-    if (normalized.price < 0) {
-      setError("Price must be greater than or equal to 0.");
-      return;
-    }
 
     setError(null);
     setSavingId(price.id);
@@ -277,8 +277,9 @@ export default function SuppliersPricingPage() {
         );
       }
 
-      setActiveEditId(null);
+      setEditingId(null);
       setEditValues(null);
+      await loadPrices();
     } catch (err) {
       console.error("Supplier price update error", err);
       setPrices(previous);
@@ -399,7 +400,7 @@ export default function SuppliersPricingPage() {
                   </thead>
                   <tbody>
                     {filteredPrices.map((price) => {
-                      const isEditing = activeEditId === price.id;
+                      const isEditing = editingId === price.id;
                       const updatedLabel = formatDate(price.updated_at || price.created_at);
                       const isSaving = savingId === price.id;
 
@@ -408,29 +409,27 @@ export default function SuppliersPricingPage() {
                           <td>{price.supplier_name || "—"}</td>
                           <td>
                             <div className="stack gap-1">
-                              {isEditing ? (
-                                <input
-                                  className="input-fluid"
-                                  value={editValues?.product_name ?? ""}
-                                  onChange={(e) => updateField("product_name", e.target.value)}
-                                />
-                              ) : (
-                                <p className="font-semibold text-[15px] text-white">
-                                  {price.product_name || "Untitled"}
-                                </p>
-                              )}
+                              <p className="font-semibold text-[15px] text-white">
+                                {price.product_name || "Untitled"}
+                              </p>
                             </div>
                           </td>
                           <td>{price.category || "—"}</td>
+                          <td>{price.uom || "—"}</td>
                           <td>
                             {isEditing ? (
                               <input
                                 className="input-fluid"
-                                value={editValues?.uom ?? ""}
-                                onChange={(e) => updateField("uom", e.target.value)}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editValues?.price ?? ""}
+                                onChange={(e) => updateField("price", e.target.value)}
                               />
+                            ) : price.price !== null && price.price !== undefined ? (
+                              price.price
                             ) : (
-                              price.uom || "—"
+                              "—"
                             )}
                           </td>
                           <td>
@@ -440,19 +439,55 @@ export default function SuppliersPricingPage() {
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={Number.isFinite(editValues?.price) ? editValues?.price : ""}
-                                onChange={(e) => updateField("price", e.target.value)}
+                                value={editValues?.roll_price ?? ""}
+                                onChange={(e) => updateField("roll_price", e.target.value)}
                               />
-                            ) : price.price !== null && price.price !== undefined ? (
-                              price.price
                             ) : (
-                              "—"
+                              formatValue(price.roll_price)
                             )}
                           </td>
-                          <td>{formatValue(price.roll_price)}</td>
-                          <td>{formatValue(price.cut_price)}</td>
-                          <td>{formatValue(price.m2_price)}</td>
-                          <td>{formatValue(price.price_per_m)}</td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="input-fluid"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editValues?.cut_price ?? ""}
+                                onChange={(e) => updateField("cut_price", e.target.value)}
+                              />
+                            ) : (
+                              formatValue(price.cut_price)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="input-fluid"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editValues?.m2_price ?? ""}
+                                onChange={(e) => updateField("m2_price", e.target.value)}
+                              />
+                            ) : (
+                              formatValue(price.m2_price)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="input-fluid"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editValues?.price_per_m ?? ""}
+                                onChange={(e) => updateField("price_per_m", e.target.value)}
+                              />
+                            ) : (
+                              formatValue(price.price_per_m)
+                            )}
+                          </td>
                           <td>
                             <div className="stack gap-2">
                               <span>{updatedLabel || "—"}</span>
@@ -474,7 +509,7 @@ export default function SuppliersPricingPage() {
                                 <button
                                   className="btn btn-secondary"
                                   onClick={() => startEdit(price)}
-                                  disabled={!!activeEditId}
+                                  disabled={!!editingId}
                                 >
                                   Edit
                                 </button>
