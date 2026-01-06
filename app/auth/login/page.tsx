@@ -30,6 +30,10 @@ export default function LoginPage() {
 
       // Redirect user
       router.replace("/chat");
+      router.refresh();
+      // Fallback: if the sidebar still renders unauthenticated in some environments,
+      // replace the navigation with a hard redirect.
+      // window.location.assign("/chat");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
