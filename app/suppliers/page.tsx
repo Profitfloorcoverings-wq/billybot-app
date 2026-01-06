@@ -166,6 +166,9 @@ export default function SuppliersPricingPage() {
     return value;
   };
 
+  const inputValue = (value: string | number | null | undefined) =>
+    value === null || value === undefined ? "" : String(value);
+
   const supplierOptions = useMemo(() => {
     const names = new Set<string>();
     prices.forEach((price) => {
@@ -473,7 +476,7 @@ export default function SuppliersPricingPage() {
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={Number.isFinite(editValues?.price) ? editValues?.price : ""}
+                                value={inputValue(editValues?.price)}
                                 onChange={(e) => updateField("price", e.target.value)}
                               />
                             ) : price.price !== null && price.price !== undefined ? (
@@ -489,11 +492,7 @@ export default function SuppliersPricingPage() {
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={
-                                  Number.isFinite(editValues?.roll_price)
-                                    ? editValues?.roll_price
-                                    : ""
-                                }
+                                value={inputValue(editValues?.roll_price)}
                                 onChange={(e) => updateField("roll_price", e.target.value)}
                               />
                             ) : (
@@ -507,11 +506,7 @@ export default function SuppliersPricingPage() {
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={
-                                  Number.isFinite(editValues?.cut_price)
-                                    ? editValues?.cut_price
-                                    : ""
-                                }
+                                value={inputValue(editValues?.cut_price)}
                                 onChange={(e) => updateField("cut_price", e.target.value)}
                               />
                             ) : (
@@ -525,11 +520,7 @@ export default function SuppliersPricingPage() {
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={
-                                  Number.isFinite(editValues?.m2_price)
-                                    ? editValues?.m2_price
-                                    : ""
-                                }
+                                value={inputValue(editValues?.m2_price)}
                                 onChange={(e) => updateField("m2_price", e.target.value)}
                               />
                             ) : (
@@ -543,11 +534,7 @@ export default function SuppliersPricingPage() {
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={
-                                  Number.isFinite(editValues?.price_per_m)
-                                    ? editValues?.price_per_m
-                                    : ""
-                                }
+                                value={inputValue(editValues?.price_per_m)}
                                 onChange={(e) => updateField("price_per_m", e.target.value)}
                               />
                             ) : (
