@@ -32,7 +32,11 @@ type SupplierPricesResponse = {
 type SupplierPriceUpdate = {
   product_name: string;
   uom: string;
-  price: number;
+  price: number | null;
+  roll_price: number | null;
+  cut_price: number | null;
+  m2_price: number | null;
+  price_per_m: number | null;
 };
 
 const normalizeRealtime = (price: SupplierPrice | null) => {
@@ -162,6 +166,9 @@ export default function SuppliersPricingPage() {
     return value;
   };
 
+  const inputValue = (value: string | number | null | undefined) =>
+    value === null || value === undefined ? "" : String(value);
+
   const supplierOptions = useMemo(() => {
     const names = new Set<string>();
     prices.forEach((price) => {
@@ -209,7 +216,11 @@ export default function SuppliersPricingPage() {
     setEditValues({
       product_name: price.product_name ?? "",
       uom: price.uom ?? "",
-      price: price.price ?? 0,
+      price: price.price ?? null,
+      roll_price: price.roll_price ?? null,
+      cut_price: price.cut_price ?? null,
+      m2_price: price.m2_price ?? null,
+      price_per_m: price.price_per_m ?? null,
     });
   };
 
@@ -221,9 +232,14 @@ export default function SuppliersPricingPage() {
 
   const updateField = (field: keyof SupplierPriceUpdate, value: string) => {
     if (!editValues) return;
-    if (field === "price") {
+    if (["price", "roll_price", "cut_price", "m2_price", "price_per_m"].includes(field)) {
+      if (value === "") {
+        setEditValues({ ...editValues, [field]: null });
+        return;
+      }
       const parsed = Number(value);
-      setEditValues({ ...editValues, price: Number.isNaN(parsed) ? editValues.price : parsed });
+      if (Number.isNaN(parsed)) return;
+      setEditValues({ ...editValues, [field]: parsed });
       return;
     }
     setEditValues({ ...editValues, [field]: value });
@@ -236,15 +252,35 @@ export default function SuppliersPricingPage() {
       product_name: editValues.product_name.trim(),
       uom: editValues.uom.trim(),
       price: editValues.price,
+      roll_price: editValues.roll_price,
+      cut_price: editValues.cut_price,
+      m2_price: editValues.m2_price,
+      price_per_m: editValues.price_per_m,
     };
 
-    if (!normalized.product_name || !normalized.uom || !Number.isFinite(normalized.price)) {
+    if (!normalized.product_name || !normalized.uom || !Number.isFinite(normalized.price ?? NaN)) {
       setError("Please provide product name, UOM, and a valid price.");
       return;
     }
 
-    if (normalized.price < 0) {
-      setError("Price must be greater than or equal to 0.");
+    const numericFields: Array<keyof SupplierPriceUpdate> = [
+      "price",
+      "roll_price",
+      "cut_price",
+      "m2_price",
+      "price_per_m",
+    ];
+
+    const hasInvalidNumber = numericFields.some((field) => {
+      const value = normalized[field];
+      if (value === null || value === undefined) return false;
+      if (value === "") return true;
+      const num = typeof value === "number" ? value : Number(value);
+      return !Number.isFinite(num) || num < 0;
+    });
+
+    if (hasInvalidNumber) {
+      setError("Prices must be finite numbers greater than or equal to 0.");
       return;
     }
 
@@ -440,7 +476,7 @@ export default function SuppliersPricingPage() {
                                 type="number"
                                 min="0"
                                 step="0.01"
-                                value={Number.isFinite(editValues?.price) ? editValues?.price : ""}
+                                value={inputValue(editValues?.price)}
                                 onChange={(e) => updateField("price", e.target.value)}
                               />
                             ) : price.price !== null && price.price !== undefined ? (
@@ -449,10 +485,62 @@ export default function SuppliersPricingPage() {
                               "—"
                             )}
                           </td>
-                          <td>{formatValue(price.roll_price)}</td>
-                          <td>{formatValue(price.cut_price)}</td>
-                          <td>{formatValue(price.m2_price)}</td>
-                          <td>{formatValue(price.price_per_m)}</td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="input-fluid"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={inputValue(editValues?.roll_price)}
+                                onChange={(e) => updateField("roll_price", e.target.value)}
+                              />
+                            ) : (
+                              formatValue(price.roll_price)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="input-fluid"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={inputValue(editValues?.cut_price)}
+                                onChange={(e) => updateField("cut_price", e.target.value)}
+                              />
+                            ) : (
+                              formatValue(price.cut_price)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="input-fluid"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={inputValue(editValues?.m2_price)}
+                                onChange={(e) => updateField("m2_price", e.target.value)}
+                              />
+                            ) : (
+                              formatValue(price.m2_price)
+                            )}
+                          </td>
+                          <td>
+                            {isEditing ? (
+                              <input
+                                className="input-fluid"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={inputValue(editValues?.price_per_m)}
+                                onChange={(e) => updateField("price_per_m", e.target.value)}
+                              />
+                            ) : (
+                              formatValue(price.price_per_m)
+                            )}
+                          </td>
                           <td>
                             <div className="stack gap-2">
                               <span>{updatedLabel || "—"}</span>
