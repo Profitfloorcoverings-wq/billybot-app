@@ -200,6 +200,23 @@ textarea::placeholder {
   width: 100%;
 }
 
+.supplierPriceInput {
+  width: 6rem;
+  min-width: 96px;
+  padding-right: 1.5rem;
+  text-align: center;
+}
+
+input[type=number].supplierPriceInput::-webkit-outer-spin-button,
+input[type=number].supplierPriceInput::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number].supplierPriceInput {
+  -moz-appearance: textfield;
+}
+
 .field-group {
   display: flex;
   flex-direction: column;

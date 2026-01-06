@@ -419,7 +419,7 @@ export default function SuppliersPricingPage() {
                           <td>
                             {isEditing ? (
                               <input
-                                className="input-fluid"
+                                className="input-fluid supplierPriceInput"
                                 type="number"
                                 min="0"
                                 step="0.01"
@@ -435,7 +435,7 @@ export default function SuppliersPricingPage() {
                           <td>
                             {isEditing ? (
                               <input
-                                className="input-fluid"
+                                className="input-fluid supplierPriceInput"
                                 type="number"
                                 min="0"
                                 step="0.01"
@@ -449,7 +449,7 @@ export default function SuppliersPricingPage() {
                           <td>
                             {isEditing ? (
                               <input
-                                className="input-fluid"
+                                className="input-fluid supplierPriceInput"
                                 type="number"
                                 min="0"
                                 step="0.01"
@@ -463,7 +463,7 @@ export default function SuppliersPricingPage() {
                           <td>
                             {isEditing ? (
                               <input
-                                className="input-fluid"
+                                className="input-fluid supplierPriceInput"
                                 type="number"
                                 min="0"
                                 step="0.01"
@@ -477,7 +477,7 @@ export default function SuppliersPricingPage() {
                           <td>
                             {isEditing ? (
                               <input
-                                className="input-fluid"
+                                className="input-fluid supplierPriceInput"
                                 type="number"
                                 min="0"
                                 step="0.01"
