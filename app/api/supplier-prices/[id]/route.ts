@@ -30,6 +30,10 @@ type SupplierPriceUpdate = {
   product_name: string | null;
   uom: string | null;
   price: number | null;
+  roll_price: number | null;
+  cut_price: number | null;
+  m2_price: number | null;
+  price_per_m: number | null;
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -99,6 +103,74 @@ export async function PATCH(
         updatePayload.price = rawPrice;
       } else {
         return NextResponse.json({ error: "Invalid price" }, { status: 400 });
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "roll_price")) {
+      const rawPrice = body.roll_price;
+      if (rawPrice === null) {
+        updatePayload.roll_price = null;
+      } else if (typeof rawPrice === "number") {
+        if (!Number.isFinite(rawPrice) || rawPrice < 0) {
+          return NextResponse.json(
+            { error: "Roll price must be a finite number greater than or equal to 0" },
+            { status: 400 }
+          );
+        }
+        updatePayload.roll_price = rawPrice;
+      } else {
+        return NextResponse.json({ error: "Invalid roll_price" }, { status: 400 });
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "cut_price")) {
+      const rawPrice = body.cut_price;
+      if (rawPrice === null) {
+        updatePayload.cut_price = null;
+      } else if (typeof rawPrice === "number") {
+        if (!Number.isFinite(rawPrice) || rawPrice < 0) {
+          return NextResponse.json(
+            { error: "Cut price must be a finite number greater than or equal to 0" },
+            { status: 400 }
+          );
+        }
+        updatePayload.cut_price = rawPrice;
+      } else {
+        return NextResponse.json({ error: "Invalid cut_price" }, { status: 400 });
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "m2_price")) {
+      const rawPrice = body.m2_price;
+      if (rawPrice === null) {
+        updatePayload.m2_price = null;
+      } else if (typeof rawPrice === "number") {
+        if (!Number.isFinite(rawPrice) || rawPrice < 0) {
+          return NextResponse.json(
+            { error: "m2 price must be a finite number greater than or equal to 0" },
+            { status: 400 }
+          );
+        }
+        updatePayload.m2_price = rawPrice;
+      } else {
+        return NextResponse.json({ error: "Invalid m2_price" }, { status: 400 });
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "price_per_m")) {
+      const rawPrice = body.price_per_m;
+      if (rawPrice === null) {
+        updatePayload.price_per_m = null;
+      } else if (typeof rawPrice === "number") {
+        if (!Number.isFinite(rawPrice) || rawPrice < 0) {
+          return NextResponse.json(
+            { error: "Price per m must be a finite number greater than or equal to 0" },
+            { status: 400 }
+          );
+        }
+        updatePayload.price_per_m = rawPrice;
+      } else {
+        return NextResponse.json({ error: "Invalid price_per_m" }, { status: 400 });
       }
     }
 
