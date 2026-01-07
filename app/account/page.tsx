@@ -57,37 +57,31 @@ export default function AccountPage() {
     return new Date(connection.expires_at) > new Date();
   }
 
-  async function fetchConnection(table: string, userId: string) {
-    const selections = ["access_token, expires_at", "access_token"];
-    let lastError: Error | null = null;
+  async function fetchConnectionRow(
+    table: string,
+    userId: string
+  ): Promise<{ access_token?: string | null; expires_at?: string | null } | null> {
+    const { data: idData, error: idError } = await supabase
+      .from(table)
+      .select("access_token, expires_at")
+      .eq("id", userId)
+      .maybeSingle();
 
-    for (const selection of selections) {
-      const { data: idData, error: idError } = await supabase
-        .from(table)
-        .select(selection)
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (!idError) {
-        return idData ?? null;
-      }
-
-      lastError = idError;
-
-      const { data: clientData, error: clientError } = await supabase
-        .from(table)
-        .select(selection)
-        .eq("client_id", userId)
-        .maybeSingle();
-
-      if (!clientError) {
-        return clientData ?? null;
-      }
-
-      lastError = clientError;
+    if (!idError) {
+      return idData ?? null;
     }
 
-    throw lastError;
+    const { data: clientData, error: clientError } = await supabase
+      .from(table)
+      .select("access_token, expires_at")
+      .eq("client_id", userId)
+      .maybeSingle();
+
+    if (clientError) {
+      return null;
+    }
+
+    return clientData ?? null;
   }
 
   useEffect(() => {
@@ -118,15 +112,15 @@ export default function AccountPage() {
 
         setAccountingSystem(accountingData?.accounting_system ?? null);
 
-        const [sageData, xeroData, quickbooksData] = await Promise.all([
-          fetchConnection("sage_connections", userData.user.id),
-          fetchConnection("xero_connections", userData.user.id),
-          fetchConnection("quickbooks_connections", userData.user.id),
+        const [sageRow, xeroRow, quickbooksRow] = await Promise.all([
+          fetchConnectionRow("sage_connections", userData.user.id),
+          fetchConnectionRow("xero_connections", userData.user.id),
+          fetchConnectionRow("quickbooks_connections", userData.user.id),
         ]);
 
-        setIsSageConnected(isConnectionActive(sageData));
-        setIsXeroConnected(isConnectionActive(xeroData));
-        setIsQuickBooksConnected(isConnectionActive(quickbooksData));
+        setIsSageConnected(isConnectionActive(sageRow));
+        setIsXeroConnected(isConnectionActive(xeroRow));
+        setIsQuickBooksConnected(isConnectionActive(quickbooksRow));
 
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
