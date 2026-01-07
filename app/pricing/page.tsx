@@ -599,7 +599,7 @@ export default function PricingPage() {
             <div className="stack">
               <h3 className="section-title text-lg">Breakpoint rules</h3>
               <p className="section-subtitle">
-                Provide JSON breakpoint rules to apply special logic for certain sizes.
+                Provide rules to apply special logic for bigger/smaller jobs.
               </p>
             </div>
             <Toggle
