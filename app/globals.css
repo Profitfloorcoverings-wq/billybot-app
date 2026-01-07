@@ -472,6 +472,7 @@ input[type=number].supplierPriceInput {
   max-width: 980px;
   width: 100%;
   margin: 0 auto;
+  padding-top: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
