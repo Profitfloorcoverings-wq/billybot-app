@@ -312,7 +312,7 @@ export default function SuppliersPricingPage() {
         <div className="card stack gap-3">
           <div className="stack">
             <h3 className="section-title text-lg">Email price lists to pricelists@billybot.ai</h3>
-            <p className="section-subtitle">Accepted: PDF, Excel, CSV</p>
+            <p className="section-subtitle">Accepted: PDF, Excel, CSV. Send one list per email</p>
           </div>
           <p className="text-sm text-[var(--muted)]">Prices appear once processed.</p>
         </div>
