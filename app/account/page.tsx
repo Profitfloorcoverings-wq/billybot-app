@@ -44,6 +44,10 @@ export default function AccountPage() {
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [accountingSystem, setAccountingSystem] = useState<string | null>(null);
   const [accountingStatusLoaded, setAccountingStatusLoaded] = useState(false);
+  const [sageConnection, setSageConnection] = useState<{
+    access_token?: string | null;
+    expires_at?: string | null;
+  } | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -72,6 +76,18 @@ export default function AccountPage() {
         }
 
         setAccountingSystem(accountingData?.accounting_system ?? null);
+
+        const { data: sageData, error: sageError } = await supabase
+          .from("sage_connections")
+          .select("access_token, expires_at")
+          .eq("id", userData.user.id)
+          .maybeSingle();
+
+        if (sageError) {
+          throw sageError;
+        }
+
+        setSageConnection(sageData ?? null);
 
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
@@ -181,7 +197,9 @@ export default function AccountPage() {
     }
   }
 
-  const isSageConnected = accountingSystem === "sage";
+  const isSageConnected =
+    Boolean(sageConnection?.access_token) &&
+    (!sageConnection?.expires_at || new Date(sageConnection.expires_at) > new Date());
   const isXeroConnected = accountingSystem === "xero";
   const isQuickBooksConnected = accountingSystem === "quickbooks";
   const providerConfigs: {
