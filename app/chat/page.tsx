@@ -345,7 +345,6 @@ export default function ChatPage() {
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
       <header className="chat-header">
         <h1 className="section-title">Chat with BillyBot</h1>
-        <p className="section-subtitle">Draft quotes, emails, and responses in seconds.</p>
       </header>
 
       <div className="chat-panel min-h-0">
