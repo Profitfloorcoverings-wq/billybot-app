@@ -350,7 +350,9 @@ export default function ChatPage() {
       <div className="chat-panel min-h-0">
         <div className="flex items-center justify-between rounded-2xl bg-[rgba(255,255,255,0.04)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
           <span>Conversation</span>
-          <span>{loading ? "Syncing…" : "Live"}</span>
+          <span className={loading ? "text-[var(--muted)]" : "text-blue-400"}>
+            {loading ? "Syncing…" : "Live"}
+          </span>
         </div>
 
         <div className="chat-messages flex flex-col gap-2 rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] p-4 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
