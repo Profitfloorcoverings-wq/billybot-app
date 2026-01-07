@@ -344,9 +344,11 @@ export default function ChatPage() {
   return (
     <div className="page-container">
       <div className="flex flex-col h-[calc(100vh-120px)] min-h-0">
-        <h1 className="section-title">Chat with BillyBot</h1>
+        <div className="mb-4">
+          <h1 className="section-title">Chat with BillyBot</h1>
+        </div>
 
-        <div className="chat-panel flex-1 min-h-0">
+        <div className="chat-panel flex-1 min-h-0 !px-4 !pt-4 !pb-3">
           <div className="chat-messages flex flex-1 min-h-0 flex-col gap-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] p-4 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
             {messages.map((m) => (
               <div
@@ -364,7 +366,7 @@ export default function ChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="flex shrink-0 flex-col gap-2">
+          <div className="flex shrink-0 flex-col gap-2 border-t border-white/10 pt-2">
             <div className={`chat-attachment-row ${attachedFiles.length ? "is-visible" : ""}`}>
               <span className="chat-attachment-label">Attachments</span>
               <div className="flex flex-1 flex-wrap gap-2">
@@ -384,7 +386,7 @@ export default function ChatPage() {
               </div>
             </div>
 
-            <div className="chat-input-row">
+            <div className="chat-input-row !py-2">
               <button
                 type="button"
                 onClick={openFilePicker}
