@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import BillyBotLogo from "./BillyBotLogo";
 import { createClient } from "@/utils/supabase/client";
 import { getSession } from "@/utils/supabase/session";
 
@@ -96,7 +97,7 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <span className="sidebar-logo-mark" />
+        <BillyBotLogo className="h-[38px] w-[38px] flex-none" />
         <span className="sidebar-logo-text">
           BillyBot<span className="sidebar-logo-trade">™</span>
         </span>
