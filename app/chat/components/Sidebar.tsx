@@ -96,39 +96,13 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <svg
+        <img
+          src="/favicon.ico"
+          alt="BillyBot logo"
           className="sidebar-logo-mark"
-          width="38"
-          height="38"
-          viewBox="0 0 38 38"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <defs>
-            <linearGradient id="billybot-logo-gradient" x1="6" y1="2" x2="32" y2="36">
-              <stop offset="0%" stopColor="var(--brand1)" />
-              <stop offset="100%" stopColor="var(--brand2)" />
-            </linearGradient>
-          </defs>
-          <circle cx="19" cy="19" r="18" fill="url(#billybot-logo-gradient)" />
-          <circle
-            cx="19"
-            cy="19"
-            r="12"
-            stroke="rgba(255, 255, 255, 0.7)"
-            strokeWidth="2"
-          />
-          <path
-            d="M16 12.5H21.4C23.7 12.5 25.5 14.2 25.5 16.3C25.5 18.4 23.7 20.1 21.4 20.1H16V12.5Z"
-            fill="rgba(255, 255, 255, 0.95)"
-          />
-          <path
-            d="M16 20.1H22.2C24.7 20.1 26.7 21.9 26.7 24.2C26.7 26.4 24.7 28.2 22.2 28.2H16V20.1Z"
-            fill="rgba(255, 255, 255, 0.95)"
-          />
-        </svg>
+          width={38}
+          height={38}
+        />
         <span className="sidebar-logo-text">
           BillyBot<span className="sidebar-logo-trade">™</span>
         </span>
