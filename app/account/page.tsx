@@ -107,7 +107,7 @@ export default function AccountPage() {
   }, [router, supabase]);
 
   const handleLogout = async () => {
-    await fetch("/auth/logout", { method: "GET" });
+    await supabase.auth.signOut();
     router.push("/auth/login");
   };
 
