@@ -42,9 +42,8 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loadingPortal, setLoadingPortal] = useState(false);
-  const [isSageConnected, setIsSageConnected] = useState(false);
-  const [isXeroConnected, setIsXeroConnected] = useState(false);
-  const [isQuickBooksConnected, setIsQuickBooksConnected] = useState(false);
+  const [accountingSystem, setAccountingSystem] = useState<string | null>(null);
+  const [accountingStatusLoaded, setAccountingStatusLoaded] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -62,28 +61,17 @@ export default function AccountPage() {
         setUserId(userData.user.id);
         setUserEmail(userData.user.email ?? "");
 
-        const [{ data: sage }, { data: xero }, { data: quickbooks }] =
-          await Promise.all([
-            supabase
-              .from("sage_connections")
-              .select("id")
-              .eq("user_id", userData.user.id)
-              .maybeSingle(),
-            supabase
-              .from("xero_connections")
-              .select("id")
-              .eq("user_id", userData.user.id)
-              .maybeSingle(),
-            supabase
-              .from("quickbooks_connections")
-              .select("id")
-              .eq("user_id", userData.user.id)
-              .maybeSingle(),
-          ]);
+        const { data: accountingData, error: accountingError } = await supabase
+          .from("clients")
+          .select("accounting_system")
+          .eq("id", userData.user.id)
+          .maybeSingle();
 
-        setIsSageConnected(Boolean(sage?.id));
-        setIsXeroConnected(Boolean(xero?.id));
-        setIsQuickBooksConnected(Boolean(quickbooks?.id));
+        if (accountingError) {
+          throw accountingError;
+        }
+
+        setAccountingSystem(accountingData?.accounting_system ?? null);
 
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
@@ -111,6 +99,7 @@ export default function AccountPage() {
         );
       } finally {
         setLoading(false);
+        setAccountingStatusLoaded(true);
       }
     }
 
@@ -192,6 +181,9 @@ export default function AccountPage() {
     }
   }
 
+  const isSageConnected = accountingSystem === "sage";
+  const isXeroConnected = accountingSystem === "xero";
+  const isQuickBooksConnected = accountingSystem === "quickbooks";
   const providerConfigs: {
     key: "sage" | "xero" | "quickbooks";
     label: string;
@@ -383,13 +375,25 @@ export default function AccountPage() {
                 <div className="linked-account-badge-text">
                   <p className="linked-account-badge-title">{provider.label}</p>
                   <p className="linked-account-badge-sub">
-                    {provider.connected ? "Connected" : "Not connected"}
+                    {!accountingStatusLoaded
+                      ? "Loading..."
+                      : provider.connected
+                      ? "Connected"
+                      : "Not connected"}
                   </p>
                 </div>
               </div>
 
-              <button className="btn btn-primary" onClick={() => handleConnect(provider.key)}>
-                {provider.connected ? "Reconnect" : "Connect"}
+              <button
+                className="btn btn-primary"
+                disabled={!accountingStatusLoaded || provider.connected}
+                onClick={() => handleConnect(provider.key)}
+              >
+                {!accountingStatusLoaded
+                  ? "Loading..."
+                  : provider.connected
+                  ? "Connected"
+                  : "Connect"}
               </button>
             </div>
           ))}
