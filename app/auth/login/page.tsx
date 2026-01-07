@@ -42,10 +42,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg1)] text-[var(--text)] px-4 py-12 flex items-center justify-center">
-      <div className="w-full max-w-xl">
-        <div className="card stack gap-6">
-          <div className="stack gap-1 text-center">
+    <div className="page-container min-h-screen">
+      <div className="flex flex-1 items-center justify-center">
+        <div className="card stack gap-6 w-full max-w-md mx-auto">
+          <div className="stack gap-1">
             <h1 className="section-title">Welcome back</h1>
             <p className="section-subtitle">Log in to continue chatting</p>
           </div>
