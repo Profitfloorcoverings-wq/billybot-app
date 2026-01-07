@@ -96,7 +96,13 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <span className="sidebar-logo-mark" />
+        <img
+          src="/favicon.ico"
+          alt="BillyBot logo"
+          className="sidebar-logo-mark"
+          width={38}
+          height={38}
+        />
         <span className="sidebar-logo-text">
           BillyBot<span className="sidebar-logo-trade">™</span>
         </span>
