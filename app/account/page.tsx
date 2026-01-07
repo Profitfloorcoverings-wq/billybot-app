@@ -44,10 +44,51 @@ export default function AccountPage() {
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [accountingSystem, setAccountingSystem] = useState<string | null>(null);
   const [accountingStatusLoaded, setAccountingStatusLoaded] = useState(false);
-  const [sageConnection, setSageConnection] = useState<{
+  const [isSageConnected, setIsSageConnected] = useState(false);
+  const [isXeroConnected, setIsXeroConnected] = useState(false);
+  const [isQuickBooksConnected, setIsQuickBooksConnected] = useState(false);
+
+  function isConnectionActive(connection: {
     access_token?: string | null;
     expires_at?: string | null;
-  } | null>(null);
+  } | null) {
+    if (!connection?.access_token) return false;
+    if (!connection.expires_at) return true;
+    return new Date(connection.expires_at) > new Date();
+  }
+
+  async function fetchConnection(table: string, userId: string) {
+    const selections = ["access_token, expires_at", "access_token"];
+    let lastError: Error | null = null;
+
+    for (const selection of selections) {
+      const { data: idData, error: idError } = await supabase
+        .from(table)
+        .select(selection)
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (!idError) {
+        return idData ?? null;
+      }
+
+      lastError = idError;
+
+      const { data: clientData, error: clientError } = await supabase
+        .from(table)
+        .select(selection)
+        .eq("client_id", userId)
+        .maybeSingle();
+
+      if (!clientError) {
+        return clientData ?? null;
+      }
+
+      lastError = clientError;
+    }
+
+    throw lastError;
+  }
 
   useEffect(() => {
     async function loadProfile() {
@@ -77,17 +118,15 @@ export default function AccountPage() {
 
         setAccountingSystem(accountingData?.accounting_system ?? null);
 
-        const { data: sageData, error: sageError } = await supabase
-          .from("sage_connections")
-          .select("access_token, expires_at")
-          .eq("id", userData.user.id)
-          .maybeSingle();
+        const [sageData, xeroData, quickbooksData] = await Promise.all([
+          fetchConnection("sage_connections", userData.user.id),
+          fetchConnection("xero_connections", userData.user.id),
+          fetchConnection("quickbooks_connections", userData.user.id),
+        ]);
 
-        if (sageError) {
-          throw sageError;
-        }
-
-        setSageConnection(sageData ?? null);
+        setIsSageConnected(isConnectionActive(sageData));
+        setIsXeroConnected(isConnectionActive(xeroData));
+        setIsQuickBooksConnected(isConnectionActive(quickbooksData));
 
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
@@ -197,11 +236,6 @@ export default function AccountPage() {
     }
   }
 
-  const isSageConnected =
-    Boolean(sageConnection?.access_token) &&
-    (!sageConnection?.expires_at || new Date(sageConnection.expires_at) > new Date());
-  const isXeroConnected = accountingSystem === "xero";
-  const isQuickBooksConnected = accountingSystem === "quickbooks";
   const providerConfigs: {
     key: "sage" | "xero" | "quickbooks";
     label: string;
