@@ -342,14 +342,15 @@ export default function ChatPage() {
   if (!session || !session.user) return <LoginPage />;
 
   return (
-    <div className="page-container">
+    <div className="page-container !py-6">
       <div className="flex flex-col h-[calc(100vh-120px)] min-h-0">
-        <div className="mb-4">
+        <div className="mb-5">
           <h1 className="section-title">Chat with BillyBot</h1>
         </div>
 
-        <div className="chat-panel flex-1 min-h-0 !px-4 !pt-4 !pb-3">
-          <div className="chat-messages flex flex-1 min-h-0 flex-col gap-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] p-4 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
+        <div className="flex flex-col flex-1 min-h-0">
+          <div className="card flex flex-col flex-1 min-h-0">
+            <div className="chat-messages flex flex-1 min-h-0 flex-col gap-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] px-6 py-5 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
             {messages.map((m) => (
               <div
                 key={m.id}
@@ -366,75 +367,76 @@ export default function ChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="flex shrink-0 flex-col gap-2 border-t border-white/10 pt-2">
-            <div className={`chat-attachment-row ${attachedFiles.length ? "is-visible" : ""}`}>
-              <span className="chat-attachment-label">Attachments</span>
-              <div className="flex flex-1 flex-wrap gap-2">
-                {attachedFiles.map((file, index) => (
-                  <div key={`${file.name}-${index}`} className="chat-attachment-pill">
-                    <span className="chat-attachment-name">{file.name}</span>
-                    <button
-                      type="button"
-                      className="chat-attachment-remove"
-                      aria-label={`Remove ${file.name}`}
-                      onClick={() => removeFile(index)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
+            <div className="shrink-0 border-t border-white/10 p-4">
+              <div className={`chat-attachment-row ${attachedFiles.length ? "is-visible" : ""}`}>
+                <span className="chat-attachment-label">Attachments</span>
+                <div className="flex flex-1 flex-wrap gap-2">
+                  {attachedFiles.map((file, index) => (
+                    <div key={`${file.name}-${index}`} className="chat-attachment-pill">
+                      <span className="chat-attachment-name">{file.name}</span>
+                      <button
+                        type="button"
+                        className="chat-attachment-remove"
+                        aria-label={`Remove ${file.name}`}
+                        onClick={() => removeFile(index)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <div className="chat-input-row !py-2">
-              <button
-                type="button"
-                onClick={openFilePicker}
-                className="chat-upload-btn"
-                aria-label="Upload files"
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  focusable="false"
-                  className="chat-upload-icon"
+              <div className="chat-input-row">
+                <button
+                  type="button"
+                  onClick={openFilePicker}
+                  className="chat-upload-btn"
+                  aria-label="Upload files"
                 >
-                  <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
-                </svg>
-              </button>
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    focusable="false"
+                    className="chat-upload-icon"
+                  >
+                    <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
+                  </svg>
+                </button>
 
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={1}
-                placeholder="Tell BillyBot what you need."
-                className="chat-input resize-none"
-              />
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  rows={1}
+                  placeholder="Tell BillyBot what you need."
+                  className="chat-input resize-none"
+                />
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,application/pdf"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-              />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
 
-              <button
-                onClick={sendMessage}
-                disabled={(!input.trim() && attachedFiles.length === 0) || sending}
-                className="chat-send-btn flex items-center justify-center gap-2"
-              >
-                {sending ? (
-                  <span className="flex items-center gap-2">
-                    <span className="chat-send-loader" aria-hidden />
-                    <span className="text-sm font-semibold">Working…</span>
-                  </span>
-                ) : (
-                  "Send"
-                )}
-              </button>
+                <button
+                  onClick={sendMessage}
+                  disabled={(!input.trim() && attachedFiles.length === 0) || sending}
+                  className="chat-send-btn flex items-center justify-center gap-2"
+                >
+                  {sending ? (
+                    <span className="flex items-center gap-2">
+                      <span className="chat-send-loader" aria-hidden />
+                      <span className="text-sm font-semibold">Working…</span>
+                    </span>
+                  ) : (
+                    "Send"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
