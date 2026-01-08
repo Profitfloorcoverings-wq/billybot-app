@@ -127,18 +127,18 @@ const materialPriceFields: NumericField[] = [
   { label: "Domestic vinyl material price per m²", column: "mat_domestic_vinyl_m2" },
   { label: "Commercial vinyl material price per m²", column: "mat_commercial_vinyl_m2" },
   { label: "Wall cladding material price per m²", column: "mat_wall_cladding_m2" },
-  { label: "Adhesive material per m²", column: "mat_adhesive_m2" },
-  { label: "Uplift existing flooring (materials) per m²", column: "mat_uplift_m2" },
-  { label: "Latex material per m²", column: "mat_latex_m2" },
-  { label: "Ply board material per m²", column: "mat_ply_m2" },
-  { label: "Coved skirting material per m²", column: "mat_coved_m2" },
-  { label: "Matting material per m²", column: "mat_matting_m2" },
-  { label: "Standard door bars material (each)", column: "mat_door_bars_each" },
-  { label: "Nosings material per metre", column: "mat_nosings_m" },
-  { label: "Underlay material per m²", column: "mat_underlay" },
-  { label: "Gripper material per metre", column: "mat_gripper" },
-  { label: "Waste disposal (per job)", column: "waste_disposal" },
-  { label: "Furniture removal (per job)", column: "furniture_removal" },
+  { label: "Adhesive per m²", column: "mat_adhesive_m2" },
+  { label: "Uplift existing flooring per m²", column: "mat_uplift_m2" },
+  { label: "Latex per m²", column: "mat_latex_m2" },
+  { label: "Ply board per m²", column: "mat_ply_m2" },
+  { label: "Coved skirting per metre", column: "mat_coved_m2" },
+  { label: "Matting per m²", column: "mat_matting_m2" },
+  { label: "Standard door bars (each)", column: "mat_door_bars_each" },
+  { label: "Nosings per metre", column: "mat_nosings_m" },
+  { label: "Underlay per m²", column: "mat_underlay" },
+  { label: "Gripper per metre", column: "mat_gripper" },
+  { label: "Waste disposal per m²", column: "waste_disposal" },
+  { label: "Furniture removal (per room)", column: "furniture_removal" },
 ];
 
 const labourPriceFields: NumericField[] = [
@@ -150,18 +150,17 @@ const labourPriceFields: NumericField[] = [
   { label: "Domestic vinyl labour per m²", column: "lab_domestic_vinyl_m2" },
   { label: "Commercial vinyl labour per m²", column: "lab_commercial_vinyl_m2" },
   { label: "Wall cladding labour per m²", column: "lab_wall_cladding_m2" },
-  { label: "Coved skirting labour per metre", column: "lab_coved_m" },
-  { label: "Ply boarding labour per m²", column: "lab_ply_m2" },
-  { label: "Latex labour per m²", column: "lab_latex_m2" },
-  { label: "Door bars labour (each)", column: "lab_door_bars_each" },
-  { label: "Nosings labour per metre", column: "lab_nosings_m" },
-  { label: "Matting labour per m²", column: "lab_matting_m2" },
-  { label: "Uplift labour per m²", column: "lab_uplift_m2" },
-  { label: "Gripper labour per metre", column: "lab_gripper_m" },
+  { label: "Coved skirting per metre", column: "lab_coved_m" },
+  { label: "Ply boarding per m²", column: "lab_ply_m2" },
+  { label: "Latex per m²", column: "lab_latex_m2" },
+  { label: "Door bars (each)", column: "lab_door_bars_each" },
+  { label: "Nosings per metre", column: "lab_nosings_m" },
+  { label: "Matting per m²", column: "lab_matting_m2" },
+  { label: "Uplift per m²", column: "lab_uplift_m2" },
+  { label: "Gripper per metre", column: "lab_gripper_m" },
 ];
 
 const extrasMaterialColumns = new Set([
-  "mat_ceramic_tiles_m2",
   "mat_adhesive_m2",
   "mat_uplift_m2",
   "mat_latex_m2",
@@ -176,7 +175,6 @@ const extrasMaterialColumns = new Set([
   "furniture_removal",
 ]);
 const extrasLabourColumns = new Set([
-  "lab_ceramic_tiles_m2",
   "lab_coved_m",
   "lab_ply_m2",
   "lab_latex_m2",
@@ -601,7 +599,8 @@ export default function PricingPage() {
             <div className="stack">
               <h3 className="section-title text-lg">Material markup settings</h3>
               <p className="section-subtitle">
-                Set markup amounts for each service and choose whether to apply £ or %.
+                Set % or £ markup amounts to be applied to suppliers product prices for each
+                service.
               </p>
             </div>
           </div>
@@ -659,7 +658,8 @@ export default function PricingPage() {
           <div className="stack">
             <h3 className="section-title text-lg">Base material prices</h3>
             <p className="section-subtitle">
-              Enter material prices per m², metre, or roll to drive quoting calculations.
+              Enter your most commonly used base rate or mid-range price for each floor type.
+              These will be used when a product does not exist in your price lists.
             </p>
           </div>
         </div>
@@ -686,7 +686,9 @@ export default function PricingPage() {
         <div className="settings-section-heading">
           <div className="stack">
             <h3 className="section-title text-lg">Base labour prices</h3>
-            <p className="section-subtitle">Labour rates per m², metre, or room.</p>
+            <p className="section-subtitle">
+              Enter your most commonly used labour rate for each floor type.
+            </p>
           </div>
         </div>
         {visibleLabourFields.length ? (
@@ -714,9 +716,6 @@ export default function PricingPage() {
             <h3 className="section-title text-lg">Extras &amp; add-ons (Materials)</h3>
             <p className="section-subtitle">
               Configure global add-ons and advanced material pricing items.
-            </p>
-            <p className="section-subtitle">
-              Used for uplift, adhesive, prep and accessories pricing.
             </p>
           </div>
         </div>
@@ -795,7 +794,9 @@ export default function PricingPage() {
             <div className="stack">
               <h3 className="section-title text-lg">Breakpoint rules</h3>
               <p className="section-subtitle">
-                Provide rules to apply special logic for bigger/smaller jobs.
+                Provide rules to apply special logic for bigger or smaller jobs (e.g. for jobs
+                over 100m² charge 10% less on carpet tile materials and £2/m² less on
+                labour).
               </p>
             </div>
             <Toggle
