@@ -33,6 +33,47 @@ const serviceOptions: ServiceOption[] = [
   { label: "Altro Whiterock (wall cladding)", column: "service_wall_cladding" },
 ];
 
+const serviceRegistry: Record<
+  string,
+  { markups: string[]; materials: string[]; labour: string[] }
+> = {
+  service_domestic_carpet: {
+    markups: ["markup_domestic_carpet_value"],
+    materials: ["mat_domestic_carpet_m2"],
+    labour: ["lab_domestic_carpet_m2"],
+  },
+  service_commercial_carpet: {
+    markups: ["markup_commercial_carpet_value"],
+    materials: ["mat_commercial_carpet_m2"],
+    labour: ["lab_commercial_carpet_m2"],
+  },
+  service_carpet_tiles: {
+    markups: ["markup_carpet_tiles_value"],
+    materials: [],
+    labour: [],
+  },
+  service_lvt: {
+    markups: ["markup_lvt_value"],
+    materials: ["mat_lvt_m2"],
+    labour: ["lab_lvt_m2"],
+  },
+  service_domestic_vinyl: {
+    markups: ["markup_domestic_vinyl_value"],
+    materials: ["mat_domestic_vinyl_m2"],
+    labour: ["lab_domestic_vinyl_m2"],
+  },
+  service_commercial_vinyl: {
+    markups: ["markup_commercial_vinyl_value"],
+    materials: ["mat_commercial_vinyl_m2", "mat_safety_m2"],
+    labour: ["lab_commercial_vinyl_m2", "lab_safety_m2"],
+  },
+  service_wall_cladding: {
+    markups: ["markup_wall_cladding_value"],
+    materials: ["mat_wall_cladding_m2"],
+    labour: ["lab_wall_cladding_m2"],
+  },
+};
+
 const markupOptions: MarkupOption[] = [
   {
     label: "Domestic carpet markup",
@@ -101,6 +142,14 @@ const labourPriceFields: NumericField[] = [
   { label: "Ply boarding labour per m²", column: "lab_ply_m2" },
   { label: "Latex labour per m²", column: "lab_latex_m2" },
 ];
+
+const extrasMaterialColumns = new Set(["mat_ceramic_tiles_m2"]);
+const extrasLabourColumns = new Set([
+  "lab_ceramic_tiles_m2",
+  "lab_coved_m",
+  "lab_ply_m2",
+  "lab_latex_m2",
+]);
 
 const smallJobFields: NumericField[] = [
   { label: "Minimum job charge", column: "small_job_charge" },
@@ -252,6 +301,46 @@ export default function PricingPage() {
 
   const sortedServiceOptions = useMemo(
     () => [...serviceOptions].sort((a, b) => a.label.localeCompare(b.label)),
+    []
+  );
+
+  const { visibleMarkups, visibleMaterials, visibleLabour } = useMemo(() => {
+    const markups = new Set<string>();
+    const materials = new Set<string>();
+    const labour = new Set<string>();
+
+    Object.entries(serviceRegistry).forEach(([service, config]) => {
+      if (!serviceToggles[service]) return;
+      config.markups.forEach((column) => markups.add(column));
+      config.materials.forEach((column) => materials.add(column));
+      config.labour.forEach((column) => labour.add(column));
+    });
+
+    return { visibleMarkups: markups, visibleMaterials: materials, visibleLabour: labour };
+  }, [serviceToggles]);
+
+  const visibleMarkupOptions = useMemo(
+    () => markupOptions.filter((option) => visibleMarkups.has(option.valueColumn)),
+    [visibleMarkups]
+  );
+
+  const visibleMaterialFields = useMemo(
+    () => materialPriceFields.filter((field) => visibleMaterials.has(field.column)),
+    [visibleMaterials]
+  );
+
+  const visibleLabourFields = useMemo(
+    () => labourPriceFields.filter((field) => visibleLabour.has(field.column)),
+    [visibleLabour]
+  );
+
+  const extraMaterialFields = useMemo(
+    () => materialPriceFields.filter((field) => extrasMaterialColumns.has(field.column)),
+    []
+  );
+
+  const extraLabourFields = useMemo(
+    () => labourPriceFields.filter((field) => extrasLabourColumns.has(field.column)),
     []
   );
 
@@ -481,46 +570,50 @@ export default function PricingPage() {
             </div>
           </div>
           <div className="settings-tiles">
-            {markupOptions.map((option) => {
-              const { value, type } = markupState[option.valueColumn];
-              return (
-                <div key={option.valueColumn} className="setting-tile setting-tile-row">
-                  <div className="stack">
-                    <span className="setting-label">{option.label}</span>
-                    <span className="setting-hint">Markup applied to materials.</span>
+            {visibleMarkupOptions.length ? (
+              visibleMarkupOptions.map((option) => {
+                const { value, type } = markupState[option.valueColumn];
+                return (
+                  <div key={option.valueColumn} className="setting-tile setting-tile-row">
+                    <div className="stack">
+                      <span className="setting-label">{option.label}</span>
+                      <span className="setting-hint">Markup applied to materials.</span>
+                    </div>
+                    <div className="setting-actions">
+                      <input
+                        className="input-compact"
+                        type="number"
+                        inputMode="decimal"
+                        value={value}
+                        onChange={(e) => {
+                          markUnsaved();
+                          setMarkupState((prev) => ({
+                            ...prev,
+                            [option.valueColumn]: { ...prev[option.valueColumn], value: e.target.value },
+                          }));
+                        }}
+                      />
+                      <OptionToggle
+                        value={type}
+                        options={["£", "%"]}
+                        onChange={(optionValue) => {
+                          markUnsaved();
+                          setMarkupState((prev) => ({
+                            ...prev,
+                            [option.valueColumn]: {
+                              ...prev[option.valueColumn],
+                              type: optionValue as "£" | "%",
+                            },
+                          }));
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="setting-actions">
-                    <input
-                      className="input-compact"
-                      type="number"
-                      inputMode="decimal"
-                      value={value}
-                      onChange={(e) => {
-                        markUnsaved();
-                        setMarkupState((prev) => ({
-                          ...prev,
-                          [option.valueColumn]: { ...prev[option.valueColumn], value: e.target.value },
-                        }));
-                      }}
-                    />
-                    <OptionToggle
-                      value={type}
-                      options={["£", "%"]}
-                      onChange={(optionValue) => {
-                        markUnsaved();
-                        setMarkupState((prev) => ({
-                          ...prev,
-                          [option.valueColumn]: {
-                            ...prev[option.valueColumn],
-                            type: optionValue as "£" | "%",
-                          },
-                        }));
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <p className="section-subtitle">Enable a service to configure these settings.</p>
+            )}
           </div>
         </div>
       </div>
@@ -534,19 +627,23 @@ export default function PricingPage() {
             </p>
           </div>
         </div>
-        <div className="settings-grid-compact">
-          {materialPriceFields.map((field) => (
-            <NumberField
-              key={field.column}
-              label={field.label}
-              value={materialPrices[field.column]}
-              onChange={(val) => {
-                markUnsaved();
-                setMaterialPrices((prev) => ({ ...prev, [field.column]: val }));
-              }}
-            />
-          ))}
-        </div>
+        {visibleMaterialFields.length ? (
+          <div className="settings-grid-compact">
+            {visibleMaterialFields.map((field) => (
+              <NumberField
+                key={field.column}
+                label={field.label}
+                value={materialPrices[field.column]}
+                onChange={(val) => {
+                  markUnsaved();
+                  setMaterialPrices((prev) => ({ ...prev, [field.column]: val }));
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="section-subtitle">Enable a service to configure these settings.</p>
+        )}
       </div>
 
       <div className="card stack">
@@ -556,19 +653,76 @@ export default function PricingPage() {
             <p className="section-subtitle">Labour rates per m², metre, or room.</p>
           </div>
         </div>
-        <div className="settings-grid-compact">
-          {labourPriceFields.map((field) => (
-            <NumberField
-              key={field.column}
-              label={field.label}
-              value={labourPrices[field.column]}
-              onChange={(val) => {
-                markUnsaved();
-                setLabourPrices((prev) => ({ ...prev, [field.column]: val }));
-              }}
-            />
-          ))}
+        {visibleLabourFields.length ? (
+          <div className="settings-grid-compact">
+            {visibleLabourFields.map((field) => (
+              <NumberField
+                key={field.column}
+                label={field.label}
+                value={labourPrices[field.column]}
+                onChange={(val) => {
+                  markUnsaved();
+                  setLabourPrices((prev) => ({ ...prev, [field.column]: val }));
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="section-subtitle">Enable a service to configure these settings.</p>
+        )}
+      </div>
+
+      <div className="card stack">
+        <div className="settings-section-heading">
+          <div className="stack">
+            <h3 className="section-title text-lg">Extras &amp; add-ons</h3>
+            <p className="section-subtitle">
+              Configure global add-ons and advanced pricing items.
+            </p>
+          </div>
         </div>
+        {extraMaterialFields.length || extraLabourFields.length ? (
+          <div className="stack">
+            {extraMaterialFields.length ? (
+              <div className="stack">
+                <p className="section-subtitle">Materials</p>
+                <div className="settings-grid-compact">
+                  {extraMaterialFields.map((field) => (
+                    <NumberField
+                      key={field.column}
+                      label={field.label}
+                      value={materialPrices[field.column]}
+                      onChange={(val) => {
+                        markUnsaved();
+                        setMaterialPrices((prev) => ({ ...prev, [field.column]: val }));
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {extraLabourFields.length ? (
+              <div className="stack">
+                <p className="section-subtitle">Labour</p>
+                <div className="settings-grid-compact">
+                  {extraLabourFields.map((field) => (
+                    <NumberField
+                      key={field.column}
+                      label={field.label}
+                      value={labourPrices[field.column]}
+                      onChange={(val) => {
+                        markUnsaved();
+                        setLabourPrices((prev) => ({ ...prev, [field.column]: val }));
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="section-subtitle">No extras are available yet.</p>
+        )}
       </div>
 
       <div className="settings-grid">
