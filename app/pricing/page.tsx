@@ -127,6 +127,18 @@ const materialPriceFields: NumericField[] = [
   { label: "Domestic vinyl material price per m²", column: "mat_domestic_vinyl_m2" },
   { label: "Commercial vinyl material price per m²", column: "mat_commercial_vinyl_m2" },
   { label: "Wall cladding material price per m²", column: "mat_wall_cladding_m2" },
+  { label: "Adhesive material per m²", column: "mat_adhesive_m2" },
+  { label: "Uplift existing flooring (materials) per m²", column: "mat_uplift_m2" },
+  { label: "Latex material per m²", column: "mat_latex_m2" },
+  { label: "Ply board material per m²", column: "mat_ply_m2" },
+  { label: "Coved skirting material per m²", column: "mat_coved_m2" },
+  { label: "Matting material per m²", column: "mat_matting_m2" },
+  { label: "Standard door bars material (each)", column: "mat_door_bars_each" },
+  { label: "Nosings material per metre", column: "mat_nosings_m" },
+  { label: "Underlay material per m²", column: "mat_underlay" },
+  { label: "Gripper material per metre", column: "mat_gripper" },
+  { label: "Waste disposal (per job)", column: "waste_disposal" },
+  { label: "Furniture removal (per job)", column: "furniture_removal" },
 ];
 
 const labourPriceFields: NumericField[] = [
@@ -141,14 +153,38 @@ const labourPriceFields: NumericField[] = [
   { label: "Coved skirting labour per metre", column: "lab_coved_m" },
   { label: "Ply boarding labour per m²", column: "lab_ply_m2" },
   { label: "Latex labour per m²", column: "lab_latex_m2" },
+  { label: "Door bars labour (each)", column: "lab_door_bars_each" },
+  { label: "Nosings labour per metre", column: "lab_nosings_m" },
+  { label: "Matting labour per m²", column: "lab_matting_m2" },
+  { label: "Uplift labour per m²", column: "lab_uplift_m2" },
+  { label: "Gripper labour per metre", column: "lab_gripper_m" },
 ];
 
-const extrasMaterialColumns = new Set(["mat_ceramic_tiles_m2"]);
+const extrasMaterialColumns = new Set([
+  "mat_ceramic_tiles_m2",
+  "mat_adhesive_m2",
+  "mat_uplift_m2",
+  "mat_latex_m2",
+  "mat_ply_m2",
+  "mat_coved_m2",
+  "mat_matting_m2",
+  "mat_door_bars_each",
+  "mat_nosings_m",
+  "mat_underlay",
+  "mat_gripper",
+  "waste_disposal",
+  "furniture_removal",
+]);
 const extrasLabourColumns = new Set([
   "lab_ceramic_tiles_m2",
   "lab_coved_m",
   "lab_ply_m2",
   "lab_latex_m2",
+  "lab_door_bars_each",
+  "lab_nosings_m",
+  "lab_matting_m2",
+  "lab_uplift_m2",
+  "lab_gripper_m",
 ]);
 
 const smallJobFields: NumericField[] = [
@@ -675,53 +711,59 @@ export default function PricingPage() {
       <div className="card stack">
         <div className="settings-section-heading">
           <div className="stack">
-            <h3 className="section-title text-lg">Extras &amp; add-ons</h3>
+            <h3 className="section-title text-lg">Extras &amp; add-ons (Materials)</h3>
             <p className="section-subtitle">
-              Configure global add-ons and advanced pricing items.
+              Configure global add-ons and advanced material pricing items.
+            </p>
+            <p className="section-subtitle">
+              Used for uplift, adhesive, prep and accessories pricing.
             </p>
           </div>
         </div>
-        {extraMaterialFields.length || extraLabourFields.length ? (
-          <div className="stack">
-            {extraMaterialFields.length ? (
-              <div className="stack">
-                <p className="section-subtitle">Materials</p>
-                <div className="settings-grid-compact">
-                  {extraMaterialFields.map((field) => (
-                    <NumberField
-                      key={field.column}
-                      label={field.label}
-                      value={materialPrices[field.column]}
-                      onChange={(val) => {
-                        markUnsaved();
-                        setMaterialPrices((prev) => ({ ...prev, [field.column]: val }));
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            {extraLabourFields.length ? (
-              <div className="stack">
-                <p className="section-subtitle">Labour</p>
-                <div className="settings-grid-compact">
-                  {extraLabourFields.map((field) => (
-                    <NumberField
-                      key={field.column}
-                      label={field.label}
-                      value={labourPrices[field.column]}
-                      onChange={(val) => {
-                        markUnsaved();
-                        setLabourPrices((prev) => ({ ...prev, [field.column]: val }));
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
+        {extraMaterialFields.length ? (
+          <div className="settings-grid-compact">
+            {extraMaterialFields.map((field) => (
+              <NumberField
+                key={field.column}
+                label={field.label}
+                value={materialPrices[field.column]}
+                onChange={(val) => {
+                  markUnsaved();
+                  setMaterialPrices((prev) => ({ ...prev, [field.column]: val }));
+                }}
+              />
+            ))}
           </div>
         ) : (
-          <p className="section-subtitle">No extras are available yet.</p>
+          <p className="section-subtitle">No material extras are available yet.</p>
+        )}
+      </div>
+
+      <div className="card stack">
+        <div className="settings-section-heading">
+          <div className="stack">
+            <h3 className="section-title text-lg">Extras (Labour)</h3>
+            <p className="section-subtitle">
+              Configure labour add-ons for prep work and accessories.
+            </p>
+          </div>
+        </div>
+        {extraLabourFields.length ? (
+          <div className="settings-grid-compact">
+            {extraLabourFields.map((field) => (
+              <NumberField
+                key={field.column}
+                label={field.label}
+                value={labourPrices[field.column]}
+                onChange={(val) => {
+                  markUnsaved();
+                  setLabourPrices((prev) => ({ ...prev, [field.column]: val }));
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="section-subtitle">No labour extras are available yet.</p>
         )}
       </div>
 
