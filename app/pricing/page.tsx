@@ -3,6 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { ensurePricingSettings } from "@/lib/pricing/ensurePricingSettings";
+import {
+  BREAKPOINT_DEFAULT,
+  EXTRAS_LABOUR_COLUMNS,
+  EXTRAS_MATERIAL_COLUMNS,
+  LABOUR_PRICE_FIELDS,
+  MARKUP_OPTIONS,
+  MATERIAL_PRICE_FIELDS,
+  SERVICE_OPTIONS,
+  SERVICE_REGISTRY,
+  SMALL_JOB_FIELDS,
+} from "@/lib/pricing/pricingSettingsConfig";
 import { createClient } from "@/utils/supabase/client";
 
 type BooleanMap = Record<string, boolean>;
@@ -15,182 +27,14 @@ type MarkupMap = Record<
   }
 >;
 
-type ServiceOption = { label: string; column: string };
-type MarkupOption = {
-  label: string;
-  valueColumn: string;
-  typeColumn: string;
-};
-type NumericField = { label: string; column: string };
-
-const serviceOptions: ServiceOption[] = [
-  { label: "Domestic carpets", column: "service_domestic_carpet" },
-  { label: "Commercial carpets", column: "service_commercial_carpet" },
-  { label: "Carpet tiles", column: "service_carpet_tiles" },
-  { label: "LVT", column: "service_lvt" },
-  { label: "Domestic vinyl", column: "service_domestic_vinyl" },
-  { label: "Safety / commercial vinyl", column: "service_commercial_vinyl" },
-  { label: "Altro Whiterock (wall cladding)", column: "service_wall_cladding" },
-];
-
-const serviceRegistry: Record<
-  string,
-  { markups: string[]; materials: string[]; labour: string[] }
-> = {
-  service_domestic_carpet: {
-    markups: ["markup_domestic_carpet_value"],
-    materials: ["mat_domestic_carpet_m2"],
-    labour: ["lab_domestic_carpet_m2"],
-  },
-  service_commercial_carpet: {
-    markups: ["markup_commercial_carpet_value"],
-    materials: ["mat_commercial_carpet_m2"],
-    labour: ["lab_commercial_carpet_m2"],
-  },
-  service_carpet_tiles: {
-    markups: ["markup_carpet_tiles_value"],
-    materials: [],
-    labour: [],
-  },
-  service_lvt: {
-    markups: ["markup_lvt_value"],
-    materials: ["mat_lvt_m2"],
-    labour: ["lab_lvt_m2"],
-  },
-  service_domestic_vinyl: {
-    markups: ["markup_domestic_vinyl_value"],
-    materials: ["mat_domestic_vinyl_m2"],
-    labour: ["lab_domestic_vinyl_m2"],
-  },
-  service_commercial_vinyl: {
-    markups: ["markup_commercial_vinyl_value"],
-    materials: ["mat_commercial_vinyl_m2", "mat_safety_m2"],
-    labour: ["lab_commercial_vinyl_m2", "lab_safety_m2"],
-  },
-  service_wall_cladding: {
-    markups: ["markup_wall_cladding_value"],
-    materials: ["mat_wall_cladding_m2"],
-    labour: ["lab_wall_cladding_m2"],
-  },
-};
-
-const markupOptions: MarkupOption[] = [
-  {
-    label: "Domestic carpet markup",
-    valueColumn: "markup_domestic_carpet_value",
-    typeColumn: "markup_domestic_carpet_type",
-  },
-  {
-    label: "Commercial carpet markup",
-    valueColumn: "markup_commercial_carpet_value",
-    typeColumn: "markup_commercial_carpet_type",
-  },
-  {
-    label: "Carpet tiles markup",
-    valueColumn: "markup_carpet_tiles_value",
-    typeColumn: "markup_carpet_tiles_type",
-  },
-  {
-    label: "LVT markup",
-    valueColumn: "markup_lvt_value",
-    typeColumn: "markup_lvt_type",
-  },
-  {
-    label: "Domestic vinyl markup",
-    valueColumn: "markup_domestic_vinyl_value",
-    typeColumn: "markup_domestic_vinyl_type",
-  },
-  {
-    label: "Safety vinyl markup",
-    valueColumn: "markup_commercial_vinyl_value",
-    typeColumn: "markup_commercial_vinyl_type",
-  },
-  {
-    label: "Whiterock markup",
-    valueColumn: "markup_wall_cladding_value",
-    typeColumn: "markup_wall_cladding_type",
-  },
-];
-
-const materialPriceFields: NumericField[] = [
-  { label: "LVT material price per m²", column: "mat_lvt_m2" },
-  { label: "Ceramic tiles material price per m²", column: "mat_ceramic_tiles_m2" },
-  {
-    label: "Domestic carpet material price per m²",
-    column: "mat_domestic_carpet_m2",
-  },
-  {
-    label: "Commercial carpet material price per m²",
-    column: "mat_commercial_carpet_m2",
-  },
-  { label: "Safety flooring material price per m²", column: "mat_safety_m2" },
-  { label: "Domestic vinyl material price per m²", column: "mat_domestic_vinyl_m2" },
-  { label: "Commercial vinyl material price per m²", column: "mat_commercial_vinyl_m2" },
-  { label: "Wall cladding material price per m²", column: "mat_wall_cladding_m2" },
-  { label: "Adhesive per m²", column: "mat_adhesive_m2" },
-  { label: "Uplift existing flooring per m²", column: "mat_uplift_m2" },
-  { label: "Latex per m²", column: "mat_latex_m2" },
-  { label: "Ply board per m²", column: "mat_ply_m2" },
-  { label: "Coved skirting per metre", column: "mat_coved_m2" },
-  { label: "Matting per m²", column: "mat_matting_m2" },
-  { label: "Standard door bars (each)", column: "mat_door_bars_each" },
-  { label: "Nosings per metre", column: "mat_nosings_m" },
-  { label: "Underlay per m²", column: "mat_underlay" },
-  { label: "Gripper per metre", column: "mat_gripper" },
-  { label: "Waste disposal per m²", column: "waste_disposal" },
-  { label: "Furniture removal (per room)", column: "furniture_removal" },
-];
-
-const labourPriceFields: NumericField[] = [
-  { label: "Domestic carpet labour per m²", column: "lab_domestic_carpet_m2" },
-  { label: "Commercial carpet labour per m²", column: "lab_commercial_carpet_m2" },
-  { label: "LVT labour per m²", column: "lab_lvt_m2" },
-  { label: "Ceramic tile labour per m²", column: "lab_ceramic_tiles_m2" },
-  { label: "Safety flooring labour per m²", column: "lab_safety_m2" },
-  { label: "Domestic vinyl labour per m²", column: "lab_domestic_vinyl_m2" },
-  { label: "Commercial vinyl labour per m²", column: "lab_commercial_vinyl_m2" },
-  { label: "Wall cladding labour per m²", column: "lab_wall_cladding_m2" },
-  { label: "Coved skirting per metre", column: "lab_coved_m" },
-  { label: "Ply boarding per m²", column: "lab_ply_m2" },
-  { label: "Latex per m²", column: "lab_latex_m2" },
-  { label: "Door bars (each)", column: "lab_door_bars_each" },
-  { label: "Nosings per metre", column: "lab_nosings_m" },
-  { label: "Matting per m²", column: "lab_matting_m2" },
-  { label: "Uplift per m²", column: "lab_uplift_m2" },
-  { label: "Gripper per metre", column: "lab_gripper_m" },
-];
-
-const extrasMaterialColumns = new Set([
-  "mat_adhesive_m2",
-  "mat_uplift_m2",
-  "mat_latex_m2",
-  "mat_ply_m2",
-  "mat_coved_m2",
-  "mat_matting_m2",
-  "mat_door_bars_each",
-  "mat_nosings_m",
-  "mat_underlay",
-  "mat_gripper",
-  "waste_disposal",
-  "furniture_removal",
-]);
-const extrasLabourColumns = new Set([
-  "lab_coved_m",
-  "lab_ply_m2",
-  "lab_latex_m2",
-  "lab_door_bars_each",
-  "lab_nosings_m",
-  "lab_matting_m2",
-  "lab_uplift_m2",
-  "lab_gripper_m",
-]);
-
-const smallJobFields: NumericField[] = [
-  { label: "Minimum job charge", column: "small_job_charge" },
-  { label: "Day rate per fitter", column: "day_rate_per_fitter" },
-];
-
-const BREAKPOINT_DEFAULT = "[]";
+const serviceOptions = SERVICE_OPTIONS;
+const serviceRegistry = SERVICE_REGISTRY;
+const markupOptions = MARKUP_OPTIONS;
+const materialPriceFields = MATERIAL_PRICE_FIELDS;
+const labourPriceFields = LABOUR_PRICE_FIELDS;
+const extrasMaterialColumns = EXTRAS_MATERIAL_COLUMNS;
+const extrasLabourColumns = EXTRAS_LABOUR_COLUMNS;
+const smallJobFields = SMALL_JOB_FIELDS;
 
 function createBooleanState(keys: string[]): BooleanMap {
   return keys.reduce<BooleanMap>((acc, key) => {
@@ -387,6 +231,14 @@ export default function PricingPage() {
 
       if (userError || !data?.user) {
         router.push("/auth/login");
+        return;
+      }
+
+      const ensureResult = await ensurePricingSettings(supabase, data.user.id);
+
+      if (ensureResult.error) {
+        setError(ensureResult.error.message);
+        setLoading(false);
         return;
       }
 

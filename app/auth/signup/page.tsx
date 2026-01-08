@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useMemo, useState } from "react";
 
+import { ensurePricingSettings } from "@/lib/pricing/ensurePricingSettings";
 import { createClient } from "@/utils/supabase/client";
 
 export default function SignUpPage() {
@@ -46,6 +47,12 @@ export default function SignUpPage() {
 
       if (insertError) {
         throw insertError;
+      }
+
+      const ensureResult = await ensurePricingSettings(supabase, user.id);
+
+      if (ensureResult.error) {
+        throw ensureResult.error;
       }
 
       router.push("/pricing");
