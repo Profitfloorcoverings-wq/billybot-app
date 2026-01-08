@@ -131,7 +131,7 @@ const materialPriceFields: NumericField[] = [
   { label: "Uplift existing flooring per m²", column: "mat_uplift_m2" },
   { label: "Latex per m²", column: "mat_latex_m2" },
   { label: "Ply board per m²", column: "mat_ply_m2" },
-  { label: "Coved skirting per m²", column: "mat_coved_m2" },
+  { label: "Coved skirting per metre", column: "mat_coved_m2" },
   { label: "Matting per m²", column: "mat_matting_m2" },
   { label: "Standard door bars (each)", column: "mat_door_bars_each" },
   { label: "Nosings per metre", column: "mat_nosings_m" },
@@ -599,7 +599,8 @@ export default function PricingPage() {
             <div className="stack">
               <h3 className="section-title text-lg">Material markup settings</h3>
               <p className="section-subtitle">
-                Set markup amounts for each service and choose whether to apply £ or %.
+                Set % or £ markup amounts to be applied to suppliers product prices for each
+                service.
               </p>
             </div>
           </div>
@@ -658,6 +659,7 @@ export default function PricingPage() {
             <h3 className="section-title text-lg">Base material prices</h3>
             <p className="section-subtitle">
               Enter your most commonly used base rate or mid-range price for each floor type.
+              These will be used when a product does not exist in your price lists.
             </p>
           </div>
         </div>
