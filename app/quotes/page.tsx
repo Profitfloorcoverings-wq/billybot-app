@@ -148,7 +148,7 @@ export default function QuotesPage() {
             </div>
 
             {hasFilteredQuotes ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="flex flex-col gap-4 md:grid md:grid-cols-2 lg:grid-cols-3">
                 {filteredQuotes.map((quote) => {
                   const isNew = unseenCutoff
                     ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
@@ -162,7 +162,7 @@ export default function QuotesPage() {
                   return (
                     <div
                       key={quote.id}
-                      className="card quote-tile flex h-full flex-col gap-4 min-h-[220px]"
+                      className="card quote-tile flex h-full min-h-[220px] flex-col gap-3 rounded-2xl border border-white/10 p-4 shadow-[0_10px_30px_rgba(0,0,0,0.35)] sm:p-5"
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
@@ -171,18 +171,20 @@ export default function QuotesPage() {
                         {isNew ? <span className="tag">New</span> : null}
                       </div>
 
-                      <div className="stack gap-2">
-                        <p className="text-lg font-semibold leading-tight text-white">{customerName}</p>
-                        <p className="text-sm text-[var(--muted)]">{jobRef}</p>
-                        <p className="text-xs text-[var(--muted)]">Created {createdDate}</p>
+                      <div className="flex flex-col gap-2">
+                        <p className="text-base font-semibold leading-tight text-white sm:text-lg">
+                          {customerName}
+                        </p>
+                        <p className="text-sm text-white/70">{jobRef}</p>
+                        <p className="text-sm text-white/70">Created {createdDate}</p>
                       </div>
 
-                      <div className="mt-auto flex justify-center">
+                      <div className="mt-auto flex justify-center border-t border-white/10 pt-3">
                         <Link
                           href={quote.pdf_url ?? "#"}
                           target="_blank"
                           rel="noreferrer"
-                          className="btn btn-primary w-full justify-center text-center md:w-auto"
+                          className="btn btn-primary w-full justify-center rounded-xl py-3 text-center"
                         >
                           Open PDF
                         </Link>
