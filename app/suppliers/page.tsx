@@ -339,11 +339,6 @@ export default function SuppliersPricingPage() {
     setUploadMessage(null);
     setUploadError(null);
 
-    if (supplierFilter === EMPTY_OPTION) {
-      setUploadError("Select a supplier first.");
-      return;
-    }
-
     fileInputRef.current?.click();
   };
 
@@ -352,11 +347,6 @@ export default function SuppliersPricingPage() {
 
     setUploadMessage(null);
     setUploadError(null);
-
-    if (supplierFilter === EMPTY_OPTION) {
-      setUploadError("Select a supplier first.");
-      return;
-    }
 
     if (!profileId) {
       setUploadError("Unable to determine client ID. Please refresh and try again.");
@@ -374,9 +364,8 @@ export default function SuppliersPricingPage() {
       return;
     }
 
-    const supplierKey = sanitizeValue(supplierFilter);
     const originalFilename = sanitizeFilename(file.name);
-    const uploadPath = `raw/${profileId}/${supplierKey}/${crypto.randomUUID()}-${originalFilename}`;
+    const uploadPath = `raw/${profileId}/${crypto.randomUUID()}-${originalFilename}`;
 
     setIsUploading(true);
 
@@ -400,8 +389,8 @@ export default function SuppliersPricingPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             client_id: profileId,
-            supplier_id: supplierFilter,
-            supplier_name: supplierFilter,
+            supplier_id: "unknown",
+            supplier_name: null,
             file: {
               bucket: "price_lists",
               path: uploadPath,
