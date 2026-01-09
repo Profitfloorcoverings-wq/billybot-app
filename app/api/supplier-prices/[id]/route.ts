@@ -8,6 +8,7 @@ type RawSupplierPrice = {
   created_at: string | null;
   updated_at: string | null;
   client_id: string | null;
+  supplier_id: string | null;
   supplier_name: string | null;
   product_name: string | null;
   category: string | null;
@@ -123,7 +124,7 @@ export async function PATCH(
       .eq("id", id)
       .eq("client_id", profileId)
       .select(
-        "id, created_at, updated_at, client_id, supplier_name, product_name, category, uom, roll_price, cut_price, m2_price, price, price_per_m, price_source, product_id, \"ItemRef.value\""
+        "id, created_at, updated_at, client_id, supplier_id, supplier_name, product_name, category, uom, roll_price, cut_price, m2_price, price, price_per_m, price_source, product_id, \"ItemRef.value\""
       )
       .maybeSingle();
 

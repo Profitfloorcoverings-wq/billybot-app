@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
 
@@ -11,6 +12,7 @@ type SupplierPrice = {
   created_at: string | null;
   updated_at: string | null;
   client_id: string | null;
+  supplier_id: string | null;
   supplier_name: string | null;
   product_name: string | null;
   category: string | null;
@@ -37,6 +39,11 @@ type SupplierPriceUpdate = {
   price_per_m: string;
 };
 
+type UploadMessage = {
+  tone: "success" | "error";
+  text: string;
+};
+
 const normalizeRealtime = (price: SupplierPrice | null) => {
   if (!price) return null;
   const itemRefValue = (price as SupplierPrice & { "ItemRef.value"?: string | null })[
@@ -59,6 +66,23 @@ export default function SuppliersPricingPage() {
   const [editValues, setEditValues] = useState<SupplierPriceUpdate | null>(null);
   const [savingId, setSavingId] = useState<string | number | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [uploadMessage, setUploadMessage] = useState<UploadMessage | null>(null);
+  const [uploadingSupplierId, setUploadingSupplierId] = useState<string | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+  const ACCEPTED_MIME_TYPES = new Set([
+    "application/pdf",
+    "text/csv",
+    "application/csv",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ]);
+  const ACCEPTED_EXTENSIONS = new Set(["pdf", "csv", "xlsx", "xls"]);
 
   const loadPrices = useCallback(async () => {
     try {
@@ -170,6 +194,20 @@ export default function SuppliersPricingPage() {
       if (price.supplier_name) names.add(price.supplier_name);
     });
     return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [prices]);
+
+  const supplierUploadOptions = useMemo(() => {
+    const options = new Map<string, { id: string; name: string }>();
+    prices.forEach((price) => {
+      if (!price.supplier_name) return;
+      const supplierId = price.supplier_id || price.supplier_name;
+      if (!supplierId) return;
+      const key = `${supplierId}-${price.supplier_name}`;
+      if (!options.has(key)) {
+        options.set(key, { id: supplierId, name: price.supplier_name });
+      }
+    });
+    return Array.from(options.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [prices]);
 
   const categoryOptions = useMemo(() => {
@@ -293,8 +331,127 @@ export default function SuppliersPricingPage() {
     }
   };
 
+  const sanitizeFilename = (filename: string) => {
+    const lower = filename.toLowerCase();
+    const lastDotIndex = lower.lastIndexOf(".");
+    const extension = lastDotIndex >= 0 ? lower.slice(lastDotIndex) : "";
+    const baseName = lastDotIndex >= 0 ? lower.slice(0, lastDotIndex) : lower;
+    const sanitizedBase = baseName
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-_]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    const sanitizedExtension = extension.replace(/[^a-z0-9.]/g, "");
+    return `${sanitizedBase || "file"}${sanitizedExtension}`;
+  };
+
+  const validateFile = (file: File) => {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return "File must be 25MB or smaller.";
+    }
+
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    const isValidType =
+      ACCEPTED_MIME_TYPES.has(file.type) || ACCEPTED_EXTENSIONS.has(extension);
+
+    if (!isValidType) {
+      return "Only PDF, CSV, XLS, or XLSX files are supported.";
+    }
+
+    return null;
+  };
+
+  const startUpload = (supplier: { id: string; name: string }) => {
+    setUploadMessage(null);
+    setSelectedSupplier(supplier);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!selectedSupplier) {
+      setUploadMessage({ tone: "error", text: "Select a supplier before uploading." });
+      return;
+    }
+
+    if (!profileId) {
+      setUploadMessage({ tone: "error", text: "Unable to upload without a client ID." });
+      return;
+    }
+
+    const validationError = validateFile(file);
+    if (validationError) {
+      setUploadMessage({ tone: "error", text: validationError });
+      return;
+    }
+
+    const sanitizedFilename = sanitizeFilename(file.name);
+    const uploadPath = `raw/${profileId}/${selectedSupplier.id}/${crypto.randomUUID()}-${sanitizedFilename}`;
+
+    setUploadingSupplierId(selectedSupplier.id);
+    setUploadMessage(null);
+
+    try {
+      const supabase = createClient();
+      const { error: uploadError } = await supabase.storage
+        .from("price_lists")
+        .upload(uploadPath, file, { contentType: file.type || undefined });
+
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+
+      const webhookResponse = await fetch(
+        "https://tradiebrain.app.n8n.cloud/webhook/v1/suppliers/price-lists/ingest",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_id: profileId,
+            supplier_id: selectedSupplier.id,
+            supplier_name: selectedSupplier.name,
+            file: {
+              bucket: "price_lists",
+              path: uploadPath,
+              mime_type: file.type,
+              original_filename: file.name,
+            },
+          }),
+        }
+      );
+
+      if (!webhookResponse.ok) {
+        setUploadMessage({
+          tone: "error",
+          text: "Upload succeeded but processing failed. Please try again.",
+        });
+        return;
+      }
+
+      setUploadMessage({
+        tone: "success",
+        text: "Upload successful. Processing will start shortly.",
+      });
+    } catch (err) {
+      console.error("Price list upload error", err);
+      setUploadMessage({
+        tone: "error",
+        text:
+          err && typeof err === "object" && "message" in err
+            ? String((err as { message?: string }).message)
+            : "Upload failed. Please try again.",
+      });
+    } finally {
+      setUploadingSupplierId(null);
+    }
+  };
+
   const hasPrices = prices.length > 0;
   const hasFilteredPrices = filteredPrices.length > 0;
+  const isUploading = uploadingSupplierId !== null;
 
   return (
     <div className="page-container">
@@ -310,11 +467,61 @@ export default function SuppliersPricingPage() {
 
       <div className="stack gap-4">
         <div className="card stack gap-3">
-          <div className="stack">
-            <h3 className="section-title text-lg">Email price lists to pricelists@billybot.ai</h3>
-            <p className="section-subtitle">Accepted: PDF, Excel, CSV. Send one list per email</p>
+          <div className="stack gap-2">
+            <h3 className="section-title text-lg">Upload price list</h3>
+            <p className="section-subtitle">
+              Upload a price list for a specific supplier. Accepted: PDF, CSV, XLS, or XLSX.
+            </p>
           </div>
-          <p className="text-sm text-[var(--muted)]">Prices appear once processed.</p>
+          {uploadMessage && (
+            <div
+              className={`toast ${
+                uploadMessage.tone === "error"
+                  ? "border border-rose-500/50 bg-rose-500/10 text-rose-200"
+                  : "border border-emerald-500/50 bg-emerald-500/10 text-emerald-200"
+              }`}
+            >
+              {uploadMessage.text}
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept=".pdf,.csv,.xls,.xlsx"
+            onChange={handleFileChange}
+          />
+          {supplierUploadOptions.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">
+              Add supplier pricing to enable uploads for specific suppliers.
+            </p>
+          ) : (
+            <div className="stack gap-2">
+              {supplierUploadOptions.map((supplier) => {
+                const isRowUploading = uploadingSupplierId === supplier.id;
+                return (
+                  <div
+                    key={`${supplier.id}-${supplier.name}`}
+                    className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="stack">
+                      <p className="font-semibold">{supplier.name}</p>
+                      <p className="text-xs text-[var(--muted)]">
+                        Upload the latest pricing for this supplier.
+                      </p>
+                    </div>
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => startUpload(supplier)}
+                      disabled={isUploading}
+                    >
+                      {isRowUploading ? "Uploading…" : "Upload price list"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {loading && <div className="empty-state">Loading supplier prices…</div>}
