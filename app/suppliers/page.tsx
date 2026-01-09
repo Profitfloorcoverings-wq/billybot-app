@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
 
@@ -59,6 +59,10 @@ export default function SuppliersPricingPage() {
   const [editValues, setEditValues] = useState<SupplierPriceUpdate | null>(null);
   const [savingId, setSavingId] = useState<string | number | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadPrices = useCallback(async () => {
     try {
@@ -162,6 +166,44 @@ export default function SuppliersPricingPage() {
       return "—";
     }
     return value;
+  };
+
+  const sanitizeValue = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9._-]/g, "");
+
+  const sanitizeFilename = (filename: string) => {
+    const trimmed = filename.trim();
+    const lastDot = trimmed.lastIndexOf(".");
+    if (lastDot <= 0) {
+      return sanitizeValue(trimmed);
+    }
+    const name = sanitizeValue(trimmed.slice(0, lastDot));
+    const extension = sanitizeValue(trimmed.slice(lastDot + 1));
+    if (!extension) return name;
+    return `${name}.${extension}`;
+  };
+
+  const isAllowedFile = (file: File) => {
+    const allowedExtensions = ["pdf", "csv", "xls", "xlsx"];
+    const type = file.type?.toLowerCase() ?? "";
+    if (type) {
+      if (
+        type === "application/pdf" ||
+        type === "text/csv" ||
+        type === "application/vnd.ms-excel" ||
+        type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        type === "application/csv" ||
+        type === "text/plain"
+      ) {
+        return true;
+      }
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    return allowedExtensions.includes(extension);
   };
 
   const supplierOptions = useMemo(() => {
@@ -293,6 +335,90 @@ export default function SuppliersPricingPage() {
     }
   };
 
+  const handleUploadClick = () => {
+    setUploadMessage(null);
+    setUploadError(null);
+
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (file: File | null) => {
+    if (!file) return;
+
+    setUploadMessage(null);
+    setUploadError(null);
+
+    if (!profileId) {
+      setUploadError("Unable to determine client ID. Please refresh and try again.");
+      return;
+    }
+
+    const maxSize = 25 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setUploadError("File is too large. Maximum size is 25MB.");
+      return;
+    }
+
+    if (!isAllowedFile(file)) {
+      setUploadError("Unsupported file type. Upload PDF, CSV, XLS, or XLSX.");
+      return;
+    }
+
+    const originalFilename = sanitizeFilename(file.name);
+    const uploadPath = `raw/${profileId}/${crypto.randomUUID()}-${originalFilename}`;
+
+    setIsUploading(true);
+
+    try {
+      const supabase = createClient();
+      const { error: uploadErrorResponse } = await supabase.storage
+        .from("price_lists")
+        .upload(uploadPath, file, {
+          upsert: false,
+          contentType: file.type || undefined,
+        });
+
+      if (uploadErrorResponse) {
+        throw new Error(uploadErrorResponse.message);
+      }
+
+      const webhookRes = await fetch(
+        "https://tradiebrain.app.n8n.cloud/webhook/v1/suppliers/price-lists/ingest",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_id: profileId,
+            supplier_id: "unknown",
+            supplier_name: null,
+            file: {
+              bucket: "price_lists",
+              path: uploadPath,
+              mime_type: file.type,
+              original_filename: file.name,
+            },
+          }),
+        }
+      );
+
+      if (!webhookRes.ok) {
+        setUploadError("Upload succeeded but processing failed. Please try again.");
+        return;
+      }
+
+      setUploadMessage("Uploaded – processing started.");
+    } catch (err) {
+      console.error("Supplier price list upload error", err);
+      setUploadError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Upload failed. Please try again."
+      );
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const hasPrices = prices.length > 0;
   const hasFilteredPrices = filteredPrices.length > 0;
 
@@ -310,11 +436,30 @@ export default function SuppliersPricingPage() {
 
       <div className="stack gap-4">
         <div className="card stack gap-3">
-          <div className="stack">
-            <h3 className="section-title text-lg">Email price lists to pricelists@billybot.ai</h3>
-            <p className="section-subtitle">Accepted: PDF, Excel, CSV. Send one list per email</p>
+          <div className="stack gap-2">
+            <button
+              className="btn btn-primary"
+              onClick={handleUploadClick}
+              disabled={isUploading}
+            >
+              {isUploading ? "Uploading…" : "Upload price list"}
+            </button>
+            <input
+              ref={fileInputRef}
+              className="hidden"
+              type="file"
+              accept=".pdf,.csv,.xls,.xlsx"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                void handleFileChange(file);
+                e.currentTarget.value = "";
+              }}
+              disabled={isUploading}
+            />
+            {(uploadMessage || uploadError) && (
+              <p className="text-sm text-[var(--muted)]">{uploadError || uploadMessage}</p>
+            )}
           </div>
-          <p className="text-sm text-[var(--muted)]">Prices appear once processed.</p>
         </div>
 
         {loading && <div className="empty-state">Loading supplier prices…</div>}
