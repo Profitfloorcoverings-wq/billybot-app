@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
 
@@ -59,12 +59,10 @@ export default function SuppliersPricingPage() {
   const [editValues, setEditValues] = useState<SupplierPriceUpdate | null>(null);
   const [savingId, setSavingId] = useState<string | number | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
-  const [selectedSupplier, setSelectedSupplier] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "uploaded" | "error">(
-    "idle"
-  );
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadPrices = useCallback(async () => {
     try {
@@ -337,53 +335,58 @@ export default function SuppliersPricingPage() {
     }
   };
 
-  const handleUpload = async () => {
+  const handleUploadClick = () => {
+    setUploadMessage(null);
     setUploadError(null);
 
-    if (!selectedSupplier) {
-      setUploadStatus("error");
-      setUploadError("Select a supplier to upload a price list.");
+    if (supplierFilter === EMPTY_OPTION) {
+      setUploadError("Select a supplier first.");
       return;
     }
 
-    if (!selectedFile) {
-      setUploadStatus("error");
-      setUploadError("Choose a file to upload.");
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (file: File | null) => {
+    if (!file) return;
+
+    setUploadMessage(null);
+    setUploadError(null);
+
+    if (supplierFilter === EMPTY_OPTION) {
+      setUploadError("Select a supplier first.");
       return;
     }
 
     if (!profileId) {
-      setUploadStatus("error");
       setUploadError("Unable to determine client ID. Please refresh and try again.");
       return;
     }
 
     const maxSize = 25 * 1024 * 1024;
-    if (selectedFile.size > maxSize) {
-      setUploadStatus("error");
+    if (file.size > maxSize) {
       setUploadError("File is too large. Maximum size is 25MB.");
       return;
     }
 
-    if (!isAllowedFile(selectedFile)) {
-      setUploadStatus("error");
+    if (!isAllowedFile(file)) {
       setUploadError("Unsupported file type. Upload PDF, CSV, XLS, or XLSX.");
       return;
     }
 
-    const supplierKey = sanitizeValue(selectedSupplier);
-    const originalFilename = sanitizeFilename(selectedFile.name);
+    const supplierKey = sanitizeValue(supplierFilter);
+    const originalFilename = sanitizeFilename(file.name);
     const uploadPath = `raw/${profileId}/${supplierKey}/${crypto.randomUUID()}-${originalFilename}`;
 
-    setUploadStatus("uploading");
+    setIsUploading(true);
 
     try {
       const supabase = createClient();
       const { error: uploadErrorResponse } = await supabase.storage
         .from("price_lists")
-        .upload(uploadPath, selectedFile, {
+        .upload(uploadPath, file, {
           upsert: false,
-          contentType: selectedFile.type || undefined,
+          contentType: file.type || undefined,
         });
 
       if (uploadErrorResponse) {
@@ -397,41 +400,38 @@ export default function SuppliersPricingPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             client_id: profileId,
-            supplier_id: selectedSupplier,
-            supplier_name: selectedSupplier,
+            supplier_id: supplierFilter,
+            supplier_name: supplierFilter,
             file: {
               bucket: "price_lists",
               path: uploadPath,
-              mime_type: selectedFile.type,
-              original_filename: selectedFile.name,
+              mime_type: file.type,
+              original_filename: file.name,
             },
           }),
         }
       );
 
       if (!webhookRes.ok) {
-        setUploadStatus("error");
         setUploadError("Upload succeeded but processing failed. Please try again.");
         return;
       }
 
-      setUploadStatus("uploaded");
-      setUploadError(null);
+      setUploadMessage("Uploaded – processing started.");
     } catch (err) {
       console.error("Supplier price list upload error", err);
-      setUploadStatus("error");
       setUploadError(
         err && typeof err === "object" && "message" in err
           ? String((err as { message?: string }).message)
           : "Upload failed. Please try again."
       );
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const hasPrices = prices.length > 0;
   const hasFilteredPrices = filteredPrices.length > 0;
-  const uploadsEnabled = supplierOptions.length > 0;
-  const isUploading = uploadStatus === "uploading";
 
   return (
     <div className="page-container">
@@ -447,68 +447,29 @@ export default function SuppliersPricingPage() {
 
       <div className="stack gap-4">
         <div className="card stack gap-3">
-          <div className="stack gap-1">
-            <h3 className="section-title text-lg">Upload price list</h3>
-            <p className="section-subtitle">
-              Upload a supplier price list to start processing immediately.
-            </p>
-          </div>
-          {!uploadsEnabled && (
-            <p className="text-sm text-[var(--muted)]">
-              Add supplier pricing first to enable uploads.
-            </p>
-          )}
-          <div className="stack md:row gap-3">
-            <div className="stack flex-1">
-              <p className="section-subtitle">Supplier</p>
-              <select
-                className="input-fluid"
-                value={selectedSupplier}
-                onChange={(e) => {
-                  setSelectedSupplier(e.target.value);
-                  setUploadStatus("idle");
-                  setUploadError(null);
-                }}
-                disabled={!uploadsEnabled || isUploading}
-              >
-                <option value="">Select supplier</option>
-                {supplierOptions.map((supplier) => (
-                  <option key={supplier} value={supplier}>
-                    {supplier}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="stack flex-1">
-              <p className="section-subtitle">File</p>
-              <input
-                className="input-fluid"
-                type="file"
-                accept=".pdf,.csv,.xls,.xlsx"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] ?? null;
-                  setSelectedFile(file);
-                  setUploadStatus("idle");
-                  setUploadError(null);
-                }}
-                disabled={!uploadsEnabled || isUploading}
-              />
-            </div>
-            <div className="stack justify-end">
-              <button
-                className="btn btn-primary"
-                onClick={handleUpload}
-                disabled={!uploadsEnabled || isUploading}
-              >
-                Upload
-              </button>
-            </div>
-          </div>
-          <div className="text-sm text-[var(--muted)]">
-            {uploadStatus === "uploading" && "Uploading…"}
-            {uploadStatus === "uploaded" && "Uploaded – processing started."}
-            {uploadStatus === "error" && (uploadError || "Upload failed. Please try again.")}
-            {uploadStatus === "idle" && "Idle"}
+          <div className="stack gap-2">
+            <button
+              className="btn btn-primary"
+              onClick={handleUploadClick}
+              disabled={isUploading}
+            >
+              {isUploading ? "Uploading…" : "Upload price list"}
+            </button>
+            <input
+              ref={fileInputRef}
+              className="hidden"
+              type="file"
+              accept=".pdf,.csv,.xls,.xlsx"
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                void handleFileChange(file);
+                e.currentTarget.value = "";
+              }}
+              disabled={isUploading}
+            />
+            {(uploadMessage || uploadError) && (
+              <p className="text-sm text-[var(--muted)]">{uploadError || uploadMessage}</p>
+            )}
           </div>
         </div>
 
