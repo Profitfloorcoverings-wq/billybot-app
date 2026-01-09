@@ -59,6 +59,12 @@ export default function SuppliersPricingPage() {
   const [editValues, setEditValues] = useState<SupplierPriceUpdate | null>(null);
   const [savingId, setSavingId] = useState<string | number | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "uploaded" | "error">(
+    "idle"
+  );
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const loadPrices = useCallback(async () => {
     try {
@@ -162,6 +168,44 @@ export default function SuppliersPricingPage() {
       return "—";
     }
     return value;
+  };
+
+  const sanitizeValue = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9._-]/g, "");
+
+  const sanitizeFilename = (filename: string) => {
+    const trimmed = filename.trim();
+    const lastDot = trimmed.lastIndexOf(".");
+    if (lastDot <= 0) {
+      return sanitizeValue(trimmed);
+    }
+    const name = sanitizeValue(trimmed.slice(0, lastDot));
+    const extension = sanitizeValue(trimmed.slice(lastDot + 1));
+    if (!extension) return name;
+    return `${name}.${extension}`;
+  };
+
+  const isAllowedFile = (file: File) => {
+    const allowedExtensions = ["pdf", "csv", "xls", "xlsx"];
+    const type = file.type?.toLowerCase() ?? "";
+    if (type) {
+      if (
+        type === "application/pdf" ||
+        type === "text/csv" ||
+        type === "application/vnd.ms-excel" ||
+        type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        type === "application/csv" ||
+        type === "text/plain"
+      ) {
+        return true;
+      }
+    }
+    const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+    return allowedExtensions.includes(extension);
   };
 
   const supplierOptions = useMemo(() => {
@@ -293,8 +337,101 @@ export default function SuppliersPricingPage() {
     }
   };
 
+  const handleUpload = async () => {
+    setUploadError(null);
+
+    if (!selectedSupplier) {
+      setUploadStatus("error");
+      setUploadError("Select a supplier to upload a price list.");
+      return;
+    }
+
+    if (!selectedFile) {
+      setUploadStatus("error");
+      setUploadError("Choose a file to upload.");
+      return;
+    }
+
+    if (!profileId) {
+      setUploadStatus("error");
+      setUploadError("Unable to determine client ID. Please refresh and try again.");
+      return;
+    }
+
+    const maxSize = 25 * 1024 * 1024;
+    if (selectedFile.size > maxSize) {
+      setUploadStatus("error");
+      setUploadError("File is too large. Maximum size is 25MB.");
+      return;
+    }
+
+    if (!isAllowedFile(selectedFile)) {
+      setUploadStatus("error");
+      setUploadError("Unsupported file type. Upload PDF, CSV, XLS, or XLSX.");
+      return;
+    }
+
+    const supplierKey = sanitizeValue(selectedSupplier);
+    const originalFilename = sanitizeFilename(selectedFile.name);
+    const uploadPath = `raw/${profileId}/${supplierKey}/${crypto.randomUUID()}-${originalFilename}`;
+
+    setUploadStatus("uploading");
+
+    try {
+      const supabase = createClient();
+      const { error: uploadErrorResponse } = await supabase.storage
+        .from("price_lists")
+        .upload(uploadPath, selectedFile, {
+          upsert: false,
+          contentType: selectedFile.type || undefined,
+        });
+
+      if (uploadErrorResponse) {
+        throw new Error(uploadErrorResponse.message);
+      }
+
+      const webhookRes = await fetch(
+        "https://tradiebrain.app.n8n.cloud/webhook/v1/suppliers/price-lists/ingest",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            client_id: profileId,
+            supplier_id: selectedSupplier,
+            supplier_name: selectedSupplier,
+            file: {
+              bucket: "price_lists",
+              path: uploadPath,
+              mime_type: selectedFile.type,
+              original_filename: selectedFile.name,
+            },
+          }),
+        }
+      );
+
+      if (!webhookRes.ok) {
+        setUploadStatus("error");
+        setUploadError("Upload succeeded but processing failed. Please try again.");
+        return;
+      }
+
+      setUploadStatus("uploaded");
+      setUploadError(null);
+    } catch (err) {
+      console.error("Supplier price list upload error", err);
+      setUploadStatus("error");
+      setUploadError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Upload failed. Please try again."
+      );
+    }
+  };
+
   const hasPrices = prices.length > 0;
   const hasFilteredPrices = filteredPrices.length > 0;
+  const uploadsEnabled = supplierOptions.length > 0;
+  const isUploading = uploadStatus === "uploading";
 
   return (
     <div className="page-container">
@@ -310,11 +447,69 @@ export default function SuppliersPricingPage() {
 
       <div className="stack gap-4">
         <div className="card stack gap-3">
-          <div className="stack">
-            <h3 className="section-title text-lg">Email price lists to pricelists@billybot.ai</h3>
-            <p className="section-subtitle">Accepted: PDF, Excel, CSV. Send one list per email</p>
+          <div className="stack gap-1">
+            <h3 className="section-title text-lg">Upload price list</h3>
+            <p className="section-subtitle">
+              Upload a supplier price list to start processing immediately.
+            </p>
           </div>
-          <p className="text-sm text-[var(--muted)]">Prices appear once processed.</p>
+          {!uploadsEnabled && (
+            <p className="text-sm text-[var(--muted)]">
+              Add supplier pricing first to enable uploads.
+            </p>
+          )}
+          <div className="stack md:row gap-3">
+            <div className="stack flex-1">
+              <p className="section-subtitle">Supplier</p>
+              <select
+                className="input-fluid"
+                value={selectedSupplier}
+                onChange={(e) => {
+                  setSelectedSupplier(e.target.value);
+                  setUploadStatus("idle");
+                  setUploadError(null);
+                }}
+                disabled={!uploadsEnabled || isUploading}
+              >
+                <option value="">Select supplier</option>
+                {supplierOptions.map((supplier) => (
+                  <option key={supplier} value={supplier}>
+                    {supplier}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="stack flex-1">
+              <p className="section-subtitle">File</p>
+              <input
+                className="input-fluid"
+                type="file"
+                accept=".pdf,.csv,.xls,.xlsx"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  setSelectedFile(file);
+                  setUploadStatus("idle");
+                  setUploadError(null);
+                }}
+                disabled={!uploadsEnabled || isUploading}
+              />
+            </div>
+            <div className="stack justify-end">
+              <button
+                className="btn btn-primary"
+                onClick={handleUpload}
+                disabled={!uploadsEnabled || isUploading}
+              >
+                Upload
+              </button>
+            </div>
+          </div>
+          <div className="text-sm text-[var(--muted)]">
+            {uploadStatus === "uploading" && "Uploading…"}
+            {uploadStatus === "uploaded" && "Uploaded – processing started."}
+            {uploadStatus === "error" && (uploadError || "Upload failed. Please try again.")}
+            {uploadStatus === "idle" && "Idle"}
+          </div>
         </div>
 
         {loading && <div className="empty-state">Loading supplier prices…</div>}
