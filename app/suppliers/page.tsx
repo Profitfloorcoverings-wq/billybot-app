@@ -553,7 +553,9 @@ export default function SuppliersPricingPage() {
 
                         return (
                           <tr key={price.id}>
-                            <td>{price.supplier_name || "—"}</td>
+                            <td className="text-[var(--muted)]">
+                              {price.supplier_name || "—"}
+                            </td>
                             <td>
                               <div className="stack gap-1">
                                 <p className="font-semibold text-[15px] text-white">
@@ -561,8 +563,8 @@ export default function SuppliersPricingPage() {
                                 </p>
                               </div>
                             </td>
-                            <td>{price.category || "—"}</td>
-                            <td>{price.uom || "—"}</td>
+                            <td className="text-[var(--muted)]">{price.category || "—"}</td>
+                            <td className="text-[var(--muted)]">{price.uom || "—"}</td>
                             <td>
                               {isEditing ? (
                                 <input
@@ -574,9 +576,9 @@ export default function SuppliersPricingPage() {
                                   onChange={(e) => updateField("price", e.target.value)}
                                 />
                               ) : price.price !== null && price.price !== undefined ? (
-                                price.price
+                                <span className="font-medium text-white">{price.price}</span>
                               ) : (
-                                "—"
+                                <span className="text-[var(--muted)]">—</span>
                               )}
                             </td>
                             <td>
@@ -589,8 +591,12 @@ export default function SuppliersPricingPage() {
                                   value={editValues?.roll_price ?? ""}
                                   onChange={(e) => updateField("roll_price", e.target.value)}
                                 />
+                              ) : price.roll_price !== null && price.roll_price !== undefined ? (
+                                <span className="font-medium text-white">
+                                  {formatValue(price.roll_price)}
+                                </span>
                               ) : (
-                                formatValue(price.roll_price)
+                                <span className="text-[var(--muted)]">—</span>
                               )}
                             </td>
                             <td>
@@ -603,8 +609,12 @@ export default function SuppliersPricingPage() {
                                   value={editValues?.cut_price ?? ""}
                                   onChange={(e) => updateField("cut_price", e.target.value)}
                                 />
+                              ) : price.cut_price !== null && price.cut_price !== undefined ? (
+                                <span className="font-medium text-white">
+                                  {formatValue(price.cut_price)}
+                                </span>
                               ) : (
-                                formatValue(price.cut_price)
+                                <span className="text-[var(--muted)]">—</span>
                               )}
                             </td>
                             <td>
@@ -617,8 +627,12 @@ export default function SuppliersPricingPage() {
                                   value={editValues?.m2_price ?? ""}
                                   onChange={(e) => updateField("m2_price", e.target.value)}
                                 />
+                              ) : price.m2_price !== null && price.m2_price !== undefined ? (
+                                <span className="font-medium text-white">
+                                  {formatValue(price.m2_price)}
+                                </span>
                               ) : (
-                                formatValue(price.m2_price)
+                                <span className="text-[var(--muted)]">—</span>
                               )}
                             </td>
                             <td>
@@ -631,11 +645,15 @@ export default function SuppliersPricingPage() {
                                   value={editValues?.price_per_m ?? ""}
                                   onChange={(e) => updateField("price_per_m", e.target.value)}
                                 />
+                              ) : price.price_per_m !== null && price.price_per_m !== undefined ? (
+                                <span className="font-medium text-white">
+                                  {price.price_per_m}
+                                </span>
                               ) : (
-                                formatValue(price.price_per_m)
+                                <span className="text-[var(--muted)]">—</span>
                               )}
                             </td>
-                            <td>{updatedLabel || "—"}</td>
+                            <td className="text-[var(--muted)]">{updatedLabel || "—"}</td>
                             <td className="sticky-cell">
                               <div className="stack gap-2">
                                 {isSaving ? (
