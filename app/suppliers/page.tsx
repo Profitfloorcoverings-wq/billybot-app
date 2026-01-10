@@ -591,10 +591,12 @@ export default function SuppliersPricingPage() {
                                   value={editValues?.roll_price ?? ""}
                                   onChange={(e) => updateField("roll_price", e.target.value)}
                                 />
-                              ) : (
-                                <span className="text-[var(--muted)]">
+                              ) : price.roll_price !== null && price.roll_price !== undefined ? (
+                                <span className="font-medium text-white">
                                   {formatValue(price.roll_price)}
                                 </span>
+                              ) : (
+                                <span className="text-[var(--muted)]">—</span>
                               )}
                             </td>
                             <td>
@@ -607,10 +609,12 @@ export default function SuppliersPricingPage() {
                                   value={editValues?.cut_price ?? ""}
                                   onChange={(e) => updateField("cut_price", e.target.value)}
                                 />
-                              ) : (
-                                <span className="text-[var(--muted)]">
+                              ) : price.cut_price !== null && price.cut_price !== undefined ? (
+                                <span className="font-medium text-white">
                                   {formatValue(price.cut_price)}
                                 </span>
+                              ) : (
+                                <span className="text-[var(--muted)]">—</span>
                               )}
                             </td>
                             <td>
@@ -623,10 +627,12 @@ export default function SuppliersPricingPage() {
                                   value={editValues?.m2_price ?? ""}
                                   onChange={(e) => updateField("m2_price", e.target.value)}
                                 />
-                              ) : (
-                                <span className="text-[var(--muted)]">
+                              ) : price.m2_price !== null && price.m2_price !== undefined ? (
+                                <span className="font-medium text-white">
                                   {formatValue(price.m2_price)}
                                 </span>
+                              ) : (
+                                <span className="text-[var(--muted)]">—</span>
                               )}
                             </td>
                             <td>
