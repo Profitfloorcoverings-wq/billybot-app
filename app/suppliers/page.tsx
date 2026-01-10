@@ -553,22 +553,22 @@ export default function SuppliersPricingPage() {
 
                         return (
                           <tr key={price.id}>
-                            <td className="text-[var(--muted)]">
+                            <td className="!text-white/45">
                               {price.supplier_name || "—"}
                             </td>
                             <td>
                               <div className="stack gap-1">
-                                <p className="font-semibold text-[15px] text-white">
+                                <p className="text-[15px] !text-white font-medium">
                                   {price.product_name || "Untitled"}
                                 </p>
                               </div>
                             </td>
-                            <td className="text-[var(--muted)]">{price.category || "—"}</td>
-                            <td className="text-[var(--muted)]">{price.uom || "—"}</td>
+                            <td className="!text-white/45">{price.category || "—"}</td>
+                            <td className="!text-white/45">{price.uom || "—"}</td>
                             <td>
                               {isEditing ? (
                                 <input
-                                  className="input-fluid supplierPriceInput text-white font-medium"
+                                  className="input-fluid supplierPriceInput !text-white font-medium"
                                   type="number"
                                   min="0"
                                   step="0.01"
@@ -576,7 +576,7 @@ export default function SuppliersPricingPage() {
                                   onChange={(e) => updateField("price", e.target.value)}
                                 />
                               ) : price.price !== null && price.price !== undefined ? (
-                                <span className="text-white font-medium">{price.price}</span>
+                                <span className="!text-white font-medium">{price.price}</span>
                               ) : (
                                 "—"
                               )}
@@ -584,7 +584,7 @@ export default function SuppliersPricingPage() {
                             <td>
                               {isEditing ? (
                                 <input
-                                  className="input-fluid supplierPriceInput text-white font-medium"
+                                  className="input-fluid supplierPriceInput !text-white font-medium"
                                   type="number"
                                   min="0"
                                   step="0.01"
@@ -592,7 +592,7 @@ export default function SuppliersPricingPage() {
                                   onChange={(e) => updateField("roll_price", e.target.value)}
                                 />
                               ) : (
-                                <span className="text-white font-medium">
+                                <span className="!text-white font-medium">
                                   {formatValue(price.roll_price)}
                                 </span>
                               )}
@@ -600,7 +600,7 @@ export default function SuppliersPricingPage() {
                             <td>
                               {isEditing ? (
                                 <input
-                                  className="input-fluid supplierPriceInput text-white font-medium"
+                                  className="input-fluid supplierPriceInput !text-white font-medium"
                                   type="number"
                                   min="0"
                                   step="0.01"
@@ -608,7 +608,7 @@ export default function SuppliersPricingPage() {
                                   onChange={(e) => updateField("cut_price", e.target.value)}
                                 />
                               ) : (
-                                <span className="text-white font-medium">
+                                <span className="!text-white font-medium">
                                   {formatValue(price.cut_price)}
                                 </span>
                               )}
@@ -616,7 +616,7 @@ export default function SuppliersPricingPage() {
                             <td>
                               {isEditing ? (
                                 <input
-                                  className="input-fluid supplierPriceInput text-white font-medium"
+                                  className="input-fluid supplierPriceInput !text-white font-medium"
                                   type="number"
                                   min="0"
                                   step="0.01"
@@ -624,7 +624,7 @@ export default function SuppliersPricingPage() {
                                   onChange={(e) => updateField("m2_price", e.target.value)}
                                 />
                               ) : (
-                                <span className="text-white font-medium">
+                                <span className="!text-white font-medium">
                                   {formatValue(price.m2_price)}
                                 </span>
                               )}
@@ -632,7 +632,7 @@ export default function SuppliersPricingPage() {
                             <td>
                               {isEditing ? (
                                 <input
-                                  className="input-fluid supplierPriceInput text-white font-medium"
+                                  className="input-fluid supplierPriceInput !text-white font-medium"
                                   type="number"
                                   min="0"
                                   step="0.01"
@@ -640,12 +640,12 @@ export default function SuppliersPricingPage() {
                                   onChange={(e) => updateField("price_per_m", e.target.value)}
                                 />
                               ) : (
-                                <span className="text-white font-medium">
+                                <span className="!text-white font-medium">
                                   {formatValue(price.price_per_m)}
                                 </span>
                               )}
                             </td>
-                            <td className="text-[var(--muted)]">{updatedLabel || "—"}</td>
+                            <td className="!text-white/45">{updatedLabel || "—"}</td>
                             <td className="sticky-cell">
                               <div className="stack gap-2">
                                 {isSaving ? (
