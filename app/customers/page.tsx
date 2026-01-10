@@ -111,62 +111,64 @@ export default function CustomersPage() {
           <div className="tag">{customers.length} total</div>
         </div>
 
-        <div className="table-card">
-          {loading && <div className="empty-state">Loading customers…</div>}
-          {error && !loading && (
-            <div className="empty-state" style={{ color: "#fca5a5" }}>
-              {error}
-            </div>
-          )}
+        <div className="table-card scrollable-table">
+          <div className="relative w-full max-h-[70vh] overflow-y-auto">
+            {loading && <div className="empty-state">Loading customers…</div>}
+            {error && !loading && (
+              <div className="empty-state" style={{ color: "#fca5a5" }}>
+                {error}
+              </div>
+            )}
 
-          {!loading && !error && filteredCustomers.length === 0 && (
-            <div className="empty-state stack items-center">
-              <h3 className="section-title">No customers yet</h3>
-              <p className="section-subtitle">
-                Add your first customer to get started.
-              </p>
-              <Link href="/customers/new" className="btn btn-primary">
-                Add Customer
-              </Link>
-            </div>
-          )}
+            {!loading && !error && filteredCustomers.length === 0 && (
+              <div className="empty-state stack items-center">
+                <h3 className="section-title">No customers yet</h3>
+                <p className="section-subtitle">
+                  Add your first customer to get started.
+                </p>
+                <Link href="/customers/new" className="btn btn-primary">
+                  Add Customer
+                </Link>
+              </div>
+            )}
 
-          {!loading && !error && filteredCustomers.length > 0 && (
-            <div>
-              {filteredCustomers.map((customer) => (
-                <button
-                  key={customer.id}
-                  onClick={() => router.push(`/customers/${customer.id}`)}
-                  className="list-row text-left w-full"
-                >
-                  <div className="stack gap-1">
-                    <p className="font-semibold text-[15px] text-white">
-                      {customer.customer_name || "Untitled"}
+            {!loading && !error && filteredCustomers.length > 0 && (
+              <div>
+                {filteredCustomers.map((customer) => (
+                  <button
+                    key={customer.id}
+                    onClick={() => router.push(`/customers/${customer.id}`)}
+                    className="list-row text-left w-full"
+                  >
+                    <div className="stack gap-1">
+                      <p className="font-semibold text-[15px] text-white">
+                        {customer.customer_name || "Untitled"}
+                      </p>
+                      <p className="text-sm text-[var(--muted)] md:hidden">
+                        {customer.contact_name || "No contact"}
+                      </p>
+                    </div>
+
+                    <p className="text-sm text-[var(--muted)] hidden md:block">
+                      {customer.contact_name || "—"}
                     </p>
-                    <p className="text-sm text-[var(--muted)] md:hidden">
-                      {customer.contact_name || "No contact"}
+
+                    <p className="text-sm text-[var(--muted)] truncate">
+                      {customer.email || "—"}
                     </p>
-                  </div>
 
-                  <p className="text-sm text-[var(--muted)] hidden md:block">
-                    {customer.contact_name || "—"}
-                  </p>
+                    <p className="text-sm text-[var(--muted)]">
+                      {customer.phone || customer.mobile || "—"}
+                    </p>
 
-                  <p className="text-sm text-[var(--muted)] truncate">
-                    {customer.email || "—"}
-                  </p>
-
-                  <p className="text-sm text-[var(--muted)]">
-                    {customer.phone || customer.mobile || "—"}
-                  </p>
-
-                  <div className="flex items-center justify-end text-[var(--muted)]">
-                    →
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+                    <div className="flex items-center justify-end text-[var(--muted)]">
+                      →
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
