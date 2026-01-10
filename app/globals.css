@@ -217,6 +217,13 @@ select option:hover {
   width: 100%;
 }
 
+.quotes-scroll {
+  height: clamp(320px, 60vh, 720px);
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-gutter: stable;
+}
+
 .supplierPriceInput {
   width: 6rem;
   min-width: 96px;
