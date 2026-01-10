@@ -492,7 +492,7 @@ export default function SuppliersPricingPage() {
                   <div className="stack">
                     <p className="section-subtitle">Supplier</p>
                     <select
-                      className="input-fluid"
+                      className="input-fluid bb-select"
                       value={supplierFilter}
                       onChange={(e) => setSupplierFilter(e.target.value)}
                     >
@@ -507,7 +507,7 @@ export default function SuppliersPricingPage() {
                   <div className="stack">
                     <p className="section-subtitle">Category</p>
                     <select
-                      className="input-fluid"
+                      className="input-fluid bb-select"
                       value={categoryFilter}
                       onChange={(e) => setCategoryFilter(e.target.value)}
                     >
@@ -687,5 +687,16 @@ export default function SuppliersPricingPage() {
         )}
       </div>
     </div>
+    <style jsx global>{`
+      .bb-select {
+        color: #ffffff;
+      }
+
+      .bb-select option,
+      .bb-select optgroup {
+        color: #0b1220;
+        background: #ffffff;
+      }
+    `}</style>
   );
 }
