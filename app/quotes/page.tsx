@@ -148,48 +148,54 @@ export default function QuotesPage() {
             </div>
 
             {hasFilteredQuotes ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredQuotes.map((quote) => {
-                  const isNew = unseenCutoff
-                    ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
-                    : true;
+              <div className="quotes-scroll">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredQuotes.map((quote) => {
+                    const isNew = unseenCutoff
+                      ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
+                      : true;
 
-                  const customerName = quote.customer_name?.trim() || "Unknown customer";
-                  const jobRef = quote.job_ref?.trim() || "No job description";
-                  const createdDate = formatDate(quote.created_at) || "Date unavailable";
-                  const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
+                    const customerName = quote.customer_name?.trim() || "Unknown customer";
+                    const jobRef = quote.job_ref?.trim() || "No job description";
+                    const createdDate = formatDate(quote.created_at) || "Date unavailable";
+                    const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
 
-                  return (
-                    <div
-                      key={quote.id}
-                      className="card quote-tile flex h-full flex-col gap-4 min-h-[220px]"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                          <span className="tag">{quoteLabel}</span>
+                    return (
+                      <div
+                        key={quote.id}
+                        className="card quote-tile flex h-full flex-col gap-4 min-h-[220px]"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                            <span className="tag">{quoteLabel}</span>
+                          </div>
+                          {isNew ? <span className="tag">New</span> : null}
                         </div>
-                        {isNew ? <span className="tag">New</span> : null}
-                      </div>
 
-                      <div className="stack gap-2">
-                        <p className="text-lg font-semibold leading-tight text-white">{customerName}</p>
-                        <p className="text-sm text-[var(--muted)]">{jobRef}</p>
-                        <p className="text-xs text-[var(--muted)]">Created {createdDate}</p>
-                      </div>
+                        <div className="stack gap-2">
+                          <p className="text-lg font-semibold leading-tight text-white">
+                            {customerName}
+                          </p>
+                          <p className="text-sm text-[var(--muted)]">{jobRef}</p>
+                          <p className="text-xs text-[var(--muted)]">
+                            Created {createdDate}
+                          </p>
+                        </div>
 
-                      <div className="mt-auto flex justify-center">
-                        <Link
-                          href={quote.pdf_url ?? "#"}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-primary w-full justify-center text-center md:w-auto"
-                        >
-                          Open PDF
-                        </Link>
+                        <div className="mt-auto flex justify-center">
+                          <Link
+                            href={quote.pdf_url ?? "#"}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-primary w-full justify-center text-center md:w-auto"
+                          >
+                            Open PDF
+                          </Link>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="empty-state">No quotes match your search.</div>
