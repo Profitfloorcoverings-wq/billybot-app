@@ -196,6 +196,23 @@ textarea::placeholder {
   color: rgba(255, 255, 255, 0.6);
 }
 
+select option,
+select optgroup {
+  background-color: rgba(15, 23, 42, 0.98);
+  color: #e2e8f0;
+}
+
+select option:checked,
+select option:focus {
+  background-color: rgba(59, 130, 246, 0.35);
+  color: #ffffff;
+}
+
+select option:hover {
+  background-color: rgba(59, 130, 246, 0.22);
+  color: #ffffff;
+}
+
 .input-fluid {
   width: 100%;
 }
