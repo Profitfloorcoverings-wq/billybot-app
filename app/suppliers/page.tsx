@@ -528,9 +528,9 @@ export default function SuppliersPricingPage() {
 
             {hasFilteredPrices ? (
               <div className="table-card scrollable-table">
-                <div className="relative w-full overflow-x-auto">
+                <div className="relative w-full max-h-[70vh] overflow-x-auto overflow-y-auto">
                   <table className="data-table">
-                    <thead>
+                    <thead className="sticky top-0 z-10 bg-[var(--card)]">
                       <tr>
                         <th>Supplier</th>
                         <th>Product</th>
