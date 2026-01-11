@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/client";
@@ -329,9 +329,9 @@ export default function PricingPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isSaved, setIsSaved] = useState(false);
-
-  const markUnsaved = () => setIsSaved(false);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasHydratedRef = useRef(false);
+  const lastSavedPayloadRef = useRef<string | null>(null);
 
   const sortedServiceOptions = useMemo(
     () => [...serviceOptions].sort((a, b) => a.label.localeCompare(b.label)),
@@ -466,80 +466,137 @@ export default function PricingPage() {
     void loadSettings();
   }, [router, supabase]);
 
-  async function handleSave() {
+  function buildSettingsPayload() {
+    let parsedBreakpoints: unknown = [];
+
+    if (breakpointsEnabled) {
+      try {
+        parsedBreakpoints = JSON.parse(breakpointRules || BREAKPOINT_DEFAULT);
+      } catch (parseErr) {
+        return { payload: null, error: "Breakpoint rules must be valid JSON." };
+      }
+    }
+
+    const payload: Record<string, unknown> = {
+      vat_registered: vatRegistered,
+      separate_labour: labourDisplay === "split",
+      small_job_charge: toNumeric(smallJobs.small_job_charge),
+      day_rate_per_fitter: toNumeric(smallJobs.day_rate_per_fitter),
+      breakpoints_json: breakpointsEnabled ? parsedBreakpoints : [],
+    };
+
+    serviceOptions.forEach(({ column }) => {
+      payload[column] = serviceToggles[column];
+    });
+
+    markupOptions.forEach(({ valueColumn, typeColumn }) => {
+      payload[valueColumn] = toNumeric(markupState[valueColumn]?.value ?? "");
+      payload[typeColumn] = markupState[valueColumn]?.type ?? "%";
+    });
+
+    materialPriceFields.forEach(({ column }) => {
+      payload[column] = toNumeric(materialPrices[column]);
+    });
+
+    labourPriceFields.forEach(({ column }) => {
+      payload[column] = toNumeric(labourPrices[column]);
+    });
+
+    return { payload, error: null };
+  }
+
+  useEffect(() => {
+    if (loading) {
+      return;
+    }
+
+    if (!hasHydratedRef.current) {
+      const initialPayload = buildSettingsPayload();
+      lastSavedPayloadRef.current = initialPayload.payload
+        ? JSON.stringify(initialPayload.payload)
+        : null;
+      hasHydratedRef.current = true;
+      return;
+    }
+
+    const { payload, error: payloadError } = buildSettingsPayload();
+
+    if (payloadError) {
+      setError(payloadError);
+      return;
+    }
+
     setError(null);
 
-    try {
-      const { data, error: userError } = await supabase.auth.getUser();
+    const serializedPayload = JSON.stringify(payload);
 
-      if (userError || !data?.user) {
-        throw new Error("You must be signed in to update pricing settings.");
-      }
-
-      const currentProfileId = data.user.id;
-
-      let parsedBreakpoints: unknown = [];
-
-      if (breakpointsEnabled) {
-        try {
-          parsedBreakpoints = JSON.parse(breakpointRules || BREAKPOINT_DEFAULT);
-        } catch (parseErr) {
-          throw new Error("Breakpoint rules must be valid JSON.");
-        }
-      }
-
-      const payload: Record<string, unknown> = {
-        vat_registered: vatRegistered,
-        separate_labour: labourDisplay === "split",
-        small_job_charge: toNumeric(smallJobs.small_job_charge),
-        day_rate_per_fitter: toNumeric(smallJobs.day_rate_per_fitter),
-        breakpoints_json: breakpointsEnabled ? parsedBreakpoints : [],
-        updated_at: new Date(),
-      };
-
-      serviceOptions.forEach(({ column }) => {
-        payload[column] = serviceToggles[column];
-      });
-
-      markupOptions.forEach(({ valueColumn, typeColumn }) => {
-        payload[valueColumn] = toNumeric(markupState[valueColumn]?.value ?? "");
-        payload[typeColumn] = markupState[valueColumn]?.type ?? "%";
-      });
-
-      materialPriceFields.forEach(({ column }) => {
-        payload[column] = toNumeric(materialPrices[column]);
-      });
-
-      labourPriceFields.forEach(({ column }) => {
-        payload[column] = toNumeric(labourPrices[column]);
-      });
-
-      const response = await fetch("/api/pricing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profileId: currentProfileId, settings: payload }),
-      });
-
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error ?? "Unable to save pricing settings");
-      }
-
-      const { profile_json } = (await response.json()) as { profile_json?: unknown };
-
-      if (profile_json) {
-        console.debug("Pricing profile rebuilt", profile_json);
-      }
-
-      setIsSaved(true);
-    } catch (err) {
-      setError(
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message?: string }).message)
-          : "Unable to save pricing settings"
-      );
+    if (serializedPayload === lastSavedPayloadRef.current) {
+      return;
     }
-  }
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const { data, error: userError } = await supabase.auth.getUser();
+
+          if (userError || !data?.user) {
+            throw new Error("You must be signed in to update pricing settings.");
+          }
+
+          const currentProfileId = data.user.id;
+          const response = await fetch("/api/pricing", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              profileId: currentProfileId,
+              settings: { ...payload, updated_at: new Date() },
+            }),
+          });
+
+          if (!response.ok) {
+            const body = await response.json().catch(() => ({}));
+            throw new Error(body.error ?? "Unable to save pricing settings");
+          }
+
+          const { profile_json } = (await response.json()) as { profile_json?: unknown };
+
+          if (profile_json) {
+            console.debug("Pricing profile rebuilt", profile_json);
+          }
+
+          lastSavedPayloadRef.current = serializedPayload;
+        } catch (err) {
+          setError(
+            err && typeof err === "object" && "message" in err
+              ? String((err as { message?: string }).message)
+              : "Unable to save pricing settings"
+          );
+        }
+      })();
+    }, 600);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [
+    breakpointsEnabled,
+    breakpointRules,
+    labourDisplay,
+    labourPrices,
+    loading,
+    markupState,
+    materialPrices,
+    serviceToggles,
+    smallJobs,
+    supabase,
+    vatRegistered,
+  ]);
 
   if (loading) {
     return (
@@ -585,7 +642,6 @@ export default function PricingPage() {
                 <Toggle
                   checked={serviceToggles[service.column]}
                   onChange={(value) => {
-                    markUnsaved();
                     setServiceToggles((prev) => ({ ...prev, [service.column]: value }));
                   }}
                 />
@@ -621,7 +677,6 @@ export default function PricingPage() {
                         inputMode="decimal"
                         value={value}
                         onChange={(e) => {
-                          markUnsaved();
                           setMarkupState((prev) => ({
                             ...prev,
                             [option.valueColumn]: { ...prev[option.valueColumn], value: e.target.value },
@@ -632,7 +687,6 @@ export default function PricingPage() {
                         value={type}
                         options={["£", "%"]}
                         onChange={(optionValue) => {
-                          markUnsaved();
                           setMarkupState((prev) => ({
                             ...prev,
                             [option.valueColumn]: {
@@ -671,7 +725,6 @@ export default function PricingPage() {
                 label={field.label}
                 value={materialPrices[field.column]}
                 onChange={(val) => {
-                  markUnsaved();
                   setMaterialPrices((prev) => ({ ...prev, [field.column]: val }));
                 }}
               />
@@ -699,7 +752,6 @@ export default function PricingPage() {
                 label={field.label}
                 value={labourPrices[field.column]}
                 onChange={(val) => {
-                  markUnsaved();
                   setLabourPrices((prev) => ({ ...prev, [field.column]: val }));
                 }}
               />
@@ -727,7 +779,6 @@ export default function PricingPage() {
                 label={field.label}
                 value={materialPrices[field.column]}
                 onChange={(val) => {
-                  markUnsaved();
                   setMaterialPrices((prev) => ({ ...prev, [field.column]: val }));
                 }}
               />
@@ -755,7 +806,6 @@ export default function PricingPage() {
                 label={field.label}
                 value={labourPrices[field.column]}
                 onChange={(val) => {
-                  markUnsaved();
                   setLabourPrices((prev) => ({ ...prev, [field.column]: val }));
                 }}
               />
@@ -781,7 +831,6 @@ export default function PricingPage() {
                 label={field.label}
                 value={smallJobs[field.column]}
                 onChange={(val) => {
-                  markUnsaved();
                   setSmallJobs((prev) => ({ ...prev, [field.column]: val }));
                 }}
               />
@@ -802,7 +851,6 @@ export default function PricingPage() {
             <Toggle
               checked={breakpointsEnabled}
               onChange={(val) => {
-                markUnsaved();
                 setBreakpointsEnabled(val);
               }}
             />
@@ -814,7 +862,6 @@ export default function PricingPage() {
             disabled={!breakpointsEnabled}
             value={breakpointRules}
             onChange={(e) => {
-              markUnsaved();
               setBreakpointRules(e.target.value);
             }}
           />
@@ -831,7 +878,6 @@ export default function PricingPage() {
             <Toggle
               checked={vatRegistered}
               onChange={(val) => {
-                markUnsaved();
                 setVatRegistered(val);
               }}
             />
@@ -854,23 +900,11 @@ export default function PricingPage() {
               }
               options={["Split labour into notes", "Keep labour on main quote lines"]}
               onChange={(val) => {
-                markUnsaved();
                 setLabourDisplay(val === "Split labour into notes" ? "split" : "main");
               }}
             />
           </div>
         </div>
-      </div>
-
-      <div className="flex justify-end mt-6">
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={handleSave}
-          disabled={isSaved}
-        >
-          {isSaved ? "Saved" : "Save changes"}
-        </button>
       </div>
     </div>
   );
