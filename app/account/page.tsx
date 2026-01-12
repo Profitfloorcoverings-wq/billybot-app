@@ -125,11 +125,11 @@ export default function AccountPage() {
         return;
       }
 
-      const { error: upsertError } = await supabase.from("clients").upsert({
-        id: userData.user.id,
-        ...profile,
-        is_onboarded: true,
-      });
+      const { is_onboarded: _isOnboarded, ...profileUpdate } = profile;
+      const { error: upsertError } = await supabase
+        .from("clients")
+        .update(profileUpdate)
+        .eq("id", userData.user.id);
 
       if (upsertError) {
         throw upsertError;
