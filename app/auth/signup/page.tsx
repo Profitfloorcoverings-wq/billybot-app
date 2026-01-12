@@ -48,6 +48,20 @@ export default function SignUpPage() {
         throw insertError;
       }
 
+      const bootstrapResponse = await fetch("/api/clients/bootstrap-prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: user.id }),
+      });
+
+      if (!bootstrapResponse.ok) {
+        const { error: bootstrapError } =
+          (await bootstrapResponse.json().catch(() => ({}))) as {
+            error?: string;
+          };
+        throw new Error(bootstrapError || "Unable to bootstrap pricing data.");
+      }
+
       router.push("/pricing");
     } catch (err) {
       setError(
