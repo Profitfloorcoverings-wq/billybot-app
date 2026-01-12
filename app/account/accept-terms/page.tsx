@@ -205,6 +205,7 @@ export default function AcceptTermsPage() {
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [activeDoc, setActiveDoc] = useState<"terms" | "privacy" | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
 
   useEffect(() => {
     if (!activeDoc) {
@@ -228,10 +229,11 @@ export default function AcceptTermsPage() {
         const { data: userData, error: userError } = await supabase.auth.getUser();
 
         if (userError || !userData?.user) {
-          router.push("/auth/login");
+          setNeedsLogin(true);
           return;
         }
 
+        setNeedsLogin(false);
         const { error: ensureClientError } = await supabase
           .from("clients")
           .upsert({ id: userData.user.id });
@@ -251,12 +253,6 @@ export default function AcceptTermsPage() {
         }
 
         if (!clientProfile) {
-          router.replace("/account/setup");
-          return;
-        }
-
-        if (clientProfile.is_onboarded) {
-          router.replace("/chat");
           return;
         }
       } catch (err) {
@@ -271,7 +267,7 @@ export default function AcceptTermsPage() {
     }
 
     void loadProfile();
-  }, [router, supabase]);
+  }, [supabase]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -288,10 +284,12 @@ export default function AcceptTermsPage() {
       const { data: userData, error: userError } = await supabase.auth.getUser();
 
       if (userError || !userData?.user) {
-        router.push("/auth/login");
+        setNeedsLogin(true);
+        setError("Please sign in to accept the Terms of Service.");
         return;
       }
 
+      setNeedsLogin(false);
       const { error: updateError } = await supabase
         .from("clients")
         .upsert(
@@ -332,6 +330,16 @@ export default function AcceptTermsPage() {
             </p>
           </div>
 
+          {needsLogin ? (
+            <div className="text-sm text-[var(--text-secondary)]">
+              Please sign in to accept the terms.{" "}
+              <Link href="/auth/login" className="text-[var(--primary)] underline">
+                Go to login
+              </Link>
+              .
+            </div>
+          ) : null}
+
           {error ? (
             <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
               {error}
@@ -345,7 +353,7 @@ export default function AcceptTermsPage() {
                 className="mt-1 h-5 w-5"
                 checked={accepted}
                 onChange={(event) => setAccepted(event.target.checked)}
-                disabled={loading || saving}
+                disabled={loading || saving || needsLogin}
               />
               <span className="text-sm text-[var(--text-secondary)]">
                 I have read and agree to the
@@ -380,7 +388,7 @@ export default function AcceptTermsPage() {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={loading || saving}
+              disabled={loading || saving || needsLogin}
             >
               {saving ? "Saving..." : "Accept and continue"}
             </button>

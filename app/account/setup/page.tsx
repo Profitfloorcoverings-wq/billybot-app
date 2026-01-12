@@ -36,6 +36,7 @@ export default function AccountSetupPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
 
   useEffect(() => {
     async function loadUser() {
@@ -46,10 +47,11 @@ export default function AccountSetupPage() {
         const { data, error: userError } = await supabase.auth.getUser();
 
         if (userError || !data?.user) {
-          router.push("/auth/login");
+          setNeedsLogin(true);
           return;
         }
 
+        setNeedsLogin(false);
         setEmail(data.user.email ?? "");
 
         const { error: ensureClientError } = await supabase
@@ -72,11 +74,6 @@ export default function AccountSetupPage() {
           throw clientError;
         }
 
-        if (clientData?.is_onboarded) {
-          router.replace("/chat");
-          return;
-        }
-
         if (clientData) {
           setProfile({ ...EMPTY_PROFILE, ...clientData });
         }
@@ -92,7 +89,7 @@ export default function AccountSetupPage() {
     }
 
     void loadUser();
-  }, [router, supabase]);
+  }, [supabase]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,7 +100,8 @@ export default function AccountSetupPage() {
       const { data, error: userError } = await supabase.auth.getUser();
 
       if (userError || !data?.user) {
-        router.push("/auth/login");
+        setNeedsLogin(true);
+        setError("Please sign in to save your profile.");
         return;
       }
 
@@ -130,6 +128,22 @@ export default function AccountSetupPage() {
 
   function updateField(key: keyof ClientProfile, value: string) {
     setProfile((prev) => ({ ...prev, [key]: value }));
+  }
+
+  if (needsLogin) {
+    return (
+      <div className="min-h-screen bg-[var(--bg1)] text-[var(--text)] px-4 py-12 flex items-center justify-center">
+        <div className="w-full max-w-2xl">
+          <div className="card stack gap-4">
+            <h1 className="section-title">Set up your business profile</h1>
+            <p className="section-subtitle">Please sign in to continue.</p>
+            <button type="button" className="btn btn-primary" onClick={() => router.push("/auth/login")}>
+              Go to login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
