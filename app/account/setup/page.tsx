@@ -41,16 +41,34 @@ export default function AccountSetupPage() {
     async function loadUser() {
       setLoading(true);
       setError(null);
+      let shouldRedirect = false;
 
       try {
         const { data, error: userError } = await supabase.auth.getUser();
 
         if (userError || !data?.user) {
+          shouldRedirect = true;
           router.push("/auth/login");
           return;
         }
 
         setEmail(data.user.email ?? "");
+
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("is_onboarded")
+          .eq("id", data.user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          throw profileError;
+        }
+
+        if (profileData?.is_onboarded) {
+          shouldRedirect = true;
+          router.replace("/chat");
+          return;
+        }
 
         const { error: ensureClientError } = await supabase
           .from("clients")
@@ -63,18 +81,13 @@ export default function AccountSetupPage() {
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
           .select(
-            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
+            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country"
           )
           .eq("id", data.user.id)
           .maybeSingle();
 
         if (clientError) {
           throw clientError;
-        }
-
-        if (clientData?.is_onboarded) {
-          router.replace("/chat");
-          return;
         }
 
         if (clientData) {
@@ -84,10 +97,12 @@ export default function AccountSetupPage() {
         setError(
           err && typeof err === "object" && "message" in err
             ? String((err as { message?: string }).message)
-            : "Unable to load your account"
+          : "Unable to load your account"
         );
       } finally {
-        setLoading(false);
+        if (!shouldRedirect) {
+          setLoading(false);
+        }
       }
     }
 
@@ -130,6 +145,16 @@ export default function AccountSetupPage() {
 
   function updateField(key: keyof ClientProfile, value: string) {
     setProfile((prev) => ({ ...prev, [key]: value }));
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[var(--bg1)] text-[var(--text)] px-4 py-12 flex items-center justify-center">
+        <div className="card">
+          <p className="section-subtitle">Loading your profile…</p>
+        </div>
+      </div>
+    );
   }
 
   return (
