@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const hasRefreshed = useRef(false);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,6 +20,18 @@ export default function LoginPage() {
     event.preventDefault();
     setError(null);
     setLoading(true);
+    hasRefreshed.current = false;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((authEvent) => {
+      if (authEvent === "SIGNED_IN" && !hasRefreshed.current) {
+        hasRefreshed.current = true;
+        router.replace("/chat");
+        router.refresh();
+        subscription.unsubscribe();
+      }
+    });
 
     try {
       const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -37,6 +50,9 @@ export default function LoginPage() {
           : "Unable to log in"
       );
     } finally {
+      if (!hasRefreshed.current) {
+        subscription.unsubscribe();
+      }
       setLoading(false);
     }
   }
