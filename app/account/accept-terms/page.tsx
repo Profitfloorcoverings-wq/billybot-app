@@ -294,11 +294,14 @@ export default function AcceptTermsPage() {
 
       const { error: updateError } = await supabase
         .from("clients")
-        .update({
-          is_onboarded: true,
-          terms_accepted: true,
-        })
-        .eq("id", userData.user.id);
+        .upsert(
+          {
+            id: userData.user.id,
+            is_onboarded: true,
+            terms_accepted: true,
+          },
+          { onConflict: "id" }
+        );
 
       if (updateError) {
         throw updateError;
