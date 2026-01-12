@@ -240,22 +240,22 @@ export default function AcceptTermsPage() {
           throw ensureClientError;
         }
 
-        const { data: clientProfile, error: clientError } = await supabase
-          .from("clients")
-          .select("is_onboarded, terms_accepted")
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("is_onboarded")
           .eq("id", userData.user.id)
           .maybeSingle();
 
-        if (clientError) {
-          throw clientError;
+        if (profileError) {
+          throw profileError;
         }
 
-        if (!clientProfile) {
+        if (!profileData) {
           router.replace("/account/setup");
           return;
         }
 
-        if (clientProfile.is_onboarded) {
+        if (profileData.is_onboarded) {
           router.replace("/chat");
           return;
         }
@@ -283,6 +283,7 @@ export default function AcceptTermsPage() {
     }
 
     setSaving(true);
+    setLoading(true);
 
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -292,11 +293,15 @@ export default function AcceptTermsPage() {
         return;
       }
 
+      const acceptedAt = new Date().toISOString();
       const { error: updateError } = await supabase
-        .from("clients")
+        .from("profiles")
         .update({
           is_onboarded: true,
-          terms_accepted: true,
+          accepted_terms: true,
+          accepted_privacy: true,
+          accepted_terms_at: acceptedAt,
+          accepted_privacy_at: acceptedAt,
         })
         .eq("id", userData.user.id);
 
@@ -313,6 +318,7 @@ export default function AcceptTermsPage() {
       );
     } finally {
       setSaving(false);
+      setLoading(false);
     }
   }
 
