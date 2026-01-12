@@ -378,8 +378,8 @@ export default function AcceptTermsPage() {
       </div>
 
       {activeDoc ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
-          <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-[var(--bg2)] shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
+          <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-[var(--panel)] text-[var(--text)] shadow-2xl">
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <h2 className="text-lg font-semibold">
                 {activeDoc === "terms" ? "Terms of Service" : "Privacy Policy"}
@@ -392,9 +392,9 @@ export default function AcceptTermsPage() {
                 Close
               </button>
             </div>
-            <div className="h-[70vh] overflow-y-auto px-6 py-5 text-sm text-[var(--text-secondary)]">
+            <div className="h-[70vh] overflow-y-auto px-6 py-5 text-sm text-[var(--muted)]">
               <div className="stack gap-4">
-                <p className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                <p className="text-xs uppercase tracking-wide text-[var(--muted)]">
                   Last updated: {lastUpdated}
                 </p>
                 {(activeDoc === "terms" ? termsSections : privacySections).map((section) => (
