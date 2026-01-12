@@ -52,16 +52,29 @@ export default function AccountSetupPage() {
 
         setEmail(data.user.email ?? "");
 
+        const { error: ensureClientError } = await supabase
+          .from("clients")
+          .upsert({ id: data.user.id });
+
+        if (ensureClientError) {
+          throw ensureClientError;
+        }
+
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
           .select(
-            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country"
+            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
           )
           .eq("id", data.user.id)
           .maybeSingle();
 
         if (clientError) {
           throw clientError;
+        }
+
+        if (clientData?.is_onboarded) {
+          router.replace("/chat");
+          return;
         }
 
         if (clientData) {
@@ -97,7 +110,6 @@ export default function AccountSetupPage() {
       const { error: upsertError } = await supabase.from("clients").upsert({
         id: data.user.id,
         ...profile,
-        is_onboarded: true,
       });
 
       if (upsertError) {

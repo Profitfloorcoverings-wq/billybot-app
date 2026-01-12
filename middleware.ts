@@ -54,18 +54,18 @@ export async function middleware(req: NextRequest) {
   );
 
   // --- ONBOARDING LOGIC ---
-  let isOnboarded = true;
-  let termsAccepted = true;
+  // Middleware handles route-level redirects using server-side Supabase session cookies.
+  // We rely on `clients.is_onboarded` as the single source of truth for onboarding state.
+  let isOnboarded = false;
 
   if (user) {
     const { data: clientProfile } = await supabase
       .from("clients")
-      .select("is_onboarded, terms_accepted")
+      .select("is_onboarded")
       .eq("id", user.id)
       .maybeSingle();
 
     isOnboarded = clientProfile?.is_onboarded ?? false;
-    termsAccepted = clientProfile?.terms_accepted ?? false;
   }
 
   const onboardingExemptRoutes = [
@@ -79,8 +79,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith(route)
   );
 
-  // If no session AND route is protected → redirect to login
-  if (isProtected && !user) {
+  // If no session AND route is protected or onboarding → redirect to login
+  if (!user && (isProtected || isOnboardingRoute)) {
     const redirectUrl = new URL("/auth/login", req.url);
     return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
@@ -91,8 +91,9 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 
-  if (user && isOnboarded && !termsAccepted && !isOnboardingRoute) {
-    const redirectUrl = new URL("/account/accept-terms", req.url);
+  // User logged in AND onboarded → keep them out of onboarding routes
+  if (user && isOnboarded && isOnboardingRoute) {
+    const redirectUrl = new URL("/chat", req.url);
     return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 
