@@ -44,6 +44,45 @@ export default function AccountPage() {
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [accountingSystem, setAccountingSystem] = useState<string | null>(null);
   const [accountingStatusLoaded, setAccountingStatusLoaded] = useState(false);
+  const [isSageConnected, setIsSageConnected] = useState(false);
+  const [isXeroConnected, setIsXeroConnected] = useState(false);
+  const [isQuickBooksConnected, setIsQuickBooksConnected] = useState(false);
+
+  function isConnectionActive(connection: {
+    access_token?: string | null;
+    expires_at?: string | null;
+  } | null) {
+    if (!connection?.access_token) return false;
+    if (!connection.expires_at) return true;
+    return new Date(connection.expires_at) > new Date();
+  }
+
+  async function fetchConnectionRow(
+    table: string,
+    userId: string
+  ): Promise<{ access_token?: string | null; expires_at?: string | null } | null> {
+    const { data: idData, error: idError } = await supabase
+      .from(table)
+      .select("access_token, expires_at")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (!idError) {
+      return idData ?? null;
+    }
+
+    const { data: clientData, error: clientError } = await supabase
+      .from(table)
+      .select("access_token, expires_at")
+      .eq("client_id", userId)
+      .maybeSingle();
+
+    if (clientError) {
+      return null;
+    }
+
+    return clientData ?? null;
+  }
 
   useEffect(() => {
     async function loadProfile() {
@@ -72,6 +111,16 @@ export default function AccountPage() {
         }
 
         setAccountingSystem(accountingData?.accounting_system ?? null);
+
+        const [sageRow, xeroRow, quickbooksRow] = await Promise.all([
+          fetchConnectionRow("sage_connections", userData.user.id),
+          fetchConnectionRow("xero_connections", userData.user.id),
+          fetchConnectionRow("quickbooks_connections", userData.user.id),
+        ]);
+
+        setIsSageConnected(isConnectionActive(sageRow));
+        setIsXeroConnected(isConnectionActive(xeroRow));
+        setIsQuickBooksConnected(isConnectionActive(quickbooksRow));
 
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
@@ -181,9 +230,6 @@ export default function AccountPage() {
     }
   }
 
-  const isSageConnected = accountingSystem === "sage";
-  const isXeroConnected = accountingSystem === "xero";
-  const isQuickBooksConnected = accountingSystem === "quickbooks";
   const providerConfigs: {
     key: "sage" | "xero" | "quickbooks";
     label: string;
