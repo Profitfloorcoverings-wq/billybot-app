@@ -467,9 +467,9 @@ export default function ChatPage() {
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
       {showStarterBanner ? (
         <div className="px-6 pt-5">
-          <div className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-sm backdrop-blur">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
+<div className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 shadow-sm backdrop-blur">
+  <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
                 <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/15 text-orange-400 ring-1 ring-orange-400/20">
                   <svg
                     viewBox="0 0 24 24"
@@ -484,14 +484,16 @@ export default function ChatPage() {
                     <path d="M12 16.2h.01" strokeLinecap="round" />
                   </svg>
                 </span>
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm font-semibold text-white">Starter prices enabled</span>
-                  <span className="text-sm text-white/70">
-                    Update pricing settings or upload supplier lists to replace defaults.
-                  </span>
-                </div>
+<div className="flex items-center gap-2 min-w-0">
+  <span className="text-sm font-semibold text-white whitespace-nowrap">
+    Starter prices enabled
+  </span>
+  <span className="text-sm text-white/70 truncate">
+    — Update pricing settings or upload supplier lists
+  </span>
+</div>
               </div>
-              <div className="flex flex-wrap gap-2">
+<div className="flex items-center gap-2 shrink-0">
                 <Link href="/pricing">
                   <span className="inline-flex items-center justify-center rounded-full border border-orange-400/30 bg-white/5 px-3 py-1.5 text-sm font-medium text-orange-200 transition hover:bg-orange-500/10">
                     Pricing Settings
