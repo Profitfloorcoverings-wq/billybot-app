@@ -16,6 +16,11 @@ type ClientProfile = {
   country: string;
 };
 
+type ClientOnboarding = {
+  is_onboarded?: boolean | null;
+  terms_accepted?: boolean | null;
+};
+
 const EMPTY_PROFILE: ClientProfile = {
   business_name: "",
   contact_name: "",
@@ -55,7 +60,7 @@ export default function AccountSetupPage() {
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
           .select(
-            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country"
+            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded, terms_accepted"
           )
           .eq("id", data.user.id)
           .maybeSingle();
@@ -65,7 +70,20 @@ export default function AccountSetupPage() {
         }
 
         if (clientData) {
-          setProfile({ ...EMPTY_PROFILE, ...clientData });
+          const { is_onboarded, terms_accepted, ...profileData } =
+            clientData as ClientProfile & ClientOnboarding;
+
+          setProfile({ ...EMPTY_PROFILE, ...profileData });
+
+          if (is_onboarded && terms_accepted) {
+            router.replace("/chat");
+            return;
+          }
+
+          if (is_onboarded && !terms_accepted) {
+            router.replace("/account/accept-terms");
+            return;
+          }
         }
       } catch (err) {
         setError(
@@ -104,7 +122,7 @@ export default function AccountSetupPage() {
         throw upsertError;
       }
 
-      router.push("/account/accept-terms");
+      router.replace("/account/accept-terms");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err

@@ -228,7 +228,7 @@ export default function AcceptTermsPage() {
         const { data: userData, error: userError } = await supabase.auth.getUser();
 
         if (userError || !userData?.user) {
-          router.push("/auth/login");
+          router.replace("/auth/login");
           return;
         }
 
@@ -243,12 +243,12 @@ export default function AcceptTermsPage() {
         }
 
         if (!clientProfile?.is_onboarded) {
-          router.push("/account/setup");
+          router.replace("/account/setup");
           return;
         }
 
         if (clientProfile?.terms_accepted) {
-          router.push("/chat");
+          router.replace("/chat");
           return;
         }
       } catch (err) {
@@ -280,7 +280,7 @@ export default function AcceptTermsPage() {
       const { data: userData, error: userError } = await supabase.auth.getUser();
 
       if (userError || !userData?.user) {
-        router.push("/auth/login");
+        router.replace("/auth/login");
         return;
       }
 
@@ -298,7 +298,7 @@ export default function AcceptTermsPage() {
         throw updateError;
       }
 
-      router.push("/chat");
+      router.replace("/chat");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
