@@ -102,10 +102,12 @@ export default function AccountSetupPage() {
         return;
       }
 
-      const { error: upsertError } = await supabase.from("clients").upsert({
-        id: data.user.id,
-        ...profile,
-      });
+      const { error: upsertError } = await supabase
+        .from("clients")
+        .update({
+          ...profile,
+        })
+        .eq("id", data.user.id);
 
       if (upsertError) {
         throw upsertError;

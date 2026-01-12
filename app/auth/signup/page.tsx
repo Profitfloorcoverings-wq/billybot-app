@@ -48,7 +48,7 @@ export default function SignUpPage() {
         throw insertError;
       }
 
-      router.push("/pricing");
+      router.push("/post-onboard");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
