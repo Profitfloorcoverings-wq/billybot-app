@@ -30,6 +30,20 @@ const EMPTY_PROFILE: ClientProfile = {
   is_onboarded: false,
 };
 
+function isBusinessProfileComplete(profile: ClientProfile | null) {
+  if (!profile) return false;
+  return Boolean(
+    profile.is_onboarded ||
+      (profile.business_name &&
+        profile.contact_name &&
+        profile.phone &&
+        profile.address_line1 &&
+        profile.city &&
+        profile.postcode &&
+        profile.country)
+  );
+}
+
 export default function AccountPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -85,7 +99,7 @@ export default function AccountPage() {
           throw clientError;
         }
 
-        if (!clientData || clientData.is_onboarded === false) {
+        if (!clientData || !isBusinessProfileComplete(clientData)) {
           router.push("/account/setup");
           return;
         }

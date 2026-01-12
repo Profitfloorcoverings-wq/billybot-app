@@ -466,23 +466,46 @@ export default function ChatPage() {
   return (
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
       {showStarterBanner ? (
-        <div className="px-6 pt-6">
-          <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 px-5 py-4 text-sm text-amber-100">
-            <p className="text-base font-semibold">
-              You&apos;re using starter prices until you update your Pricing Settings or upload
-              supplier price lists.
-            </p>
-            <p className="mt-2 text-amber-100/90">
-              Update your{" "}
-              <Link href="/pricing" className="text-amber-200 underline">
+        <div className="px-6 pt-5">
+          <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[rgba(10,14,24,0.85)] px-5 py-4 text-sm text-[var(--text)] shadow-[0_12px_28px_rgba(0,0,0,0.35)] md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(249,115,22,0.18)] text-[var(--orange-1)]">
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.6}
+                >
+                  <path
+                    d="M12 3.5c-4.7 0-8.5 3.8-8.5 8.5S7.3 20.5 12 20.5 20.5 16.7 20.5 12 16.7 3.5 12 3.5Z"
+                  />
+                  <path d="M12 8v5" strokeLinecap="round" />
+                  <path d="M12 16.2h.01" strokeLinecap="round" />
+                </svg>
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-[var(--text)]">Starter prices enabled</p>
+                <p className="text-xs text-[var(--muted)]">
+                  Update pricing settings or upload supplier lists to replace defaults.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/pricing"
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-[var(--text)] transition hover:border-white/20 hover:bg-white/10"
+              >
                 Pricing Settings
-              </Link>{" "}
-              or upload{" "}
-              <Link href="/suppliers" className="text-amber-200 underline">
-                supplier price lists
-              </Link>{" "}
-              to remove this banner.
-            </p>
+              </Link>
+              <Link
+                href="/suppliers"
+                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-[var(--text)] transition hover:border-white/20 hover:bg-white/10"
+              >
+                Upload Price Lists
+              </Link>
+            </div>
           </div>
         </div>
       ) : null}
