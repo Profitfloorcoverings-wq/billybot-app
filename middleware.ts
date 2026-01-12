@@ -10,7 +10,11 @@ const PROTECTED_ROUTES = [
   "/requests",
   "/account",
 ];
-const ONBOARDING_ROUTES = ["/account/setup", "/account/accept-terms"];
+const ONBOARDING_ROUTES = [
+  "/account/setup",
+  "/account/accept-terms",
+  "/post-onboard",
+];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 const PUBLIC_ROUTES = ["/terms", "/privacy"];
 

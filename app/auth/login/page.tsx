@@ -29,7 +29,7 @@ export default function LoginPage() {
       if (signInError) throw signInError;
 
       // Redirect user
-      router.replace("/chat");
+      router.replace("/post-onboard");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
