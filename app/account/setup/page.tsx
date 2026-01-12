@@ -52,9 +52,10 @@ export default function AccountSetupPage() {
 
         setEmail(data.user.email ?? "");
 
-        const { error: ensureClientError } = await supabase
-          .from("clients")
-          .upsert({ id: data.user.id });
+        const { error: ensureClientError } = await supabase.from("clients").insert(
+          { id: data.user.id },
+          { onConflict: "id", ignoreDuplicates: true }
+        );
 
         if (ensureClientError) {
           throw ensureClientError;
@@ -102,10 +103,10 @@ export default function AccountSetupPage() {
         return;
       }
 
-      const { error: upsertError } = await supabase.from("clients").upsert({
-        id: data.user.id,
-        ...profile,
-      });
+      const { error: upsertError } = await supabase
+        .from("clients")
+        .update(profile)
+        .eq("id", data.user.id);
 
       if (upsertError) {
         throw upsertError;
