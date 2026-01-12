@@ -10,6 +10,7 @@ import {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import Link from "next/link";
 
 import { createClient as createSupabaseClient } from "@/utils/supabase/client";
 import { getSession } from "@/utils/supabase/session";
@@ -37,6 +38,91 @@ type SendResponse = {
   assistantMessage?: Message;
 };
 
+type PricingSettings = Record<string, unknown> | null;
+
+type SupplierPriceRow = {
+  supplier_name: string | null;
+  price_source: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+const BASE_PRICE_COLUMNS = [
+  "mat_lvt_m2",
+  "mat_ceramic_tiles_m2",
+  "mat_domestic_carpet_m2",
+  "mat_commercial_carpet_m2",
+  "mat_safety_m2",
+  "mat_domestic_vinyl_m2",
+  "mat_commercial_vinyl_m2",
+  "mat_wall_cladding_m2",
+  "mat_ply_m2",
+  "mat_weld",
+  "mat_coved_m2",
+  "mat_gripper",
+  "mat_matting_m2",
+  "mat_nosings_m",
+  "mat_adhesive_m2",
+  "mat_latex_m2",
+  "mat_underlay",
+  "mat_door_bars_each",
+  "mat_uplift_m2",
+  "waste_disposal",
+  "furniture_removal",
+  "lab_domestic_carpet_m2",
+  "lab_commercial_carpet_m2",
+  "lab_carpet_tiles_m2",
+  "lab_lvt_m2",
+  "lab_ceramic_tiles_m2",
+  "lab_safety_m2",
+  "lab_domestic_vinyl_m2",
+  "lab_commercial_vinyl_m2",
+  "lab_wall_cladding_m2",
+  "lab_coved_m",
+  "lab_ply_m2",
+  "lab_latex_m2",
+  "lab_door_bars_each",
+  "lab_nosings_m",
+  "lab_matting_m2",
+  "lab_uplift_m2",
+  "lab_gripper_m",
+];
+
+function toNum(value: unknown): number | null {
+  if (value === null || typeof value === "undefined") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function settingsAreDefaults(settings: PricingSettings) {
+  if (!settings) return false;
+  return BASE_PRICE_COLUMNS.every((column) => {
+    const value = toNum(settings[column]);
+    return value === null || value <= 1;
+  });
+}
+
+function pricesLookDefault(prices: SupplierPriceRow[]) {
+  const baseRows = prices.filter((row) => row.supplier_name === "BASE");
+  if (baseRows.length === 0) return false;
+
+  const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 14;
+
+  return baseRows.every((row) => {
+    if (row.price_source !== "mid range") return false;
+    const dateValue = row.updated_at ?? row.created_at;
+    if (!dateValue) return false;
+    const parsed = Date.parse(dateValue);
+    return Number.isFinite(parsed) && parsed >= cutoff;
+  });
+}
+
 export default function ChatPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -46,6 +132,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [showStarterBanner, setShowStarterBanner] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
@@ -118,6 +205,41 @@ export default function ChatPage() {
     }
 
     loadHistory();
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    let isMounted = true;
+
+    async function loadPricingBanner() {
+      try {
+        const [pricingResponse, supplierResponse] = await Promise.all([
+          fetch("/api/pricing"),
+          fetch("/api/supplier-prices"),
+        ]);
+
+        const pricingBody = pricingResponse.ok ? await pricingResponse.json() : null;
+        const supplierBody = supplierResponse.ok ? await supplierResponse.json() : null;
+
+        const settings = (pricingBody?.data ?? null) as PricingSettings;
+        const prices = (supplierBody?.prices ?? []) as SupplierPriceRow[];
+
+        const show = settingsAreDefaults(settings) || pricesLookDefault(prices);
+
+        if (isMounted) {
+          setShowStarterBanner(show);
+        }
+      } catch (err) {
+        console.error("Error checking starter prices banner:", err);
+      }
+    }
+
+    void loadPricingBanner();
+
+    return () => {
+      isMounted = false;
+    };
   }, [session]);
 
   useEffect(() => {
@@ -343,6 +465,48 @@ export default function ChatPage() {
 
   return (
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
+      {showStarterBanner ? (
+        <div className="px-6 pt-5">
+          <div className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-sm backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/15 text-orange-400 ring-1 ring-orange-400/20">
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="h-4 w-4 text-orange-400"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.6}
+                  >
+                    <path d="M12 3.5c-4.7 0-8.5 3.8-8.5 8.5S7.3 20.5 12 20.5 20.5 16.7 20.5 12 16.7 3.5 12 3.5Z" />
+                    <path d="M12 8v5" strokeLinecap="round" />
+                    <path d="M12 16.2h.01" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-white">Starter prices enabled</span>
+                  <span className="text-sm text-white/70">
+                    Update pricing settings or upload supplier lists to replace defaults.
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/pricing">
+                  <span className="inline-flex items-center justify-center rounded-full border border-orange-400/30 bg-white/5 px-3 py-1.5 text-sm font-medium text-orange-200 transition hover:bg-orange-500/10">
+                    Pricing Settings
+                  </span>
+                </Link>
+                <Link href="/suppliers">
+                  <span className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/10">
+                    Upload Price Lists
+                  </span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
       <header className="chat-header">
         <h1 className="section-title">Chat with BillyBot</h1>
       </header>

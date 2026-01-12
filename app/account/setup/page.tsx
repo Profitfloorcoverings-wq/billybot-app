@@ -106,6 +106,7 @@ export default function AccountSetupPage() {
         .from("clients")
         .update({
           ...profile,
+          is_onboarded: true,
         })
         .eq("id", data.user.id);
 

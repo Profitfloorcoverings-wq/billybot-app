@@ -26,6 +26,11 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: {
+        fetch(input, init) {
+          return fetch(input, { ...init, cache: "no-store" });
+        },
+      },
       cookies: {
         getAll() {
           return req.cookies.getAll();
@@ -53,6 +58,8 @@ export async function middleware(req: NextRequest) {
   const isOnboardingRoute = ONBOARDING_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
+  const isSetupRoute = pathname.startsWith("/account/setup");
+  const isAcceptTermsRoute = pathname.startsWith("/account/accept-terms");
   const isProtected = PROTECTED_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
@@ -72,13 +79,25 @@ export async function middleware(req: NextRequest) {
 
   const { data: clientProfile } = await supabase
     .from("clients")
-    .select("is_onboarded, terms_accepted")
+    .select(
+      "business_name, contact_name, phone, address_line1, city, postcode, country, is_onboarded, terms_accepted"
+    )
     .eq("id", user.id)
     .maybeSingle();
 
-  const isOnboarded = clientProfile?.is_onboarded ?? false;
-  const hasAcceptedTerms = clientProfile?.terms_accepted ?? false;
-  const isFullyOnboarded = isOnboarded && hasAcceptedTerms;
+  const businessComplete =
+    clientProfile?.is_onboarded === true ||
+    Boolean(
+      clientProfile?.business_name &&
+        clientProfile?.contact_name &&
+        clientProfile?.phone &&
+        clientProfile?.address_line1 &&
+        clientProfile?.city &&
+        clientProfile?.postcode &&
+        clientProfile?.country
+    );
+  const hasAcceptedTerms = clientProfile?.terms_accepted === true;
+  const isFullyOnboarded = businessComplete && hasAcceptedTerms;
 
   if (isFullyOnboarded) {
     if (isAuthRoute || isOnboardingRoute) {
@@ -89,12 +108,23 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
-  if (isOnboardingRoute) {
-    return res;
+  if (!businessComplete) {
+    if (isSetupRoute) {
+      return res;
+    }
+    const redirectUrl = new URL("/account/setup", req.url);
+    return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 
-  const redirectUrl = new URL("/account/setup", req.url);
-  return NextResponse.redirect(redirectUrl, { headers: res.headers });
+  if (!hasAcceptedTerms) {
+    if (isAcceptTermsRoute) {
+      return res;
+    }
+    const redirectUrl = new URL("/account/accept-terms", req.url);
+    return NextResponse.redirect(redirectUrl, { headers: res.headers });
+  }
+
+  return res;
 }
 
 export const config = {
