@@ -46,7 +46,7 @@ export default function AccountSetupPage() {
         const { data, error: userError } = await supabase.auth.getUser();
 
         if (userError || !data?.user) {
-          router.push("/auth/login");
+          setError("Unable to load your account. Please sign in again.");
           return;
         }
 
@@ -72,11 +72,6 @@ export default function AccountSetupPage() {
           throw clientError;
         }
 
-        if (clientData?.is_onboarded) {
-          router.replace("/chat");
-          return;
-        }
-
         if (clientData) {
           setProfile({ ...EMPTY_PROFILE, ...clientData });
         }
@@ -92,7 +87,7 @@ export default function AccountSetupPage() {
     }
 
     void loadUser();
-  }, [router, supabase]);
+  }, [supabase]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,7 +98,7 @@ export default function AccountSetupPage() {
       const { data, error: userError } = await supabase.auth.getUser();
 
       if (userError || !data?.user) {
-        router.push("/auth/login");
+        setError("Please sign in again to continue.");
         return;
       }
 
@@ -116,7 +111,7 @@ export default function AccountSetupPage() {
         throw upsertError;
       }
 
-      router.push("/account/accept-terms");
+      router.replace("/account/accept-terms");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
