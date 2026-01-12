@@ -237,17 +237,28 @@ export default function AcceptTermsPage() {
         return;
       }
 
-      const { error: upsertError } = await supabase.from("clients").upsert({
-        id: userData.user.id,
-        is_onboarded: true,
-        terms_accepted: true,
-      });
+      const { data: clientData, error: upsertError } = await supabase
+        .from("clients")
+        .upsert(
+          {
+            id: userData.user.id,
+            is_onboarded: true,
+            terms_accepted: true,
+          },
+          { onConflict: "id" }
+        )
+        .select("id,is_onboarded,terms_accepted")
+        .single();
 
       if (upsertError) {
         throw upsertError;
       }
 
-      router.replace("/chat");
+      if (!clientData?.is_onboarded || !clientData?.terms_accepted) {
+        throw new Error("Unable to confirm onboarding status.");
+      }
+
+      router.replace("/post-onboard");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
