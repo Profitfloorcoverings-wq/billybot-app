@@ -467,44 +467,42 @@ export default function ChatPage() {
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
       {showStarterBanner ? (
         <div className="px-6 pt-5">
-          <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[rgba(10,14,24,0.85)] px-5 py-4 text-sm text-[var(--text)] shadow-[0_12px_28px_rgba(0,0,0,0.35)] md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[rgba(249,115,22,0.18)] text-[var(--orange-1)]">
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={1.6}
-                >
-                  <path
-                    d="M12 3.5c-4.7 0-8.5 3.8-8.5 8.5S7.3 20.5 12 20.5 20.5 16.7 20.5 12 16.7 3.5 12 3.5Z"
-                  />
-                  <path d="M12 8v5" strokeLinecap="round" />
-                  <path d="M12 16.2h.01" strokeLinecap="round" />
-                </svg>
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-[var(--text)]">Starter prices enabled</p>
-                <p className="text-xs text-[var(--muted)]">
-                  Update pricing settings or upload supplier lists to replace defaults.
-                </p>
+          <div className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-sm backdrop-blur">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/15 text-orange-400 ring-1 ring-orange-400/20">
+                  <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="h-4 w-4 text-orange-400"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1.6}
+                  >
+                    <path d="M12 3.5c-4.7 0-8.5 3.8-8.5 8.5S7.3 20.5 12 20.5 20.5 16.7 20.5 12 16.7 3.5 12 3.5Z" />
+                    <path d="M12 8v5" strokeLinecap="round" />
+                    <path d="M12 16.2h.01" strokeLinecap="round" />
+                  </svg>
+                </span>
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-white">Starter prices enabled</span>
+                  <span className="text-sm text-white/70">
+                    Update pricing settings or upload supplier lists to replace defaults.
+                  </span>
+                </div>
               </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                href="/pricing"
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-[var(--text)] transition hover:border-white/20 hover:bg-white/10"
-              >
-                Pricing Settings
-              </Link>
-              <Link
-                href="/suppliers"
-                className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs font-semibold text-[var(--text)] transition hover:border-white/20 hover:bg-white/10"
-              >
-                Upload Price Lists
-              </Link>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/pricing">
+                  <span className="inline-flex items-center justify-center rounded-full border border-orange-400/30 bg-white/5 px-3 py-1.5 text-sm font-medium text-orange-200 transition hover:bg-orange-500/10">
+                    Pricing Settings
+                  </span>
+                </Link>
+                <Link href="/suppliers">
+                  <span className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/10">
+                    Upload Price Lists
+                  </span>
+                </Link>
+              </div>
             </div>
           </div>
         </div>
