@@ -96,6 +96,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(redirectUrl, { headers: res.headers });
   }
 
+  if (user && isOnboarded && termsAccepted && isOnboardingRoute) {
+    const redirectUrl = new URL("/chat", req.url);
+    return NextResponse.redirect(redirectUrl, { headers: res.headers });
+  }
+
   return res;
 }
 
