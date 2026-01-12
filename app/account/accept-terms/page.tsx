@@ -200,7 +200,6 @@ export default function AcceptTermsPage() {
     []
   );
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
@@ -219,60 +218,6 @@ export default function AcceptTermsPage() {
     };
   }, [activeDoc]);
 
-  useEffect(() => {
-    async function loadProfile() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-
-        if (userError || !userData?.user) {
-          router.push("/auth/login");
-          return;
-        }
-
-        const { error: ensureClientError } = await supabase
-          .from("clients")
-          .upsert({ id: userData.user.id });
-
-        if (ensureClientError) {
-          throw ensureClientError;
-        }
-
-        const { data: clientProfile, error: clientError } = await supabase
-          .from("clients")
-          .select("is_onboarded, terms_accepted")
-          .eq("id", userData.user.id)
-          .maybeSingle();
-
-        if (clientError) {
-          throw clientError;
-        }
-
-        if (!clientProfile) {
-          router.replace("/account/setup");
-          return;
-        }
-
-        if (clientProfile.is_onboarded) {
-          router.replace("/chat");
-          return;
-        }
-      } catch (err) {
-        setError(
-          err && typeof err === "object" && "message" in err
-            ? String((err as { message?: string }).message)
-            : "Unable to load your account"
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    void loadProfile();
-  }, [router, supabase]);
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -288,20 +233,18 @@ export default function AcceptTermsPage() {
       const { data: userData, error: userError } = await supabase.auth.getUser();
 
       if (userError || !userData?.user) {
-        router.push("/auth/login");
+        setError("Please sign in again to continue.");
         return;
       }
 
-      const { error: updateError } = await supabase
-        .from("clients")
-        .update({
-          is_onboarded: true,
-          terms_accepted: true,
-        })
-        .eq("id", userData.user.id);
+      const { error: upsertError } = await supabase.from("clients").upsert({
+        id: userData.user.id,
+        is_onboarded: true,
+        terms_accepted: true,
+      });
 
-      if (updateError) {
-        throw updateError;
+      if (upsertError) {
+        throw upsertError;
       }
 
       router.replace("/chat");
@@ -340,7 +283,7 @@ export default function AcceptTermsPage() {
                 className="mt-1 h-5 w-5"
                 checked={accepted}
                 onChange={(event) => setAccepted(event.target.checked)}
-                disabled={loading || saving}
+                disabled={saving}
               />
               <span className="text-sm text-[var(--text-secondary)]">
                 I have read and agree to the
@@ -375,7 +318,7 @@ export default function AcceptTermsPage() {
             <button
               type="submit"
               className="btn btn-primary"
-              disabled={loading || saving}
+              disabled={saving}
             >
               {saving ? "Saving..." : "Accept and continue"}
             </button>
