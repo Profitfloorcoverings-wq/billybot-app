@@ -1082,3 +1082,116 @@ input[type=number].supplierPriceInput {
   margin: 0;
   line-height: 1.25;
 }
+
+/* --- Starter prices banner (system status bar) --- */
+.starter-banner-wrap {
+  padding: 10px 0 0;
+}
+
+.starter-banner {
+  height: 44px;
+  width: 100%;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: radial-gradient(circle at top left, rgba(37, 99, 235, 0.18) 0%, rgba(15, 23, 42, 0.88) 55%, rgba(2, 6, 23, 0.9) 100%);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.30);
+  padding: 0 12px 0 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  overflow: hidden;
+}
+
+.starter-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.starter-banner-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--orange-1), var(--orange-2));
+  box-shadow: 0 0 14px var(--orange-glow);
+  flex: 0 0 auto;
+}
+
+.starter-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  font-size: 13px;
+  color: rgba(230, 236, 249, 0.92);
+}
+
+.starter-banner-text strong {
+  font-weight: 800;
+  color: #f3f4f6;
+}
+
+.starter-banner-sep {
+  color: rgba(148, 163, 184, 0.9);
+}
+
+.starter-banner-msg {
+  color: rgba(148, 163, 184, 0.95);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.starter-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.starter-banner-btn {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  text-decoration: none !important; /* kills any global underline */
+  border: 1px solid transparent;
+  transition: transform 0.12s ease, filter 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.starter-banner-btn:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+.starter-banner-btn-primary {
+  background: linear-gradient(135deg, var(--brand1), var(--brand2));
+  color: #ffffff;
+  border-color: rgba(59, 130, 246, 0.65);
+  box-shadow: 0 0 16px rgba(37, 99, 235, 0.45);
+}
+
+.starter-banner-btn-ghost {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(230, 236, 249, 0.92);
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+.starter-banner-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(148, 163, 184, 0.55);
+}
