@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
 
@@ -14,6 +14,57 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const hasRedirected = useRef(false);
+
+  async function redirectForUser(userId: string) {
+    if (hasRedirected.current) {
+      return;
+    }
+
+    hasRedirected.current = true;
+
+    const { data: clientData, error: clientError } = await supabase
+      .from("clients")
+      .select("is_onboarded")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (clientError) {
+      setError(clientError.message);
+      hasRedirected.current = false;
+      return;
+    }
+
+    if (clientData?.is_onboarded) {
+      router.replace("/chat");
+    } else {
+      router.replace("/account/setup");
+    }
+  }
+
+  useEffect(() => {
+    async function loadSession() {
+      setCheckingSession(true);
+      const { data, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        setError(sessionError.message);
+        setCheckingSession(false);
+        return;
+      }
+
+      if (!data.session) {
+        setCheckingSession(false);
+        return;
+      }
+
+      await redirectForUser(data.session.user.id);
+      setCheckingSession(false);
+    }
+
+    void loadSession();
+  }, [supabase]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -21,15 +72,19 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (signInError) throw signInError;
 
-      // Redirect user
-      router.replace("/chat");
+      if (!data.session?.user) {
+        setError("Unable to load your session after login.");
+        return;
+      }
+
+      await redirectForUser(data.session.user.id);
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
@@ -83,7 +138,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            <button type="submit" className="btn btn-primary" disabled={loading}>
+            <button type="submit" className="btn btn-primary" disabled={loading || checkingSession}>
               {loading ? "Logging in…" : "Log in"}
             </button>
           </form>
