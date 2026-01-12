@@ -202,6 +202,10 @@ export default function AcceptTermsPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsSeedRetry, setNeedsSeedRetry] = useState(false);
+  const [seedContext, setSeedContext] = useState<{ clientId: string; profileId: string } | null>(
+    null
+  );
   const [accepted, setAccepted] = useState(false);
   const [activeDoc, setActiveDoc] = useState<"terms" | "privacy" | null>(null);
 
@@ -218,9 +222,23 @@ export default function AcceptTermsPage() {
     };
   }, [activeDoc]);
 
+  async function seedBasePrices(clientId: string, profileId: string) {
+    const response = await fetch("/api/seed-base-supplier-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: clientId, profile_id: profileId }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body?.error ?? "Unable to seed starter prices");
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setNeedsSeedRetry(false);
 
     if (!accepted) {
       setError("You must accept the Terms of Service and Privacy Policy to continue.");
@@ -237,7 +255,7 @@ export default function AcceptTermsPage() {
         return;
       }
 
-      const { error: upsertError } = await supabase
+      const { data: clientRow, error: upsertError } = await supabase
         .from("clients")
         .upsert({
           id: userData.user.id,
@@ -249,6 +267,17 @@ export default function AcceptTermsPage() {
 
       if (upsertError) {
         throw upsertError;
+      }
+
+      const clientId = clientRow?.id ?? userData.user.id;
+      const profileId = userData.user.id;
+      setSeedContext({ clientId, profileId });
+
+      try {
+        await seedBasePrices(clientId, profileId);
+      } catch (seedError) {
+        setNeedsSeedRetry(true);
+        throw seedError;
       }
 
       router.replace("/chat");
@@ -275,8 +304,34 @@ export default function AcceptTermsPage() {
           </div>
 
           {error ? (
-            <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
-              {error}
+            <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3 stack gap-3">
+              <p>{error}</p>
+              {needsSeedRetry && seedContext ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary w-fit"
+                  onClick={async () => {
+                    setSaving(true);
+                    setError(null);
+                    try {
+                      await seedBasePrices(seedContext.clientId, seedContext.profileId);
+                      setNeedsSeedRetry(false);
+                      router.replace("/chat");
+                    } catch (retryError) {
+                      setError(
+                        retryError && typeof retryError === "object" && "message" in retryError
+                          ? String((retryError as { message?: string }).message)
+                          : "Unable to seed starter prices"
+                      );
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                  disabled={saving}
+                >
+                  {saving ? "Retrying..." : "Retry"}
+                </button>
+              ) : null}
             </div>
           ) : null}
 

@@ -10,6 +10,7 @@ import {
 } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import Link from "next/link";
 
 import { createClient as createSupabaseClient } from "@/utils/supabase/client";
 import { getSession } from "@/utils/supabase/session";
@@ -37,6 +38,91 @@ type SendResponse = {
   assistantMessage?: Message;
 };
 
+type PricingSettings = Record<string, unknown> | null;
+
+type SupplierPriceRow = {
+  supplier_name: string | null;
+  price_source: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+const BASE_PRICE_COLUMNS = [
+  "mat_lvt_m2",
+  "mat_ceramic_tiles_m2",
+  "mat_domestic_carpet_m2",
+  "mat_commercial_carpet_m2",
+  "mat_safety_m2",
+  "mat_domestic_vinyl_m2",
+  "mat_commercial_vinyl_m2",
+  "mat_wall_cladding_m2",
+  "mat_ply_m2",
+  "mat_weld",
+  "mat_coved_m2",
+  "mat_gripper",
+  "mat_matting_m2",
+  "mat_nosings_m",
+  "mat_adhesive_m2",
+  "mat_latex_m2",
+  "mat_underlay",
+  "mat_door_bars_each",
+  "mat_uplift_m2",
+  "waste_disposal",
+  "furniture_removal",
+  "lab_domestic_carpet_m2",
+  "lab_commercial_carpet_m2",
+  "lab_carpet_tiles_m2",
+  "lab_lvt_m2",
+  "lab_ceramic_tiles_m2",
+  "lab_safety_m2",
+  "lab_domestic_vinyl_m2",
+  "lab_commercial_vinyl_m2",
+  "lab_wall_cladding_m2",
+  "lab_coved_m",
+  "lab_ply_m2",
+  "lab_latex_m2",
+  "lab_door_bars_each",
+  "lab_nosings_m",
+  "lab_matting_m2",
+  "lab_uplift_m2",
+  "lab_gripper_m",
+];
+
+function toNum(value: unknown): number | null {
+  if (value === null || typeof value === "undefined") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function settingsAreDefaults(settings: PricingSettings) {
+  if (!settings) return false;
+  return BASE_PRICE_COLUMNS.every((column) => {
+    const value = toNum(settings[column]);
+    return value === null || value <= 1;
+  });
+}
+
+function pricesLookDefault(prices: SupplierPriceRow[]) {
+  const baseRows = prices.filter((row) => row.supplier_name === "BASE");
+  if (baseRows.length === 0) return false;
+
+  const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 14;
+
+  return baseRows.every((row) => {
+    if (row.price_source !== "mid range") return false;
+    const dateValue = row.updated_at ?? row.created_at;
+    if (!dateValue) return false;
+    const parsed = Date.parse(dateValue);
+    return Number.isFinite(parsed) && parsed >= cutoff;
+  });
+}
+
 export default function ChatPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -46,6 +132,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [showStarterBanner, setShowStarterBanner] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
@@ -118,6 +205,41 @@ export default function ChatPage() {
     }
 
     loadHistory();
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    let isMounted = true;
+
+    async function loadPricingBanner() {
+      try {
+        const [pricingResponse, supplierResponse] = await Promise.all([
+          fetch("/api/pricing"),
+          fetch("/api/supplier-prices"),
+        ]);
+
+        const pricingBody = pricingResponse.ok ? await pricingResponse.json() : null;
+        const supplierBody = supplierResponse.ok ? await supplierResponse.json() : null;
+
+        const settings = (pricingBody?.data ?? null) as PricingSettings;
+        const prices = (supplierBody?.prices ?? []) as SupplierPriceRow[];
+
+        const show = settingsAreDefaults(settings) || pricesLookDefault(prices);
+
+        if (isMounted) {
+          setShowStarterBanner(show);
+        }
+      } catch (err) {
+        console.error("Error checking starter prices banner:", err);
+      }
+    }
+
+    void loadPricingBanner();
+
+    return () => {
+      isMounted = false;
+    };
   }, [session]);
 
   useEffect(() => {
@@ -343,6 +465,27 @@ export default function ChatPage() {
 
   return (
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
+      {showStarterBanner ? (
+        <div className="px-6 pt-6">
+          <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 px-5 py-4 text-sm text-amber-100">
+            <p className="text-base font-semibold">
+              You&apos;re using starter prices until you update your Pricing Settings or upload
+              supplier price lists.
+            </p>
+            <p className="mt-2 text-amber-100/90">
+              Update your{" "}
+              <Link href="/pricing" className="text-amber-200 underline">
+                Pricing Settings
+              </Link>{" "}
+              or upload{" "}
+              <Link href="/suppliers" className="text-amber-200 underline">
+                supplier price lists
+              </Link>{" "}
+              to remove this banner.
+            </p>
+          </div>
+        </div>
+      ) : null}
       <header className="chat-header">
         <h1 className="section-title">Chat with BillyBot</h1>
       </header>
