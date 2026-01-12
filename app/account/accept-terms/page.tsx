@@ -237,17 +237,21 @@ export default function AcceptTermsPage() {
         return;
       }
 
-      const { error: upsertError } = await supabase.from("clients").upsert({
-        id: userData.user.id,
-        is_onboarded: true,
-        terms_accepted: true,
-      });
+      const { error: upsertError } = await supabase
+        .from("clients")
+        .upsert({
+          id: userData.user.id,
+          is_onboarded: true,
+          terms_accepted: true,
+        })
+        .select("id,is_onboarded,terms_accepted")
+        .single();
 
       if (upsertError) {
         throw upsertError;
       }
 
-      router.replace("/chat");
+      router.replace("/chat?onboarded=1");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
