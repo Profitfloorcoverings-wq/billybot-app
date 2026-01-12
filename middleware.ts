@@ -10,7 +10,11 @@ const PROTECTED_ROUTES = [
   "/requests",
   "/account",
 ];
-const ONBOARDING_ROUTES = ["/account/setup", "/account/accept-terms"];
+const ONBOARDING_ROUTES = [
+  "/account/setup",
+  "/account/accept-terms",
+  "/post-onboard",
+];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 const PUBLIC_ROUTES = ["/terms", "/privacy"];
 
@@ -49,6 +53,7 @@ export async function middleware(req: NextRequest) {
   const isOnboardingRoute = ONBOARDING_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
+  const isPostOnboardRoute = pathname.startsWith("/post-onboard");
   const isProtected = PROTECTED_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
@@ -77,7 +82,7 @@ export async function middleware(req: NextRequest) {
   const isFullyOnboarded = isOnboarded && hasAcceptedTerms;
 
   if (isFullyOnboarded) {
-    if (isAuthRoute || isOnboardingRoute) {
+    if (isAuthRoute || (isOnboardingRoute && !isPostOnboardRoute)) {
       const redirectUrl = new URL("/chat", req.url);
       return NextResponse.redirect(redirectUrl, { headers: res.headers });
     }
