@@ -14,6 +14,20 @@ export default function AcceptTermsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
+  const [activeDoc, setActiveDoc] = useState<"terms" | "privacy" | null>(null);
+
+  useEffect(() => {
+    if (!activeDoc) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [activeDoc]);
 
   useEffect(() => {
     async function loadProfile() {
@@ -83,6 +97,7 @@ export default function AcceptTermsPage() {
       const { error: updateError } = await supabase
         .from("clients")
         .update({
+          is_onboarded: true,
           terms_accepted: true,
           terms_accepted_at: new Date().toISOString(),
           terms_version: "1.0",
@@ -134,11 +149,27 @@ export default function AcceptTermsPage() {
               <span className="text-sm text-[var(--text-secondary)]">
                 I have read and agree to the
                 {" "}
-                <Link href="/legal/terms" className="text-[var(--primary)] underline">
+                <Link
+                  href="/legal/terms"
+                  className="text-[var(--primary)] underline"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setActiveDoc("terms");
+                  }}
+                  aria-haspopup="dialog"
+                >
                   Terms of Service
                 </Link>
                 {" "}and{" "}
-                <Link href="/legal/privacy" className="text-[var(--primary)] underline">
+                <Link
+                  href="/legal/privacy"
+                  className="text-[var(--primary)] underline"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setActiveDoc("privacy");
+                  }}
+                  aria-haspopup="dialog"
+                >
                   Privacy Policy
                 </Link>
                 .
@@ -155,6 +186,32 @@ export default function AcceptTermsPage() {
           </form>
         </div>
       </div>
+
+      {activeDoc ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
+          <div className="w-full max-w-4xl overflow-hidden rounded-2xl border border-white/10 bg-[var(--bg2)] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <h2 className="text-lg font-semibold">
+                {activeDoc === "terms" ? "Terms of Service" : "Privacy Policy"}
+              </h2>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setActiveDoc(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="h-[70vh] bg-white">
+              <iframe
+                title={activeDoc === "terms" ? "Terms of Service" : "Privacy Policy"}
+                src={activeDoc === "terms" ? "/legal/terms" : "/legal/privacy"}
+                className="h-full w-full"
+              />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
