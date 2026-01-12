@@ -69,6 +69,98 @@ type CatalogItem = {
   price: number;
 };
 
+const DEFAULT_PRICING_PROFILE = {
+  rules: {
+    price_breaks: [],
+    small_job_fee: 0,
+  },
+  extras: {
+    ply_m2: 0,
+    coved_m2: 0,
+    latex_m2: 0,
+    underlay: 0,
+    gripper_m: 0,
+    nosings_m: 0,
+    uplift_m2: 0,
+    adhesive_m2: 0,
+    door_bars_each: 0,
+    waste_disposal: 0,
+    furniture_removal: 0,
+    entrance_matting_m2: 0,
+  },
+  labour: {
+    stairs: {},
+    winders: 0,
+    rates_m2: {
+      lab_lvt: 0,
+      lab_ply: 0,
+      lab_coved: 0,
+      lab_latex: 0,
+      lab_waste: 0,
+      lab_safety: 0,
+      lab_uplift: 0,
+      lab_general: 0,
+      lab_gripper: 0,
+      lab_matting: 0,
+      lab_nosings: 0,
+      lab_door_bars: 0,
+      lab_furniture: 0,
+      lab_carpet_tiles: 0,
+      lab_vinyl_domestic: 0,
+      lab_carpet_domestic: 0,
+      lab_vinyl_commercial: 0,
+      lab_carpet_commercial: 0,
+    },
+    wetroom_m2: {},
+    patterned_m2: 0,
+    borders_strips_m2: 0,
+    min_labour_charge: 0,
+    day_rate_per_fitter: 0,
+  },
+  services: [
+    "domestic_carpet",
+    "commercial_carpet",
+    "carpet_tiles",
+    "lvt_tiles",
+    "domestic_vinyl",
+    "commercial_vinyl",
+    "laminate",
+    "solid_wood",
+  ],
+  materials: {
+    mode: "markup",
+    overrides: {
+      mat_lvt: 0,
+      mat_ply: 0,
+      mat_weld: 0,
+      mat_coved: 0,
+      mat_latex: 0,
+      mat_safety: 0,
+      mat_gripper: 0,
+      mat_matting: 0,
+      mat_nosings: 0,
+      mat_adhesive: 0,
+      mat_underlay: 0,
+      mat_door_bars: 0,
+      mat_carpet_tiles: 0,
+      mat_vinyl_domestic: 0,
+      mat_carpet_domestic: 50,
+      mat_vinyl_commercial: 0,
+      mat_carpet_commercial: 0,
+    },
+    sell_rates_m2: {},
+    fixed_addon_m2: {},
+    default_markup_percent: 0,
+  },
+  vat_registered: true,
+  separate_labour: true,
+} as const;
+
+function profileJsonIsEmpty(value: unknown) {
+  if (!value || typeof value !== "object") return true;
+  return Object.keys(value as Record<string, unknown>).length === 0;
+}
+
 function toNum(value: unknown): number | null {
   if (value === null || typeof value === "undefined") return null;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
@@ -199,6 +291,53 @@ export async function POST(req: Request) {
       pricingSettings = inserted;
     }
 
+    const { data: existingPricingProfile, error: pricingProfileError } = await supabase
+      .from("pricing_profiles")
+      .select("profile_json, vat_registered")
+      .eq("profile_id", profileId)
+      .maybeSingle();
+
+    if (pricingProfileError) throw pricingProfileError;
+
+    const now = new Date().toISOString();
+
+    if (!existingPricingProfile) {
+      const { error: insertProfileError } = await supabase
+        .from("pricing_profiles")
+        .insert({
+          profile_id: profileId,
+          status: "draft",
+          version: "flooring_v1",
+          effective_from: new Date().toISOString().slice(0, 10),
+          profile_json: DEFAULT_PRICING_PROFILE,
+          vat_registered: true,
+          created_at: now,
+          updated_at: now,
+        });
+
+      if (insertProfileError) throw insertProfileError;
+    } else {
+      const shouldSeedProfile = profileJsonIsEmpty(existingPricingProfile.profile_json);
+      const updatePayload: Record<string, unknown> = {
+        updated_at: now,
+      };
+
+      if (shouldSeedProfile) {
+        updatePayload.profile_json = DEFAULT_PRICING_PROFILE;
+      }
+
+      if (shouldSeedProfile || existingPricingProfile.vat_registered === null) {
+        updatePayload.vat_registered = true;
+      }
+
+      const { error: updateProfileError } = await supabase
+        .from("pricing_profiles")
+        .update(updatePayload)
+        .eq("profile_id", profileId);
+
+      if (updateProfileError) throw updateProfileError;
+    }
+
     const catalog = buildCatalog(pricingSettings);
 
     const { data: existingRows, error: existingError } = await supabase
@@ -213,7 +352,6 @@ export async function POST(req: Request) {
       (existingRows ?? []).map((row) => `${row.product_name ?? ""}|${row.uom ?? ""}`)
     );
 
-    const now = new Date().toISOString();
     const rows = catalog
       .filter((item) => !existingKeys.has(`${item.product_name}|${item.uom}`))
       .map((item) => ({
