@@ -465,50 +465,32 @@ export default function ChatPage() {
 
   return (
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
-      {showStarterBanner ? (
-        <div className="px-6 pt-5">
-<div className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 shadow-sm backdrop-blur">
-  <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/15 text-orange-400 ring-1 ring-orange-400/20">
-                  <svg
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                    className="h-4 w-4 text-orange-400"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.6}
-                  >
-                    <path d="M12 3.5c-4.7 0-8.5 3.8-8.5 8.5S7.3 20.5 12 20.5 20.5 16.7 20.5 12 16.7 3.5 12 3.5Z" />
-                    <path d="M12 8v5" strokeLinecap="round" />
-                    <path d="M12 16.2h.01" strokeLinecap="round" />
-                  </svg>
-                </span>
-<div className="flex items-center gap-2 min-w-0">
-  <span className="text-sm font-semibold text-white whitespace-nowrap">
-    Starter prices enabled
-  </span>
-  <span className="text-sm text-white/70 truncate">
-    — Update pricing settings or upload supplier lists
-  </span>
-</div>
-              </div>
-<div className="flex items-center gap-2 shrink-0">
-                <Link href="/pricing">
-                  <span className="inline-flex items-center justify-center rounded-full border border-orange-400/30 bg-white/5 px-3 py-1.5 text-sm font-medium text-orange-200 transition hover:bg-orange-500/10">
-                    Pricing Settings
-                  </span>
-                </Link>
-                <Link href="/suppliers">
-                  <span className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-white/10">
-                    Upload Price Lists
-                  </span>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+{showStarterBanner ? (
+  <div className="starter-banner-wrap">
+    <div className="starter-banner">
+      <div className="starter-banner-left">
+        <span className="starter-banner-dot" aria-hidden="true" />
+        <span className="starter-banner-text">
+          <strong>Starter prices enabled</strong>
+          <span className="starter-banner-sep">—</span>
+          <span className="starter-banner-msg">
+            Update pricing settings or upload supplier lists
+          </span>
+        </span>
+      </div>
+
+      <div className="starter-banner-actions">
+        <Link href="/pricing" className="starter-banner-btn starter-banner-btn-primary">
+          Pricing Settings
+        </Link>
+        <Link href="/suppliers" className="starter-banner-btn starter-banner-btn-ghost">
+          Upload Price Lists
+        </Link>
+      </div>
+    </div>
+  </div>
+) : null}
+
       <header className="chat-header">
         <h1 className="section-title">Chat with BillyBot</h1>
       </header>
