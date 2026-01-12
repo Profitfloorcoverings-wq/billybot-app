@@ -232,6 +232,14 @@ export default function AcceptTermsPage() {
           return;
         }
 
+        const { error: ensureClientError } = await supabase
+          .from("clients")
+          .upsert({ id: userData.user.id });
+
+        if (ensureClientError) {
+          throw ensureClientError;
+        }
+
         const { data: clientProfile, error: clientError } = await supabase
           .from("clients")
           .select("is_onboarded, terms_accepted")
@@ -242,13 +250,13 @@ export default function AcceptTermsPage() {
           throw clientError;
         }
 
-        if (!clientProfile?.is_onboarded) {
-          router.push("/account/setup");
+        if (!clientProfile) {
+          router.replace("/account/setup");
           return;
         }
 
-        if (clientProfile?.terms_accepted) {
-          router.push("/chat");
+        if (clientProfile.is_onboarded) {
+          router.replace("/chat");
           return;
         }
       } catch (err) {
@@ -289,8 +297,6 @@ export default function AcceptTermsPage() {
         .update({
           is_onboarded: true,
           terms_accepted: true,
-          terms_accepted_at: new Date().toISOString(),
-          terms_version: "1.0",
         })
         .eq("id", userData.user.id);
 
@@ -298,7 +304,7 @@ export default function AcceptTermsPage() {
         throw updateError;
       }
 
-      router.push("/chat");
+      router.replace("/chat");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
