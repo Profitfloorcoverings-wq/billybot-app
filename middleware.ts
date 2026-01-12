@@ -66,6 +66,12 @@ export async function middleware(req: NextRequest) {
     return res;
   }
 
+  const shouldBypassOnboarding =
+    pathname.startsWith("/chat") && req.nextUrl.searchParams.get("onboarded") === "1";
+  if (shouldBypassOnboarding) {
+    return res;
+  }
+
   const { data: clientProfile } = await supabase
     .from("clients")
     .select("is_onboarded, terms_accepted")
