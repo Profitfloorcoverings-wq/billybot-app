@@ -568,6 +568,15 @@ export default function PricingPage() {
             console.debug("Pricing profile rebuilt", profile_json);
           }
 
+          const { error: milestoneError } = await supabase
+            .from("clients")
+            .update({ has_edited_pricing_settings: true })
+            .eq("id", currentProfileId);
+
+          if (milestoneError) {
+            console.error("Failed to update pricing settings milestone", milestoneError);
+          }
+
           lastSavedPayloadRef.current = serializedPayload;
         } catch (err) {
           setError(
