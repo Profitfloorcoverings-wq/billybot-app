@@ -3,14 +3,29 @@ import { createClient } from "@supabase/supabase-js";
 
 import { getUserFromCookies } from "@/utils/supabase/auth";
 
-export async function POST() {
+function getReturnUrl(request: Request) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const origin = request.headers.get("origin") ?? new URL(request.url).origin;
+  return siteUrl ?? origin;
+}
+
+export async function POST(request: Request) {
   // Guard against missing env vars
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  const stripePriceId = process.env.STRIPE_PRICE_ID_PREMIUM;
 
   if (!stripeSecretKey) {
     console.error("Stripe secret key missing at runtime");
     return NextResponse.json(
       { error: "STRIPE_SECRET_KEY missing" },
+      { status: 500 }
+    );
+  }
+
+  if (!stripePriceId) {
+    console.error("Stripe price id missing at runtime");
+    return NextResponse.json(
+      { error: "STRIPE_PRICE_ID_PREMIUM missing" },
       { status: 500 }
     );
   }
@@ -40,16 +55,32 @@ export async function POST() {
     .eq("id", profileId)
     .single();
 
-  if (error || !client?.stripe_id) {
-    return NextResponse.json(
-      { error: "Client not found or missing stripe_id" },
-      { status: 500 }
-    );
+  if (error) {
+    console.error("Failed to load client", error);
+    return NextResponse.json({ error: "Unable to load billing profile" }, { status: 500 });
   }
 
-  const session = await stripe.billingPortal.sessions.create({
-    customer: client.stripe_id,
-    return_url: "https://billybot-app.vercel.app/account",
+  const returnUrl = `${getReturnUrl(request)}/account`;
+
+  if (client?.stripe_id) {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: client.stripe_id,
+      return_url: returnUrl,
+    });
+
+    return NextResponse.json({ url: session.url });
+  }
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    line_items: [{ price: stripePriceId, quantity: 1 }],
+    client_reference_id: profileId,
+    metadata: {
+      user_id: profileId,
+    },
+    customer_email: user.email ?? undefined,
+    success_url: `${returnUrl}?checkout=success`,
+    cancel_url: `${returnUrl}?checkout=cancel`,
   });
 
   return NextResponse.json({ url: session.url });
