@@ -3,11 +3,11 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const PROTECTED_ROUTES = [
-  "/app/chat",
-  "/app/quotes",
-  "/app/customers",
-  "/app/pricing",
-  "/app/requests",
+  "/chat",
+  "/quotes",
+  "/customers",
+  "/pricing",
+  "/requests",
   "/account",
 ];
 const ONBOARDING_ROUTES = ["/account/setup", "/account/accept-terms", "/post-onboard"];
@@ -102,7 +102,7 @@ export async function middleware(req: NextRequest) {
 
   if (isFullyOnboarded) {
     if (isAuthRoute || isOnboardingRoute) {
-      const redirectUrl = new URL("/app/chat", req.url);
+      const redirectUrl = new URL("/chat", req.url);
       const redirectResponse = NextResponse.redirect(redirectUrl, { headers: res.headers });
       res.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
       return redirectResponse;
@@ -135,5 +135,13 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/app/:path*", "/account/:path*", "/auth/:path*"],
+  matcher: [
+    "/chat/:path*",
+    "/quotes/:path*",
+    "/customers/:path*",
+    "/pricing/:path*",
+    "/requests/:path*",
+    "/account/:path*",
+    "/auth/:path*",
+  ],
 };

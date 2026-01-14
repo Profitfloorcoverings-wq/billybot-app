@@ -240,7 +240,7 @@ export default function AcceptTermsPage() {
     try {
       const { clientId, profileId } = await acceptTerms();
 
-      router.replace("/app/chat");
+      router.replace("/chat");
       // Refresh after navigation settles to force guards to read fresh onboarding flags.
       setTimeout(() => router.refresh(), 0);
       void seedBasePrices(clientId, profileId).catch(() => {});
