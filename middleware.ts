@@ -10,16 +10,23 @@ const PROTECTED_ROUTES = [
   "/requests",
   "/account",
 ];
-const ONBOARDING_ROUTES = [
-  "/account/setup",
-  "/account/accept-terms",
-  "/post-onboard",
-];
+const ONBOARDING_ROUTES = ["/account/setup", "/account/accept-terms", "/post-onboard"];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 const PUBLIC_ROUTES = ["/terms", "/privacy"];
 
+function redirectWithCookies(req: NextRequest, res: NextResponse, pathname: string) {
+  const url = req.nextUrl.clone();
+  url.pathname = pathname;
+  const redirectResponse = NextResponse.redirect(url, { headers: res.headers });
+  res.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+  return redirectResponse;
+}
+
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
+  // Ensure onboarding guards are evaluated with fresh data on every request.
+  res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.headers.set("Pragma", "no-cache");
 
   // Initialize Supabase server client using request cookies
   const supabase = createServerClient(
@@ -70,8 +77,7 @@ export async function middleware(req: NextRequest) {
     }
 
     if (isProtected || isOnboardingRoute) {
-      const redirectUrl = new URL("/auth/login", req.url);
-      return NextResponse.redirect(redirectUrl, { headers: res.headers });
+      return redirectWithCookies(req, res, "/auth/login");
     }
 
     return res;
@@ -101,8 +107,7 @@ export async function middleware(req: NextRequest) {
 
   if (isFullyOnboarded) {
     if (isAuthRoute || isOnboardingRoute) {
-      const redirectUrl = new URL("/chat", req.url);
-      return NextResponse.redirect(redirectUrl, { headers: res.headers });
+      return redirectWithCookies(req, res, "/chat");
     }
 
     return res;
@@ -112,23 +117,19 @@ export async function middleware(req: NextRequest) {
     if (isSetupRoute) {
       return res;
     }
-    const redirectUrl = new URL("/account/setup", req.url);
-    return NextResponse.redirect(redirectUrl, { headers: res.headers });
+    return redirectWithCookies(req, res, "/account/setup");
   }
 
   if (!hasAcceptedTerms) {
     if (isAcceptTermsRoute) {
       return res;
     }
-    const redirectUrl = new URL("/account/accept-terms", req.url);
-    return NextResponse.redirect(redirectUrl, { headers: res.headers });
+    return redirectWithCookies(req, res, "/account/accept-terms");
   }
 
   return res;
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
