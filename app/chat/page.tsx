@@ -131,14 +131,12 @@ export default function ChatPage() {
   }, [session]);
 
   useEffect(() => {
-    if (!session) return;
+    if (!supabase || !session?.user?.id) return;
 
     let isMounted = true;
 
     async function loadPricingBanner() {
       try {
-        if (!supabase) return;
-
         const userId = session.user.id;
         const { data, error } = await supabase
           .from("clients")
@@ -166,7 +164,7 @@ export default function ChatPage() {
     return () => {
       isMounted = false;
     };
-  }, [session, supabase]);
+  }, [session?.user?.id, supabase]);
 
   useEffect(() => {
     if (initialLoadRef.current) {
