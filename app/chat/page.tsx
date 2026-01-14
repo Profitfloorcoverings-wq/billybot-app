@@ -131,13 +131,14 @@ export default function ChatPage() {
   }, [session]);
 
   useEffect(() => {
-    if (!supabase || !session?.user?.id) return;
+    if (!supabase) return;
+    const userId = session?.user?.id;
+    if (!userId) return;
 
     let isMounted = true;
 
     async function loadPricingBanner() {
       try {
-        const userId = session.user.id;
         const { data, error } = await supabase
           .from("clients")
           .select("has_edited_pricing_settings, has_uploaded_price_list")
