@@ -5,7 +5,6 @@ import { unstable_noStore } from "next/cache";
 import { createServerClient } from "@/utils/supabase/server";
 
 export async function acceptTerms() {
-  // Ensure the onboarding update is immediately visible to guards.
   unstable_noStore();
 
   const supabase = await createServerClient();
@@ -20,18 +19,21 @@ export async function acceptTerms() {
 
   const { data, error } = await supabase
     .from("clients")
-    .upsert({
-      id: user.id,
+    .update({
       is_onboarded: true,
       terms_accepted: true,
-      accepted_terms_at: new Date().toISOString(),
     })
+    .eq("id", user.id)
     .select("id")
     .single();
 
   if (error) {
-    throw error;
+    throw new Error("Unable to save terms acceptance (RLS/DB).");
   }
 
-  return { clientId: data?.id ?? user.id, profileId: user.id };
+  if (!data?.id) {
+    throw new Error("Business profile not found. Please complete setup first.");
+  }
+
+  return { clientId: data.id, profileId: user.id };
 }
