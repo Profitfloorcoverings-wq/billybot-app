@@ -163,6 +163,13 @@ export async function POST(req: Request) {
 
     if (error) throw error;
 
+    const { error: clientUpdateError } = await supabase
+      .from("clients")
+      .update({ has_edited_pricing_settings: true })
+      .eq("id", profileId);
+
+    if (clientUpdateError) throw clientUpdateError;
+
     if (!appUrl) {
       throw new Error("Application URL is not configured");
     }
