@@ -187,10 +187,6 @@ export default function AcceptTermsPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [needsSeedRetry, setNeedsSeedRetry] = useState(false);
-  const [seedContext, setSeedContext] = useState<{ clientId: string; profileId: string } | null>(
-    null
-  );
   const [accepted, setAccepted] = useState(false);
   const [activeDoc, setActiveDoc] = useState<"terms" | "privacy" | null>(null);
 
@@ -233,7 +229,6 @@ export default function AcceptTermsPage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setNeedsSeedRetry(false);
 
     if (!accepted) {
       setError("You must accept the Terms of Service and Privacy Policy to continue.");
@@ -244,18 +239,11 @@ export default function AcceptTermsPage() {
 
     try {
       const { clientId, profileId } = await acceptTerms();
-      setSeedContext({ clientId, profileId });
-
-      try {
-        await seedBasePrices(clientId, profileId);
-      } catch (seedError) {
-        setNeedsSeedRetry(true);
-        throw seedError;
-      }
 
       router.replace("/app/chat");
-      // Refresh to force guards to read the latest onboarding flags.
-      router.refresh();
+      // Refresh after navigation settles to force guards to read fresh onboarding flags.
+      setTimeout(() => router.refresh(), 0);
+      void seedBasePrices(clientId, profileId).catch(() => {});
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
@@ -279,36 +267,8 @@ export default function AcceptTermsPage() {
           </div>
 
           {error ? (
-            <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3 stack gap-3">
-              <p>{error}</p>
-              {needsSeedRetry && seedContext ? (
-                <button
-                  type="button"
-                  className="btn btn-secondary w-fit"
-                  onClick={async () => {
-                    setSaving(true);
-                    setError(null);
-                    try {
-                      await seedBasePrices(seedContext.clientId, seedContext.profileId);
-                      setNeedsSeedRetry(false);
-                      router.replace("/app/chat");
-                      // Refresh to force guards to read the latest onboarding flags.
-                      router.refresh();
-                    } catch (retryError) {
-                      setError(
-                        retryError && typeof retryError === "object" && "message" in retryError
-                          ? String((retryError as { message?: string }).message)
-                          : "Unable to seed starter prices"
-                      );
-                    } finally {
-                      setSaving(false);
-                    }
-                  }}
-                  disabled={saving}
-                >
-                  {saving ? "Retrying..." : "Retry"}
-                </button>
-              ) : null}
+            <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
+              {error}
             </div>
           ) : null}
 
