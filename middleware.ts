@@ -31,11 +31,7 @@ export async function middleware(req: NextRequest) {
     {
       global: {
         fetch(input, init) {
-          return fetch(input, {
-            ...init,
-            cache: "no-store",
-            next: { revalidate: 0 },
-          });
+          return fetch(input, { ...init, cache: "no-store" });
         },
       },
       cookies: {
