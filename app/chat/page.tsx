@@ -38,90 +38,10 @@ type SendResponse = {
   assistantMessage?: Message;
 };
 
-type PricingSettings = Record<string, unknown> | null;
-
-type SupplierPriceRow = {
-  supplier_name: string | null;
-  price_source: string | null;
-  created_at: string | null;
-  updated_at: string | null;
+type PricingMilestones = {
+  hasEditedPricingSettings: boolean;
+  hasUploadedPriceList: boolean;
 };
-
-const BASE_PRICE_COLUMNS = [
-  "mat_lvt_m2",
-  "mat_ceramic_tiles_m2",
-  "mat_domestic_carpet_m2",
-  "mat_commercial_carpet_m2",
-  "mat_safety_m2",
-  "mat_domestic_vinyl_m2",
-  "mat_commercial_vinyl_m2",
-  "mat_wall_cladding_m2",
-  "mat_ply_m2",
-  "mat_weld",
-  "mat_coved_m2",
-  "mat_gripper",
-  "mat_matting_m2",
-  "mat_nosings_m",
-  "mat_adhesive_m2",
-  "mat_latex_m2",
-  "mat_underlay",
-  "mat_door_bars_each",
-  "mat_uplift_m2",
-  "waste_disposal",
-  "furniture_removal",
-  "lab_domestic_carpet_m2",
-  "lab_commercial_carpet_m2",
-  "lab_carpet_tiles_m2",
-  "lab_lvt_m2",
-  "lab_ceramic_tiles_m2",
-  "lab_safety_m2",
-  "lab_domestic_vinyl_m2",
-  "lab_commercial_vinyl_m2",
-  "lab_wall_cladding_m2",
-  "lab_coved_m",
-  "lab_ply_m2",
-  "lab_latex_m2",
-  "lab_door_bars_each",
-  "lab_nosings_m",
-  "lab_matting_m2",
-  "lab_uplift_m2",
-  "lab_gripper_m",
-];
-
-function toNum(value: unknown): number | null {
-  if (value === null || typeof value === "undefined") return null;
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return null;
-    const parsed = Number(trimmed);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-}
-
-function settingsAreDefaults(settings: PricingSettings) {
-  if (!settings) return false;
-  return BASE_PRICE_COLUMNS.every((column) => {
-    const value = toNum(settings[column]);
-    return value === null || value <= 1;
-  });
-}
-
-function pricesLookDefault(prices: SupplierPriceRow[]) {
-  const baseRows = prices.filter((row) => row.supplier_name === "BASE");
-  if (baseRows.length === 0) return false;
-
-  const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 14;
-
-  return baseRows.every((row) => {
-    if (row.price_source !== "mid range") return false;
-    const dateValue = row.updated_at ?? row.created_at;
-    if (!dateValue) return false;
-    const parsed = Date.parse(dateValue);
-    return Number.isFinite(parsed) && parsed >= cutoff;
-  });
-}
 
 export default function ChatPage() {
   const [session, setSession] = useState<Session | null>(null);
@@ -132,7 +52,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
-  const [showStarterBanner, setShowStarterBanner] = useState(false);
+  const [pricingMilestones, setPricingMilestones] = useState<PricingMilestones | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
@@ -150,6 +70,8 @@ export default function ChatPage() {
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
+
+  const userId = session?.user?.id;
 
   useEffect(() => {
     let isMounted = true;
@@ -171,7 +93,7 @@ export default function ChatPage() {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
+    if (!userId) return;
 
     async function loadHistory() {
       try {
@@ -205,30 +127,33 @@ export default function ChatPage() {
     }
 
     loadHistory();
-  }, [session]);
+  }, [userId]);
 
   useEffect(() => {
-    if (!session) return;
+    const sb = supabase;
+    if (!sb || !userId) return;
 
     let isMounted = true;
 
     async function loadPricingBanner() {
       try {
-        const [pricingResponse, supplierResponse] = await Promise.all([
-          fetch("/api/pricing"),
-          fetch("/api/supplier-prices"),
-        ]);
+        const { data, error } = await sb
+          .from("clients")
+          .select("has_edited_pricing_settings, has_uploaded_price_list")
+          .eq("id", userId)
+          .maybeSingle();
 
-        const pricingBody = pricingResponse.ok ? await pricingResponse.json() : null;
-        const supplierBody = supplierResponse.ok ? await supplierResponse.json() : null;
+        if (error) {
+          throw error;
+        }
 
-        const settings = (pricingBody?.data ?? null) as PricingSettings;
-        const prices = (supplierBody?.prices ?? []) as SupplierPriceRow[];
-
-        const show = settingsAreDefaults(settings) || pricesLookDefault(prices);
+        const show = {
+          hasEditedPricingSettings: Boolean(data?.has_edited_pricing_settings),
+          hasUploadedPriceList: Boolean(data?.has_uploaded_price_list),
+        };
 
         if (isMounted) {
-          setShowStarterBanner(show);
+          setPricingMilestones(show);
         }
       } catch (err) {
         console.error("Error checking starter prices banner:", err);
@@ -240,7 +165,7 @@ export default function ChatPage() {
     return () => {
       isMounted = false;
     };
-  }, [session]);
+  }, [supabase, session?.user?.id]);
 
   useEffect(() => {
     if (initialLoadRef.current) {
@@ -463,33 +388,43 @@ export default function ChatPage() {
   if (authLoading) return null;
   if (!session || !session.user) return <LoginPage />;
 
+  const showStarterBanner =
+    pricingMilestones &&
+    (!pricingMilestones.hasEditedPricingSettings || !pricingMilestones.hasUploadedPriceList);
+  const showPricingSettingsButton = pricingMilestones?.hasEditedPricingSettings === false;
+  const showUploadPriceListsButton = pricingMilestones?.hasUploadedPriceList === false;
+
   return (
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
-{showStarterBanner ? (
-  <div className="starter-banner-wrap">
-    <div className="starter-banner">
-      <div className="starter-banner-left">
-        <span className="starter-banner-dot" aria-hidden="true" />
-        <span className="starter-banner-text">
-          <strong>Starter prices enabled</strong>
-          <span className="starter-banner-sep">—</span>
-          <span className="starter-banner-msg">
-            Update pricing settings or upload supplier lists
-          </span>
-        </span>
-      </div>
+      {showStarterBanner ? (
+        <div className="starter-banner-wrap">
+          <div className="starter-banner">
+            <div className="starter-banner-left">
+              <span className="starter-banner-dot" aria-hidden="true" />
+              <span className="starter-banner-text">
+                <strong>Starter prices enabled</strong>
+                <span className="starter-banner-sep">—</span>
+                <span className="starter-banner-msg">
+                  Update pricing settings or upload supplier lists
+                </span>
+              </span>
+            </div>
 
-      <div className="starter-banner-actions">
-        <Link href="/pricing" className="starter-banner-btn starter-banner-btn-primary">
-          Pricing Settings
-        </Link>
-        <Link href="/suppliers" className="starter-banner-btn starter-banner-btn-ghost">
-          Upload Price Lists
-        </Link>
-      </div>
-    </div>
-  </div>
-) : null}
+            <div className="starter-banner-actions">
+              {showPricingSettingsButton ? (
+                <Link href="/pricing" className="starter-banner-btn starter-banner-btn-primary">
+                  Pricing Settings
+                </Link>
+              ) : null}
+              {showUploadPriceListsButton ? (
+                <Link href="/suppliers" className="starter-banner-btn starter-banner-btn-ghost">
+                  Upload Price Lists
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <header className="chat-header">
         <h1 className="section-title">Chat with BillyBot</h1>
