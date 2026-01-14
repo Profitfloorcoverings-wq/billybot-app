@@ -20,6 +20,9 @@ const PUBLIC_ROUTES = ["/terms", "/privacy"];
 
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
+  // Ensure onboarding guards are evaluated with fresh data on every request.
+  res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.headers.set("Pragma", "no-cache");
 
   // Initialize Supabase server client using request cookies
   const supabase = createServerClient(
@@ -28,7 +31,11 @@ export async function middleware(req: NextRequest) {
     {
       global: {
         fetch(input, init) {
-          return fetch(input, { ...init, cache: "no-store" });
+          return fetch(input, {
+            ...init,
+            cache: "no-store",
+            next: { revalidate: 0 },
+          });
         },
       },
       cookies: {

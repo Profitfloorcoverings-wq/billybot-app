@@ -257,7 +257,7 @@ export default function AcceptTermsPage() {
         throw seedError;
       }
 
-      router.replace("/chat");
+      router.replace("/app/chat");
       // Refresh to force guards to read the latest onboarding flags.
       router.refresh();
     } catch (err) {
@@ -295,7 +295,7 @@ export default function AcceptTermsPage() {
                     try {
                       await seedBasePrices(seedContext.clientId, seedContext.profileId);
                       setNeedsSeedRetry(false);
-                      router.replace("/chat");
+                      router.replace("/app/chat");
                       // Refresh to force guards to read the latest onboarding flags.
                       router.refresh();
                     } catch (retryError) {
