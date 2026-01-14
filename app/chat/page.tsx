@@ -130,17 +130,18 @@ export default function ChatPage() {
   }, [userId]);
 
   useEffect(() => {
-    if (!userId || !supabase) return;
+    const sb = supabase;
+    if (!sb || !userId) return;
 
     let isMounted = true;
 
     async function loadPricingBanner() {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await sb
           .from("clients")
           .select("has_edited_pricing_settings, has_uploaded_price_list")
           .eq("id", userId)
-          .single();
+          .maybeSingle();
 
         if (error) {
           throw error;
@@ -164,7 +165,7 @@ export default function ChatPage() {
     return () => {
       isMounted = false;
     };
-  }, [supabase, userId]);
+  }, [supabase, session?.user?.id]);
 
   useEffect(() => {
     if (initialLoadRef.current) {
