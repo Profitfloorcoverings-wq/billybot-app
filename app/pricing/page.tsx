@@ -562,6 +562,15 @@ export default function PricingPage() {
             throw new Error(body.error ?? "Unable to save pricing settings");
           }
 
+          const { error: milestoneError } = await supabase
+            .from("clients")
+            .update({ has_edited_pricing_settings: true })
+            .eq("id", currentProfileId);
+
+          if (milestoneError) {
+            console.error("Failed to update pricing milestone", milestoneError);
+          }
+
           const { profile_json } = (await response.json()) as { profile_json?: unknown };
 
           if (profile_json) {

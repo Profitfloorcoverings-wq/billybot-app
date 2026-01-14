@@ -406,6 +406,15 @@ export default function SuppliersPricingPage() {
         return;
       }
 
+      const { error: milestoneError } = await supabase
+        .from("clients")
+        .update({ has_uploaded_price_list: true })
+        .eq("id", profileId);
+
+      if (milestoneError) {
+        console.error("Failed to update upload milestone", milestoneError);
+      }
+
       setUploadMessage("Uploaded – processing started.");
     } catch (err) {
       console.error("Supplier price list upload error", err);
