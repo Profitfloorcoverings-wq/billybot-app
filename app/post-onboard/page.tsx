@@ -1,8 +1,11 @@
 import { redirect } from "next/navigation";
+import { unstable_noStore } from "next/cache";
 
 import { createServerClient } from "@/utils/supabase/server";
 
 export default async function PostOnboardPage() {
+  // Ensure onboarding checks always read fresh data.
+  unstable_noStore();
   const supabase = await createServerClient();
   const {
     data: { user },

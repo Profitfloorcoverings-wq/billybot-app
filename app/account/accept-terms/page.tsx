@@ -4,11 +4,10 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { createClient } from "@/utils/supabase/client";
+import { acceptTerms } from "./actions";
 
 export default function AcceptTermsPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
   const lastUpdated = useMemo(
     () =>
       new Date().toLocaleDateString("en-US", {
@@ -248,29 +247,7 @@ export default function AcceptTermsPage() {
     setSaving(true);
 
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-
-      if (userError || !userData?.user) {
-        setError("Please sign in again to continue.");
-        return;
-      }
-
-      const { data: clientRow, error: upsertError } = await supabase
-        .from("clients")
-        .upsert({
-          id: userData.user.id,
-          is_onboarded: true,
-          terms_accepted: true,
-        })
-        .select("id, is_onboarded, terms_accepted")
-        .single();
-
-      if (upsertError) {
-        throw upsertError;
-      }
-
-      const clientId = clientRow?.id ?? userData.user.id;
-      const profileId = userData.user.id;
+      const { clientId, profileId } = await acceptTerms();
       setSeedContext({ clientId, profileId });
 
       try {
@@ -281,6 +258,8 @@ export default function AcceptTermsPage() {
       }
 
       router.replace("/chat");
+      // Refresh to force guards to read the latest onboarding flags.
+      router.refresh();
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
@@ -317,6 +296,8 @@ export default function AcceptTermsPage() {
                       await seedBasePrices(seedContext.clientId, seedContext.profileId);
                       setNeedsSeedRetry(false);
                       router.replace("/chat");
+                      // Refresh to force guards to read the latest onboarding flags.
+                      router.refresh();
                     } catch (retryError) {
                       setError(
                         retryError && typeof retryError === "object" && "message" in retryError
