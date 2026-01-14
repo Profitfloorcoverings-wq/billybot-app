@@ -3,18 +3,14 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 const PROTECTED_ROUTES = [
-  "/chat",
-  "/quotes",
-  "/customers",
-  "/pricing",
-  "/requests",
+  "/app/chat",
+  "/app/quotes",
+  "/app/customers",
+  "/app/pricing",
+  "/app/requests",
   "/account",
 ];
-const ONBOARDING_ROUTES = [
-  "/account/setup",
-  "/account/accept-terms",
-  "/post-onboard",
-];
+const ONBOARDING_ROUTES = ["/account/setup", "/account/accept-terms", "/post-onboard"];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 const PUBLIC_ROUTES = ["/terms", "/privacy"];
 
@@ -74,7 +70,9 @@ export async function middleware(req: NextRequest) {
 
     if (isProtected || isOnboardingRoute) {
       const redirectUrl = new URL("/auth/login", req.url);
-      return NextResponse.redirect(redirectUrl, { headers: res.headers });
+      const redirectResponse = NextResponse.redirect(redirectUrl, { headers: res.headers });
+      res.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+      return redirectResponse;
     }
 
     return res;
@@ -104,8 +102,10 @@ export async function middleware(req: NextRequest) {
 
   if (isFullyOnboarded) {
     if (isAuthRoute || isOnboardingRoute) {
-      const redirectUrl = new URL("/chat", req.url);
-      return NextResponse.redirect(redirectUrl, { headers: res.headers });
+      const redirectUrl = new URL("/app/chat", req.url);
+      const redirectResponse = NextResponse.redirect(redirectUrl, { headers: res.headers });
+      res.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+      return redirectResponse;
     }
 
     return res;
@@ -116,7 +116,9 @@ export async function middleware(req: NextRequest) {
       return res;
     }
     const redirectUrl = new URL("/account/setup", req.url);
-    return NextResponse.redirect(redirectUrl, { headers: res.headers });
+    const redirectResponse = NextResponse.redirect(redirectUrl, { headers: res.headers });
+    res.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
 
   if (!hasAcceptedTerms) {
@@ -124,14 +126,14 @@ export async function middleware(req: NextRequest) {
       return res;
     }
     const redirectUrl = new URL("/account/accept-terms", req.url);
-    return NextResponse.redirect(redirectUrl, { headers: res.headers });
+    const redirectResponse = NextResponse.redirect(redirectUrl, { headers: res.headers });
+    res.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
   }
 
   return res;
 }
 
 export const config = {
-  matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/app/:path*", "/account/:path*", "/auth/:path*"],
 };
