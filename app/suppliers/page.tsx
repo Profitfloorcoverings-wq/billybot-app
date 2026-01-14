@@ -406,6 +406,12 @@ export default function SuppliersPricingPage() {
         return;
       }
 
+      const flagResponse = await fetch("/api/clients/price-list", { method: "POST" });
+
+      if (!flagResponse.ok) {
+        console.error("Failed to mark price list upload milestone", flagResponse.status);
+      }
+
       setUploadMessage("Uploaded – processing started.");
     } catch (err) {
       console.error("Supplier price list upload error", err);
