@@ -35,6 +35,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [profileId, setProfileId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -51,6 +52,7 @@ export default function CustomersPage() {
           throw new Error(userError?.message || "Unable to find your account");
         }
 
+        if (active) setProfileId(profileId);
         const data = await fetchCustomers(supabase, profileId);
         if (active) setCustomers(data);
       } catch (err: any) {
@@ -135,10 +137,18 @@ export default function CustomersPage() {
             {!loading && !error && filteredCustomers.length > 0 && (
               <div>
                 {filteredCustomers.map((customer) => (
-                  <button
+                  <div
                     key={customer.id}
                     onClick={() => router.push(`/customers/${customer.id}`)}
-                    className="list-row text-left w-full"
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        router.push(`/customers/${customer.id}`);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    className="list-row text-left w-full cursor-pointer"
                   >
                     <div className="stack gap-1">
                       <p className="font-semibold text-[15px] text-white">
@@ -164,7 +174,7 @@ export default function CustomersPage() {
                     <div className="flex items-center justify-end text-[var(--muted)]">
                       →
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
