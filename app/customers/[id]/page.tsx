@@ -20,6 +20,8 @@ export default function EditCustomerPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -76,6 +78,7 @@ export default function EditCustomerPage() {
   async function handleDelete() {
     setDeleting(true);
     setDeleteError(null);
+    setToast(null);
 
     try {
       let activeProfileId = profileId;
@@ -91,7 +94,8 @@ export default function EditCustomerPage() {
       const { count, error: quotesError } = await supabase
         .from("quotes")
         .select("id", { count: "exact", head: true })
-        .eq("customer_id", id);
+        .eq("customer_id", id)
+        .eq("profile_id", activeProfileId);
 
       if (quotesError) {
         throw quotesError;
@@ -112,14 +116,16 @@ export default function EditCustomerPage() {
         throw deleteError;
       }
 
+      setToast("Customer deleted.");
       router.push("/customers");
       setTimeout(() => router.refresh(), 0);
     } catch (err) {
-      setDeleteError(
+      const message =
         err && typeof err === "object" && "message" in err
           ? String((err as { message?: string }).message)
-          : "Unable to delete customer"
-      );
+          : "Unable to delete customer";
+      setDeleteError(message);
+      setToast(message);
     } finally {
       setDeleting(false);
     }
@@ -179,6 +185,7 @@ export default function EditCustomerPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="card stack gap-6">
+        {toast ? <div className="toast">{toast}</div> : null}
         {initialLoading ? (
           <div className="text-sm text-[var(--muted)]">Loading customer…</div>
         ) : (
@@ -290,15 +297,57 @@ export default function EditCustomerPage() {
               <button
                 type="button"
                 className="btn btn-danger"
-                onClick={handleDelete}
+                onClick={() => {
+                  setDeleteOpen(true);
+                  setDeleteError(null);
+                }}
                 disabled={loading || deleting}
               >
-                {deleting ? "Deleting…" : "Delete customer"}
+                Delete customer
               </button>
             </div>
           </>
         )}
       </form>
+
+      {deleteOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-[var(--panel)] text-[var(--text)] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <h2 className="text-lg font-semibold">Delete customer?</h2>
+            </div>
+            <div className="px-6 py-5 stack gap-4 text-sm text-[var(--muted)]">
+              <p>This will permanently delete this customer. This can’t be undone.</p>
+              {deleteError ? (
+                <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
+                  {deleteError}
+                </div>
+              ) : null}
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setDeleteOpen(false)}
+                  disabled={deleting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  onClick={() => {
+                    setDeleteOpen(false);
+                    void handleDelete();
+                  }}
+                  disabled={deleting}
+                >
+                  {deleting ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
