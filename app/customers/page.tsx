@@ -36,10 +36,6 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -87,66 +83,6 @@ export default function CustomersPage() {
     });
   }, [customers, search]);
 
-  async function handleConfirmDelete() {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    setDeleteError(null);
-    setToast(null);
-
-    const previousCustomers = customers;
-    setCustomers((prev) => prev.filter((customer) => customer.id !== deleteTarget.id));
-
-    try {
-      let activeProfileId = profileId;
-      if (!activeProfileId) {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        activeProfileId = userData?.user?.id ?? null;
-        if (userError || !activeProfileId) {
-          throw new Error(userError?.message || "Unable to find your account");
-        }
-        setProfileId(activeProfileId);
-      }
-
-      const { count, error: quotesError } = await supabase
-        .from("quotes")
-        .select("id", { count: "exact", head: true })
-        .eq("customer_id", deleteTarget.id);
-
-      if (quotesError) {
-        throw quotesError;
-      }
-
-      if ((count ?? 0) > 0) {
-        setCustomers(previousCustomers);
-        setDeleteError("This customer has existing quotes. Delete those first.");
-        return;
-      }
-
-      const { error: deleteError } = await supabase
-        .from("customers")
-        .delete()
-        .eq("id", deleteTarget.id)
-        .eq("profile_id", activeProfileId);
-
-      if (deleteError) {
-        throw deleteError;
-      }
-
-      setToast("Customer deleted.");
-      setDeleteTarget(null);
-    } catch (err) {
-      setCustomers(previousCustomers);
-      const message =
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message?: string }).message)
-          : "Unable to delete customer";
-      setDeleteError(message);
-      setToast(message);
-    } finally {
-      setDeleting(false);
-    }
-  }
-
   return (
     <div className="page-container">
       <div className="section-header">
@@ -163,7 +99,6 @@ export default function CustomersPage() {
       </div>
 
       <div className="card stack">
-        {toast ? <div className="toast">{toast}</div> : null}
         <div className="stack md:row md:items-center md:justify-between">
           <div className="stack">
             <p className="section-subtitle">Search</p>
@@ -236,18 +171,7 @@ export default function CustomersPage() {
                       {customer.phone || customer.mobile || "—"}
                     </p>
 
-                    <div className="flex items-center justify-end gap-3 text-[var(--muted)]">
-                      <button
-                        type="button"
-                        className="btn btn-danger px-3 py-2 text-xs"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setDeleteTarget(customer);
-                          setDeleteError(null);
-                        }}
-                      >
-                        Delete
-                      </button>
+                    <div className="flex items-center justify-end text-[var(--muted)]">
                       →
                     </div>
                   </div>
@@ -257,42 +181,6 @@ export default function CustomersPage() {
           </div>
         </div>
       </div>
-
-      {deleteTarget ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-[var(--panel)] text-[var(--text)] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-              <h2 className="text-lg font-semibold">Delete customer?</h2>
-            </div>
-            <div className="px-6 py-5 stack gap-4 text-sm text-[var(--muted)]">
-              <p>This will permanently delete this customer. This can’t be undone.</p>
-              {deleteError ? (
-                <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
-                  {deleteError}
-                </div>
-              ) : null}
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setDeleteTarget(null)}
-                  disabled={deleting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={handleConfirmDelete}
-                  disabled={deleting}
-                >
-                  {deleting ? "Deleting…" : "Delete"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

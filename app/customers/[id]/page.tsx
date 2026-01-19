@@ -20,7 +20,6 @@ export default function EditCustomerPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<string | null>(null);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -277,6 +276,11 @@ export default function EditCustomerPage() {
                 {error}
               </div>
             ) : null}
+            {deleteError ? (
+              <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
+                {deleteError}
+              </div>
+            ) : null}
 
             <div className="flex flex-wrap items-center gap-3">
               <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -286,54 +290,15 @@ export default function EditCustomerPage() {
               <button
                 type="button"
                 className="btn btn-danger"
-                onClick={() => {
-                  setDeleteOpen(true);
-                  setDeleteError(null);
-                }}
-                disabled={loading}
+                onClick={handleDelete}
+                disabled={loading || deleting}
               >
-                Delete customer
+                {deleting ? "Deleting…" : "Delete customer"}
               </button>
             </div>
           </>
         )}
       </form>
-
-      {deleteOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-8">
-          <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-white/10 bg-[var(--panel)] text-[var(--text)] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-              <h2 className="text-lg font-semibold">Delete customer?</h2>
-            </div>
-            <div className="px-6 py-5 stack gap-4 text-sm text-[var(--muted)]">
-              <p>This will permanently delete this customer. This can’t be undone.</p>
-              {deleteError ? (
-                <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
-                  {deleteError}
-                </div>
-              ) : null}
-              <div className="flex flex-wrap items-center justify-end gap-3">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => setDeleteOpen(false)}
-                  disabled={deleting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                >
-                  {deleting ? "Deleting…" : "Delete"}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }
