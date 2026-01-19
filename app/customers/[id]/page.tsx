@@ -17,8 +17,10 @@ export default function EditCustomerPage() {
   const [phone, setPhone] = useState("");
   const [mobile, setMobile] = useState("");
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -72,6 +74,7 @@ export default function EditCustomerPage() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
+    setNotice(null);
     setLoading(true);
 
     try {
@@ -109,6 +112,39 @@ export default function EditCustomerPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleDelete() {
+    if (deleting) return;
+
+    setDeleting(true);
+    setError(null);
+    setNotice(null);
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user?.id;
+
+    if (sessionError || !userId) {
+      setError(sessionError?.message || "Please sign in again to continue.");
+      setDeleting(false);
+      return;
+    }
+
+    const { error: deleteError } = await supabase
+      .from("customers")
+      .delete()
+      .eq("id", id)
+      .eq("profile_id", userId);
+
+    if (deleteError) {
+      setError(deleteError.message);
+      setDeleting(false);
+      return;
+    }
+
+    setNotice("Customer deleted");
+    router.push("/customers");
+    router.refresh();
   }
 
   return (
@@ -220,12 +256,30 @@ export default function EditCustomerPage() {
                 {error}
               </div>
             ) : null}
+            {notice ? <div className="toast">{notice}</div> : null}
 
             <div className="flex items-center gap-3">
-              <button type="submit" className="btn btn-primary" disabled={loading}>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={loading || deleting}
+              >
                 {loading ? "Updating…" : "Update customer"}
               </button>
-              {loading ? <span className="text-sm text-[var(--muted)]">Saving changes…</span> : null}
+              <button
+                type="button"
+                className="btn btn-secondary text-red-200 border-red-500/50 hover:bg-red-500/10"
+                onClick={handleDelete}
+                disabled={loading || deleting}
+              >
+                {deleting ? "Deleting…" : "Delete customer"}
+              </button>
+              {loading ? (
+                <span className="text-sm text-[var(--muted)]">Saving changes…</span>
+              ) : null}
+              {deleting ? (
+                <span className="text-sm text-[var(--muted)]">Deleting customer…</span>
+              ) : null}
             </div>
           </>
         )}
