@@ -371,7 +371,7 @@ function normalizeBreakpointRules(value: unknown) {
   }
 
   let hasInvalid = false;
-  const rules = raw.map((entry) => {
+  const rules: BreakpointRuleDraft[] = raw.map((entry) => {
     if (!entry || typeof entry !== "object") {
       hasInvalid = true;
       return createBreakpointRuleDraft();
@@ -383,19 +383,19 @@ function normalizeBreakpointRules(value: unknown) {
         ? (record.adjustment as Record<string, unknown>)
         : {};
 
-    const service =
+    const service: BreakpointService | "" =
       typeof record.service === "string" && isBreakpointService(record.service)
         ? record.service
         : "";
-    const operator =
+    const operator: BreakpointOperator | "" =
       typeof record.operator === "string" && isBreakpointOperator(record.operator)
         ? record.operator
         : "";
-    const target =
+    const target: BreakpointTarget | "" =
       typeof record.target === "string" && isBreakpointTarget(record.target)
         ? record.target
         : "";
-    const adjustmentType =
+    const adjustmentType: BreakpointAdjustmentType | "" =
       typeof adjustment.type === "string" && isBreakpointAdjustmentType(adjustment.type)
         ? adjustment.type
         : "";
