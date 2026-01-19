@@ -156,6 +156,16 @@ p {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.btn-danger {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+.btn-danger:hover {
+  background: rgba(248, 113, 113, 0.24);
+}
+
 .tag {
   display: inline-flex;
   align-items: center;
