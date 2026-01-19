@@ -46,8 +46,6 @@ export function buildPricingProfile({ settings, vatRegistered }: BuildPricingPro
   const s = settings ?? {};
 
   const services: string[] = [];
-  const breakpointsEnabled = booleanOr(s.breakpoints_enabled, false);
-
   if (booleanOr(s.service_domestic_carpet, true)) services.push("domestic_carpet");
   if (booleanOr(s.service_commercial_carpet, true)) services.push("commercial_carpet");
   if (booleanOr(s.service_carpet_tiles, true)) services.push("carpet_tiles");
@@ -61,7 +59,7 @@ export function buildPricingProfile({ settings, vatRegistered }: BuildPricingPro
 
   const profile = {
     rules: {
-      price_breaks: breakpointsEnabled ? parseBreakpoints(s.breakpoints_json ?? []) : [],
+      price_breaks: parseBreakpoints(s.breakpoints_json ?? []),
       small_job_fee: numberOrZero(s.small_job_charge),
     },
     extras: {

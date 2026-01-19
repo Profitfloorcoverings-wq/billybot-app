@@ -32,9 +32,10 @@ type BreakpointService =
   | "commercial_vinyl"
   | "wall_cladding"
   | "safety";
-type BreakpointOperator = "gte" | "lte";
+type BreakpointOperator = "gte" | "lte" | "eq";
 type BreakpointTarget = "materials" | "labour" | "both";
 type BreakpointAdjustmentType = "percent" | "gbp_per_m2" | "gbp_fixed";
+type BreakpointAdjustmentDirection = "more" | "less" | "exact";
 
 type BreakpointAdjustment = {
   type: BreakpointAdjustmentType;
@@ -61,6 +62,7 @@ type BreakpointRuleDraft = {
   adjustment: {
     type: BreakpointAdjustmentType | "";
     value: string;
+    direction: BreakpointAdjustmentDirection;
   };
 };
 
@@ -92,6 +94,7 @@ const breakpointServiceOptions: Array<{
 const breakpointOperatorOptions: Array<{ label: string; value: BreakpointOperator }> = [
   { label: "Over", value: "gte" },
   { label: "Under", value: "lte" },
+  { label: "Exact", value: "eq" },
 ];
 
 const breakpointTargetOptions: Array<{ label: string; value: BreakpointTarget }> = [
@@ -318,6 +321,7 @@ function createBreakpointRuleDraft(overrides?: Partial<BreakpointRuleDraft>): Br
     adjustment: {
       type: "percent",
       value: "",
+      direction: "more",
     },
     ...overrides,
   };
@@ -328,7 +332,7 @@ function isBreakpointService(value: string): value is BreakpointService {
 }
 
 function isBreakpointOperator(value: string): value is BreakpointOperator {
-  return value === "gte" || value === "lte";
+  return value === "gte" || value === "lte" || value === "eq";
 }
 
 function isBreakpointTarget(value: string): value is BreakpointTarget {
@@ -407,6 +411,13 @@ function normalizeBreakpointRules(value: unknown) {
       typeof adjustment.value === "number" || typeof adjustment.value === "string"
         ? String(adjustment.value)
         : "";
+    const adjustmentNumber = toNumberOrNull(adjustmentValue);
+    const adjustmentDirection: BreakpointAdjustmentDirection =
+      adjustmentNumber === null || adjustmentNumber === 0
+        ? "exact"
+        : adjustmentNumber < 0
+          ? "less"
+          : "more";
 
     if (
       !service ||
@@ -429,6 +440,7 @@ function normalizeBreakpointRules(value: unknown) {
       adjustment: {
         type: adjustmentType,
         value: adjustmentValue,
+        direction: adjustmentDirection,
       },
     };
   });
@@ -474,6 +486,20 @@ function validateBreakpointRule(rule: BreakpointRuleDraft) {
   return errors;
 }
 
+function applyAdjustmentDirection(rule: BreakpointRuleDraft) {
+  const adjustmentValue = toNumberOrNull(rule.adjustment.value) ?? 0;
+
+  if (rule.adjustment.direction === "less") {
+    return -Math.abs(adjustmentValue);
+  }
+
+  if (rule.adjustment.direction === "more") {
+    return Math.abs(adjustmentValue);
+  }
+
+  return adjustmentValue;
+}
+
 function toBreakpointRule(rule: BreakpointRuleDraft): BreakpointRule {
   return {
     id: rule.id,
@@ -484,7 +510,7 @@ function toBreakpointRule(rule: BreakpointRuleDraft): BreakpointRule {
     target: rule.target as BreakpointTarget,
     adjustment: {
       type: rule.adjustment.type as BreakpointAdjustmentType,
-      value: Number(rule.adjustment.value),
+      value: applyAdjustmentDirection(rule),
     },
   };
 }
@@ -629,9 +655,10 @@ export default function PricingPage() {
     createNumericState(smallJobFields.map((field) => field.column))
   );
 
-  const [breakpointsEnabled, setBreakpointsEnabled] = useState(false);
   const [breakpointRules, setBreakpointRules] = useState<BreakpointRuleDraft[]>([]);
   const [breakpointWarning, setBreakpointWarning] = useState<string | null>(null);
+  const [breakpointLive, setBreakpointLive] = useState<Record<string, boolean>>({});
+  const [breakpointCollapsed, setBreakpointCollapsed] = useState<Record<string, boolean>>({});
   const [vatRegistered, setVatRegistered] = useState(true);
   const [labourDisplay, setLabourDisplay] = useState<"split" | "main">("split");
 
@@ -696,19 +723,12 @@ export default function PricingPage() {
     [breakpointRuleErrors]
   );
 
-  const breakpointPayload = useMemo(() => {
-    if (!breakpointsValid) {
-      return null;
-    }
-
-    return {
-      breakpoints_enabled: breakpointsEnabled,
-      breakpoints_json: breakpointRules.map(toBreakpointRule),
-    };
-  }, [breakpointsEnabled, breakpointsValid, breakpointRules]);
-
   const persistSettings = useCallback(
-    async (payload: Record<string, unknown>, serializedPayload: string) => {
+    async (
+      payload: Record<string, unknown>,
+      serializedPayload: string,
+      comparisonPayload: string = serializedPayload
+    ) => {
       try {
         const { data, error: userError } = await supabase.auth.getUser();
 
@@ -737,7 +757,7 @@ export default function PricingPage() {
           console.debug("Pricing profile rebuilt", profile_json);
         }
 
-        lastSavedPayloadRef.current = serializedPayload;
+        lastSavedPayloadRef.current = comparisonPayload;
       } catch (err) {
         setError(
           err && typeof err === "object" && "message" in err
@@ -750,14 +770,19 @@ export default function PricingPage() {
   );
 
   const scheduleSave = useCallback(
-    (payload: Record<string, unknown>, serializedPayload: string, immediate = false) => {
+    (
+      payload: Record<string, unknown>,
+      serializedPayload: string,
+      immediate = false,
+      comparisonPayload?: string
+    ) => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
 
       saveTimeoutRef.current = setTimeout(
         () => {
-          void persistSettings(payload, serializedPayload);
+          void persistSettings(payload, serializedPayload, comparisonPayload);
         },
         immediate ? 0 : 600
       );
@@ -839,13 +864,18 @@ export default function PricingPage() {
         const { rules: normalizedRules, warning } = normalizeBreakpointRules(
           settings.breakpoints_json
         );
-        const enabledValue =
-          typeof settings.breakpoints_enabled === "boolean"
-            ? settings.breakpoints_enabled
-            : normalizedRules.length > 0;
+        const liveMap = normalizedRules.reduce<Record<string, boolean>>((acc, rule) => {
+          acc[rule.id] = true;
+          return acc;
+        }, {});
+        const collapsedMap = normalizedRules.reduce<Record<string, boolean>>((acc, rule) => {
+          acc[rule.id] = true;
+          return acc;
+        }, {});
 
         setBreakpointRules(normalizedRules);
-        setBreakpointsEnabled(enabledValue);
+        setBreakpointLive(liveMap);
+        setBreakpointCollapsed(collapsedMap);
         setBreakpointWarning(warning);
       }
 
@@ -880,11 +910,6 @@ export default function PricingPage() {
       payload[column] = toNumeric(labourPrices[column]);
     });
 
-    if (breakpointPayload) {
-      payload.breakpoints_json = breakpointPayload.breakpoints_json;
-      payload.breakpoints_enabled = breakpointPayload.breakpoints_enabled;
-    }
-
     return { payload };
   }
 
@@ -893,34 +918,67 @@ export default function PricingPage() {
     updater: (rule: BreakpointRuleDraft) => BreakpointRuleDraft
   ) {
     setBreakpointRules((prev) => prev.map((rule) => (rule.id === id ? updater(rule) : rule)));
+    setBreakpointLive((prev) => ({ ...prev, [id]: false }));
+    setBreakpointCollapsed((prev) => ({ ...prev, [id]: false }));
   }
 
   function handleAddBreakpointRule() {
-    setBreakpointRules((prev) => [...prev, createBreakpointRuleDraft()]);
+    const draft = createBreakpointRuleDraft();
+    setBreakpointRules((prev) => [...prev, draft]);
+    setBreakpointLive((prev) => ({ ...prev, [draft.id]: false }));
+    setBreakpointCollapsed((prev) => ({ ...prev, [draft.id]: false }));
   }
 
   function handleDeleteBreakpointRule(id: string) {
     setBreakpointRules((prev) => prev.filter((rule) => rule.id !== id));
+    setBreakpointLive((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setBreakpointCollapsed((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }
 
   function handleResetBreakpoints() {
     setBreakpointRules([]);
     setBreakpointWarning(null);
+    setBreakpointLive({});
+    setBreakpointCollapsed({});
   }
 
-  function handleBreakpointSave() {
-    if (!breakpointsValid) {
+  function buildBreakpointPayload() {
+    return breakpointRules.map(toBreakpointRule);
+  }
+
+  function handleBreakpointSave(ruleId: string) {
+    const ruleIndex = breakpointRules.findIndex((rule) => rule.id === ruleId);
+    if (ruleIndex === -1) {
+      return;
+    }
+
+    const errors = breakpointRuleErrors[ruleIndex] ?? [];
+    if (errors.length > 0) {
       return;
     }
 
     const { payload } = buildSettingsPayload();
-    const serializedPayload = JSON.stringify(payload);
+    const breakpointsPayload = buildBreakpointPayload();
+    const combinedPayload = {
+      ...payload,
+      breakpoints_json: breakpointsPayload,
+      breakpoints_enabled: breakpointsPayload.length > 0,
+    };
+    const serializedPayload = JSON.stringify(combinedPayload);
 
-    if (serializedPayload === lastSavedPayloadRef.current) {
-      return;
-    }
+    const baseSerializedPayload = JSON.stringify(payload);
+    scheduleSave(combinedPayload, serializedPayload, true, baseSerializedPayload);
 
-    scheduleSave(payload, serializedPayload, true);
+    setBreakpointLive((prev) => ({ ...prev, [ruleId]: true }));
+    setBreakpointCollapsed((prev) => ({ ...prev, [ruleId]: true }));
   }
 
   useEffect(() => {
@@ -954,8 +1012,6 @@ export default function PricingPage() {
       }
     };
   }, [
-    breakpointsEnabled,
-    breakpointRules,
     labourDisplay,
     labourPrices,
     loading,
@@ -1217,12 +1273,6 @@ export default function PricingPage() {
                 labour).
               </p>
             </div>
-            <Toggle
-              checked={breakpointsEnabled}
-              onChange={(val) => {
-                setBreakpointsEnabled(val);
-              }}
-            />
           </div>
           {breakpointWarning ? (
             <div className="breakpoint-warning">
@@ -1240,14 +1290,6 @@ export default function PricingPage() {
             <button type="button" className="btn btn-secondary" onClick={handleAddBreakpointRule}>
               + Add rule
             </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleBreakpointSave}
-              disabled={!breakpointsValid}
-            >
-              Save breakpoint rules
-            </button>
             <button type="button" className="btn btn-secondary" onClick={handleResetBreakpoints}>
               Reset
             </button>
@@ -1262,140 +1304,226 @@ export default function PricingPage() {
               {breakpointRules.map((rule, index) => {
                 const errors = breakpointRuleErrors[index] ?? [];
                 const hasErrors = errors.length > 0;
+                const isLive = breakpointLive[rule.id] ?? false;
+                const isCollapsed = breakpointCollapsed[rule.id] ?? false;
+                const summaryService = rule.service
+                  ? breakpointServiceOptions.find((option) => option.value === rule.service)?.label ??
+                    rule.service
+                  : "Select service";
+                const summaryOperator = breakpointOperatorOptions.find(
+                  (option) => option.value === rule.operator
+                )?.label;
+                const summaryTarget = breakpointTargetOptions.find(
+                  (option) => option.value === rule.target
+                )?.label;
+                const summaryAdjustmentType = breakpointAdjustmentOptions.find(
+                  (option) => option.value === rule.adjustment.type
+                )?.label;
+                const summaryAdjustmentDirection =
+                  rule.adjustment.direction === "less"
+                    ? "less"
+                    : rule.adjustment.direction === "more"
+                      ? "more"
+                      : "exact";
+                const summaryAdjustmentValue = rule.adjustment.value
+                  ? String(Math.abs(Number(rule.adjustment.value)))
+                  : "—";
 
                 return (
                   <div key={rule.id} className="breakpoint-rule-card">
-                    <div className="breakpoint-rule-grid">
-                      <div className="breakpoint-field">
-                        <span className="breakpoint-field-label">Enabled</span>
-                        <Toggle
-                          checked={rule.enabled}
-                          onChange={(value) => {
-                            updateBreakpointRule(rule.id, (current) => ({
-                              ...current,
-                              enabled: value,
-                            }));
-                          }}
-                        />
+                    <div className="breakpoint-rule-header">
+                      <div className="breakpoint-rule-summary">
+                        <span className="breakpoint-field-label">Summary</span>
+                        <span>
+                          {summaryService}{" "}
+                          {summaryOperator ? summaryOperator.toLowerCase() : "—"}{" "}
+                          {rule.threshold_m2 || "—"} m² ·{" "}
+                          {summaryTarget ? summaryTarget.toLowerCase() : "—"} ·{" "}
+                          {summaryAdjustmentValue} {summaryAdjustmentType ?? ""}{" "}
+                          {summaryAdjustmentDirection}
+                        </span>
                       </div>
-                      <label className="breakpoint-field">
-                        <span className="breakpoint-field-label">Service</span>
-                        <select
-                          value={rule.service}
-                          onChange={(e) => {
-                            updateBreakpointRule(rule.id, (current) => ({
-                              ...current,
-                              service: e.target.value as BreakpointService | "",
-                            }));
-                          }}
-                        >
-                          <option value="">Select service</option>
-                          {breakpointServiceOptions.map((option) => {
-                            const isEnabled = serviceToggles[option.toggle];
-                            return (
-                              <option key={option.value} value={option.value} disabled={!isEnabled}>
-                                {option.label}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </label>
-                      <label className="breakpoint-field">
-                        <span className="breakpoint-field-label">Condition</span>
-                        <select
-                          value={rule.operator}
-                          onChange={(e) => {
-                            updateBreakpointRule(rule.id, (current) => ({
-                              ...current,
-                              operator: e.target.value as BreakpointOperator | "",
-                            }));
-                          }}
-                        >
-                          <option value="">Select</option>
-                          {breakpointOperatorOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="breakpoint-field">
-                        <span className="breakpoint-field-label">Threshold (m²)</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          value={rule.threshold_m2}
-                          onChange={(e) => {
-                            updateBreakpointRule(rule.id, (current) => ({
-                              ...current,
-                              threshold_m2: e.target.value,
-                            }));
-                          }}
-                        />
-                      </label>
-                      <label className="breakpoint-field">
-                        <span className="breakpoint-field-label">Target</span>
-                        <select
-                          value={rule.target}
-                          onChange={(e) => {
-                            updateBreakpointRule(rule.id, (current) => ({
-                              ...current,
-                              target: e.target.value as BreakpointTarget | "",
-                            }));
-                          }}
-                        >
-                          <option value="">Select</option>
-                          {breakpointTargetOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <div className="breakpoint-field">
-                        <span className="breakpoint-field-label">Adjustment type</span>
-                        <AdjustmentToggle
-                          value={rule.adjustment.type}
-                          onChange={(value) => {
-                            updateBreakpointRule(rule.id, (current) => ({
-                              ...current,
-                              adjustment: { ...current.adjustment, type: value },
-                            }));
-                          }}
-                        />
-                      </div>
-                      <label className="breakpoint-field">
-                        <span className="breakpoint-field-label">Value</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          value={rule.adjustment.value}
-                          onChange={(e) => {
-                            updateBreakpointRule(rule.id, (current) => ({
-                              ...current,
-                              adjustment: { ...current.adjustment, value: e.target.value },
-                            }));
-                          }}
-                        />
-                      </label>
-                      <div className="breakpoint-field breakpoint-field-actions">
-                        <span className="breakpoint-field-label">Delete</span>
+                      <div className="breakpoint-rule-actions">
                         <button
                           type="button"
                           className="btn btn-secondary btn-small"
-                          onClick={() => handleDeleteBreakpointRule(rule.id)}
+                          onClick={() =>
+                            setBreakpointCollapsed((prev) => ({
+                              ...prev,
+                              [rule.id]: !isCollapsed,
+                            }))
+                          }
                         >
-                          Delete
+                          {isCollapsed ? "Edit" : "Collapse"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-small"
+                          onClick={() => handleBreakpointSave(rule.id)}
+                          disabled={hasErrors || isLive}
+                        >
+                          {isLive ? "Live" : "Save"}
                         </button>
                       </div>
                     </div>
-                    {hasErrors ? (
-                      <div className="breakpoint-rule-errors">
-                        {errors.map((message) => (
-                          <span key={message}>{message}</span>
-                        ))}
-                      </div>
-                    ) : null}
+                    {isCollapsed ? null : (
+                      <>
+                        <div className="breakpoint-rule-grid">
+                          <div className="breakpoint-field">
+                            <span className="breakpoint-field-label">Enabled</span>
+                            <Toggle
+                              checked={rule.enabled}
+                              onChange={(value) => {
+                                updateBreakpointRule(rule.id, (current) => ({
+                                  ...current,
+                                  enabled: value,
+                                }));
+                              }}
+                            />
+                          </div>
+                          <label className="breakpoint-field">
+                            <span className="breakpoint-field-label">Service</span>
+                            <select
+                              value={rule.service}
+                              onChange={(e) => {
+                                updateBreakpointRule(rule.id, (current) => ({
+                                  ...current,
+                                  service: e.target.value as BreakpointService | "",
+                                }));
+                              }}
+                            >
+                              <option value="">Select service</option>
+                              {breakpointServiceOptions.map((option) => {
+                                const isEnabled = serviceToggles[option.toggle];
+                                return (
+                                  <option
+                                    key={option.value}
+                                    value={option.value}
+                                    disabled={!isEnabled}
+                                  >
+                                    {option.label}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </label>
+                          <label className="breakpoint-field">
+                            <span className="breakpoint-field-label">Condition</span>
+                            <select
+                              value={rule.operator}
+                              onChange={(e) => {
+                                updateBreakpointRule(rule.id, (current) => ({
+                                  ...current,
+                                  operator: e.target.value as BreakpointOperator | "",
+                                }));
+                              }}
+                            >
+                              <option value="">Select</option>
+                              {breakpointOperatorOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="breakpoint-field">
+                            <span className="breakpoint-field-label">Threshold (m²)</span>
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={rule.threshold_m2}
+                              onChange={(e) => {
+                                updateBreakpointRule(rule.id, (current) => ({
+                                  ...current,
+                                  threshold_m2: e.target.value,
+                                }));
+                              }}
+                            />
+                          </label>
+                          <label className="breakpoint-field">
+                            <span className="breakpoint-field-label">Target</span>
+                            <select
+                              value={rule.target}
+                              onChange={(e) => {
+                                updateBreakpointRule(rule.id, (current) => ({
+                                  ...current,
+                                  target: e.target.value as BreakpointTarget | "",
+                                }));
+                              }}
+                            >
+                              <option value="">Select</option>
+                              {breakpointTargetOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <div className="breakpoint-field">
+                            <span className="breakpoint-field-label">Adjustment type</span>
+                            <AdjustmentToggle
+                              value={rule.adjustment.type}
+                              onChange={(value) => {
+                                updateBreakpointRule(rule.id, (current) => ({
+                                  ...current,
+                                  adjustment: { ...current.adjustment, type: value },
+                                }));
+                              }}
+                            />
+                          </div>
+                          <label className="breakpoint-field">
+                            <span className="breakpoint-field-label">Change</span>
+                            <select
+                              value={rule.adjustment.direction}
+                              onChange={(e) => {
+                                updateBreakpointRule(rule.id, (current) => ({
+                                  ...current,
+                                  adjustment: {
+                                    ...current.adjustment,
+                                    direction: e.target.value as BreakpointAdjustmentDirection,
+                                  },
+                                }));
+                              }}
+                            >
+                              <option value="more">More</option>
+                              <option value="less">Less</option>
+                              <option value="exact">Exact</option>
+                            </select>
+                          </label>
+                          <label className="breakpoint-field">
+                            <span className="breakpoint-field-label">Value</span>
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              value={rule.adjustment.value}
+                              onChange={(e) => {
+                                updateBreakpointRule(rule.id, (current) => ({
+                                  ...current,
+                                  adjustment: { ...current.adjustment, value: e.target.value },
+                                }));
+                              }}
+                            />
+                          </label>
+                          <div className="breakpoint-field breakpoint-field-actions">
+                            <span className="breakpoint-field-label">Delete</span>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-small"
+                              onClick={() => handleDeleteBreakpointRule(rule.id)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                        {hasErrors ? (
+                          <div className="breakpoint-rule-errors">
+                            {errors.map((message) => (
+                              <span key={message}>{message}</span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </>
+                    )}
                   </div>
                 );
               })}

@@ -1042,6 +1042,28 @@ input[type=number].supplierPriceInput {
   gap: 10px;
 }
 
+.breakpoint-rule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.breakpoint-rule-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.breakpoint-rule-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
 .breakpoint-rule-grid {
   display: grid;
   gap: 12px;
