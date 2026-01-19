@@ -32,10 +32,9 @@ type BreakpointService =
   | "commercial_vinyl"
   | "wall_cladding"
   | "safety";
-type BreakpointOperator = "gte" | "lte" | "eq";
+type BreakpointOperator = "gte" | "lte";
 type BreakpointTarget = "materials" | "labour" | "both";
 type BreakpointAdjustmentType = "percent" | "gbp_per_m2" | "gbp_fixed";
-type BreakpointAdjustmentDirection = "more" | "less" | "exact";
 
 type BreakpointAdjustment = {
   type: BreakpointAdjustmentType;
@@ -62,7 +61,6 @@ type BreakpointRuleDraft = {
   adjustment: {
     type: BreakpointAdjustmentType | "";
     value: string;
-    direction: BreakpointAdjustmentDirection;
   };
 };
 
@@ -94,7 +92,6 @@ const breakpointServiceOptions: Array<{
 const breakpointOperatorOptions: Array<{ label: string; value: BreakpointOperator }> = [
   { label: "Over", value: "gte" },
   { label: "Under", value: "lte" },
-  { label: "Exact", value: "eq" },
 ];
 
 const breakpointTargetOptions: Array<{ label: string; value: BreakpointTarget }> = [
@@ -321,7 +318,6 @@ function createBreakpointRuleDraft(overrides?: Partial<BreakpointRuleDraft>): Br
     adjustment: {
       type: "percent",
       value: "",
-      direction: "more",
     },
     ...overrides,
   };
@@ -332,7 +328,7 @@ function isBreakpointService(value: string): value is BreakpointService {
 }
 
 function isBreakpointOperator(value: string): value is BreakpointOperator {
-  return value === "gte" || value === "lte" || value === "eq";
+  return value === "gte" || value === "lte";
 }
 
 function isBreakpointTarget(value: string): value is BreakpointTarget {
@@ -411,14 +407,6 @@ function normalizeBreakpointRules(value: unknown) {
       typeof adjustment.value === "number" || typeof adjustment.value === "string"
         ? String(adjustment.value)
         : "";
-    const adjustmentNumber = toNumberOrNull(adjustmentValue);
-    const adjustmentDirection: BreakpointAdjustmentDirection =
-      adjustmentNumber === null || adjustmentNumber === 0
-        ? "exact"
-        : adjustmentNumber < 0
-          ? "less"
-          : "more";
-
     if (
       !service ||
       !operator ||
@@ -440,7 +428,6 @@ function normalizeBreakpointRules(value: unknown) {
       adjustment: {
         type: adjustmentType,
         value: adjustmentValue,
-        direction: adjustmentDirection,
       },
     };
   });
@@ -486,20 +473,6 @@ function validateBreakpointRule(rule: BreakpointRuleDraft) {
   return errors;
 }
 
-function applyAdjustmentDirection(rule: BreakpointRuleDraft) {
-  const adjustmentValue = toNumberOrNull(rule.adjustment.value) ?? 0;
-
-  if (rule.adjustment.direction === "less") {
-    return -Math.abs(adjustmentValue);
-  }
-
-  if (rule.adjustment.direction === "more") {
-    return Math.abs(adjustmentValue);
-  }
-
-  return adjustmentValue;
-}
-
 function toBreakpointRule(rule: BreakpointRuleDraft): BreakpointRule {
   return {
     id: rule.id,
@@ -510,7 +483,7 @@ function toBreakpointRule(rule: BreakpointRuleDraft): BreakpointRule {
     target: rule.target as BreakpointTarget,
     adjustment: {
       type: rule.adjustment.type as BreakpointAdjustmentType,
-      value: applyAdjustmentDirection(rule),
+      value: Number(rule.adjustment.value),
     },
   };
 }
@@ -960,6 +933,10 @@ export default function PricingPage() {
       return;
     }
 
+    if (!breakpointsValid) {
+      return;
+    }
+
     const errors = breakpointRuleErrors[ruleIndex] ?? [];
     if (errors.length > 0) {
       return;
@@ -970,7 +947,6 @@ export default function PricingPage() {
     const combinedPayload = {
       ...payload,
       breakpoints_json: breakpointsPayload,
-      breakpoints_enabled: breakpointsPayload.length > 0,
     };
     const serializedPayload = JSON.stringify(combinedPayload);
 
@@ -1319,15 +1295,7 @@ export default function PricingPage() {
                 const summaryAdjustmentType = breakpointAdjustmentOptions.find(
                   (option) => option.value === rule.adjustment.type
                 )?.label;
-                const summaryAdjustmentDirection =
-                  rule.adjustment.direction === "less"
-                    ? "less"
-                    : rule.adjustment.direction === "more"
-                      ? "more"
-                      : "exact";
-                const summaryAdjustmentValue = rule.adjustment.value
-                  ? String(Math.abs(Number(rule.adjustment.value)))
-                  : "—";
+                const summaryAdjustmentValue = rule.adjustment.value || "—";
 
                 return (
                   <div key={rule.id} className="breakpoint-rule-card">
@@ -1339,8 +1307,7 @@ export default function PricingPage() {
                           {summaryOperator ? summaryOperator.toLowerCase() : "—"}{" "}
                           {rule.threshold_m2 || "—"} m² ·{" "}
                           {summaryTarget ? summaryTarget.toLowerCase() : "—"} ·{" "}
-                          {summaryAdjustmentValue} {summaryAdjustmentType ?? ""}{" "}
-                          {summaryAdjustmentDirection}
+                          {summaryAdjustmentValue} {summaryAdjustmentType ?? ""}
                         </span>
                       </div>
                       <div className="breakpoint-rule-actions">
@@ -1360,7 +1327,7 @@ export default function PricingPage() {
                           type="button"
                           className="btn btn-primary btn-small"
                           onClick={() => handleBreakpointSave(rule.id)}
-                          disabled={hasErrors || isLive}
+                          disabled={hasErrors || !breakpointsValid || isLive}
                         >
                           {isLive ? "Live" : "Save"}
                         </button>
@@ -1471,25 +1438,6 @@ export default function PricingPage() {
                               }}
                             />
                           </div>
-                          <label className="breakpoint-field">
-                            <span className="breakpoint-field-label">Change</span>
-                            <select
-                              value={rule.adjustment.direction}
-                              onChange={(e) => {
-                                updateBreakpointRule(rule.id, (current) => ({
-                                  ...current,
-                                  adjustment: {
-                                    ...current.adjustment,
-                                    direction: e.target.value as BreakpointAdjustmentDirection,
-                                  },
-                                }));
-                              }}
-                            >
-                              <option value="more">More</option>
-                              <option value="less">Less</option>
-                              <option value="exact">Exact</option>
-                            </select>
-                          </label>
                           <label className="breakpoint-field">
                             <span className="breakpoint-field-label">Value</span>
                             <input

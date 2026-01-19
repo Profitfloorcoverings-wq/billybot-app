@@ -73,7 +73,6 @@ const PRICING_SETTING_COLUMNS = [
   "min_labour_charge",
   "day_rate_per_fitter",
   "default_markup_percent",
-  "breakpoints_enabled",
   "breakpoints_json",
 ];
 
