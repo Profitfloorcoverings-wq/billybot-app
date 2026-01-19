@@ -995,8 +995,84 @@ input[type=number].supplierPriceInput {
   color: #e0e7ff;
 }
 
-.breakpoint-textarea {
-  min-height: 140px;
+.btn-small {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.breakpoint-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.breakpoint-warning {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #fde68a;
+  font-size: 13px;
+}
+
+.breakpoint-error-summary {
+  color: #fca5a5;
+  font-size: 13px;
+}
+
+.breakpoint-rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.breakpoint-rule-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.breakpoint-rule-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  align-items: end;
+}
+
+.breakpoint-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.breakpoint-field-actions {
+  align-items: flex-start;
+}
+
+.breakpoint-field-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.breakpoint-rule-errors {
+  color: #fca5a5;
+  font-size: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 @media (max-width: 768px) {

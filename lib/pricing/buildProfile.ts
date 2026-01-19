@@ -8,11 +8,21 @@ function parseBreakpoints(value: unknown) {
 
   if (typeof value === "string") {
     try {
-      return JSON.parse(value || "[]");
+      const parsed = JSON.parse(value || "[]");
+      if (!Array.isArray(parsed)) {
+        console.warn("breakpoints_json is not an array");
+        return [] as unknown[];
+      }
+      return parsed;
     } catch (err) {
       console.warn("Unable to parse breakpoints_json", err);
       return [] as unknown[];
     }
+  }
+
+  if (!Array.isArray(value)) {
+    console.warn("breakpoints_json is not an array");
+    return [] as unknown[];
   }
 
   return value;
@@ -36,6 +46,7 @@ export function buildPricingProfile({ settings, vatRegistered }: BuildPricingPro
   const s = settings ?? {};
 
   const services: string[] = [];
+  const breakpointsEnabled = booleanOr(s.breakpoints_enabled, false);
 
   if (booleanOr(s.service_domestic_carpet, true)) services.push("domestic_carpet");
   if (booleanOr(s.service_commercial_carpet, true)) services.push("commercial_carpet");
@@ -50,7 +61,7 @@ export function buildPricingProfile({ settings, vatRegistered }: BuildPricingPro
 
   const profile = {
     rules: {
-      price_breaks: parseBreakpoints(s.breakpoints_json ?? []),
+      price_breaks: breakpointsEnabled ? parseBreakpoints(s.breakpoints_json ?? []) : [],
       small_job_fee: numberOrZero(s.small_job_charge),
     },
     extras: {
