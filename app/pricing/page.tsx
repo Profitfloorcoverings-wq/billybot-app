@@ -1358,21 +1358,11 @@ export default function PricingPage() {
           {breakpointWarning ? (
             <div className="breakpoint-warning">
               <span>{breakpointWarning}</span>
-              <button
-                type="button"
-                className="btn btn-secondary btn-small"
-                onClick={handleResetBreakpoints}
-              >
-                Reset to empty
-              </button>
             </div>
           ) : null}
           <div className="breakpoint-actions">
             <button type="button" className="btn btn-secondary" onClick={handleAddBreakpointRule}>
               + Add rule
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={handleResetBreakpoints}>
-              Reset
             </button>
           </div>
           {breakpointsValid ? null : (
