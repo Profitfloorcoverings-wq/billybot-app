@@ -28,6 +28,60 @@ function parseBreakpoints(value: unknown) {
   return value;
 }
 
+type BreakpointAdjustmentMode = "more" | "less" | "exact";
+
+function isBreakpointAdjustmentMode(value: unknown): value is BreakpointAdjustmentMode {
+  return value === "more" || value === "less" || value === "exact";
+}
+
+function normalizeBreakpointMode(mode: unknown, adjustmentValue: number | null) {
+  if (typeof adjustmentValue === "number" && adjustmentValue < 0) {
+    return "less";
+  }
+
+  return isBreakpointAdjustmentMode(mode) ? mode : "more";
+}
+
+function normalizeBreakpoints(value: unknown) {
+  const rules = parseBreakpoints(value);
+
+  return rules.map((rule) => {
+    if (!rule || typeof rule !== "object") {
+      return rule;
+    }
+
+    const record = rule as Record<string, unknown>;
+    const adjustment =
+      record.adjustment && typeof record.adjustment === "object"
+        ? (record.adjustment as Record<string, unknown>)
+        : {};
+    const rawValue = adjustment.value;
+    const adjustmentValue =
+      typeof rawValue === "number"
+        ? rawValue
+        : typeof rawValue === "string"
+          ? Number(rawValue)
+          : null;
+    const normalizedMode = normalizeBreakpointMode(
+      adjustment.mode ?? adjustment.direction,
+      Number.isFinite(adjustmentValue) ? adjustmentValue : null
+    );
+    const normalizedValue =
+      typeof adjustmentValue === "number" && Number.isFinite(adjustmentValue)
+        ? Math.abs(adjustmentValue)
+        : adjustment.value;
+
+    return {
+      ...record,
+      adjustment: {
+        ...adjustment,
+        mode: normalizedMode,
+        value: normalizedValue,
+      },
+    };
+  });
+}
+
 function numberOrZero(value: unknown) {
   if (value === null || typeof value === "undefined") return 0;
   const parsed = Number(value);
@@ -59,7 +113,7 @@ export function buildPricingProfile({ settings, vatRegistered }: BuildPricingPro
 
   const profile = {
     rules: {
-      price_breaks: parseBreakpoints(s.breakpoints_json ?? []),
+      price_breaks: normalizeBreakpoints(s.breakpoints_json ?? []),
       small_job_fee: numberOrZero(s.small_job_charge),
     },
     extras: {

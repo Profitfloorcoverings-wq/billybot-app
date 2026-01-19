@@ -35,9 +35,11 @@ type BreakpointService =
 type BreakpointOperator = "gte" | "lte";
 type BreakpointTarget = "materials" | "labour" | "both";
 type BreakpointAdjustmentType = "percent" | "gbp_per_m2" | "gbp_fixed";
+type BreakpointAdjustmentMode = "more" | "less" | "exact";
 
 type BreakpointAdjustment = {
   type: BreakpointAdjustmentType;
+  mode: BreakpointAdjustmentMode;
   value: number;
 };
 
@@ -60,6 +62,7 @@ type BreakpointRuleDraft = {
   target: BreakpointTarget | "";
   adjustment: {
     type: BreakpointAdjustmentType | "";
+    mode: BreakpointAdjustmentMode;
     value: string;
   };
 };
@@ -104,6 +107,12 @@ const breakpointAdjustmentOptions: Array<{ label: string; value: BreakpointAdjus
   { label: "%", value: "percent" },
   { label: "£/m²", value: "gbp_per_m2" },
   { label: "£ fixed", value: "gbp_fixed" },
+];
+
+const breakpointAdjustmentModeOptions: Array<{ label: string; value: BreakpointAdjustmentMode }> = [
+  { label: "MORE", value: "more" },
+  { label: "LESS", value: "less" },
+  { label: "EXACT", value: "exact" },
 ];
 
 const serviceRegistry: Record<
@@ -317,6 +326,7 @@ function createBreakpointRuleDraft(overrides?: Partial<BreakpointRuleDraft>): Br
     target: "materials",
     adjustment: {
       type: "percent",
+      mode: "more",
       value: "",
     },
     ...overrides,
@@ -337,6 +347,15 @@ function isBreakpointTarget(value: string): value is BreakpointTarget {
 
 function isBreakpointAdjustmentType(value: string): value is BreakpointAdjustmentType {
   return value === "percent" || value === "gbp_per_m2" || value === "gbp_fixed";
+}
+
+function isBreakpointAdjustmentMode(value: string): value is BreakpointAdjustmentMode {
+  return value === "more" || value === "less" || value === "exact";
+}
+
+function normalizePositiveValue(value: string) {
+  if (!value) return value;
+  return value.startsWith("-") ? value.slice(1) : value;
 }
 
 function normalizeBreakpointRules(value: unknown) {
@@ -399,19 +418,34 @@ function normalizeBreakpointRules(value: unknown) {
       typeof adjustment.type === "string" && isBreakpointAdjustmentType(adjustment.type)
         ? adjustment.type
         : "";
+    const modeCandidate =
+      typeof adjustment.mode === "string" && isBreakpointAdjustmentMode(adjustment.mode)
+        ? adjustment.mode
+        : typeof adjustment.direction === "string" && isBreakpointAdjustmentMode(adjustment.direction)
+          ? adjustment.direction
+          : "more";
     const thresholdValue =
       typeof record.threshold_m2 === "number" || typeof record.threshold_m2 === "string"
         ? String(record.threshold_m2)
         : "";
-    const adjustmentValue =
+    let adjustmentValue =
       typeof adjustment.value === "number" || typeof adjustment.value === "string"
         ? String(adjustment.value)
         : "";
+    let adjustmentMode = modeCandidate;
+
+    const numericAdjustmentValue = Number(adjustmentValue);
+    if (Number.isFinite(numericAdjustmentValue) && numericAdjustmentValue < 0) {
+      adjustmentMode = "less";
+      adjustmentValue = String(Math.abs(numericAdjustmentValue));
+    }
+    adjustmentValue = normalizePositiveValue(adjustmentValue);
     if (
       !service ||
       !operator ||
       !target ||
       !adjustmentType ||
+      !adjustmentMode ||
       !thresholdValue ||
       !adjustmentValue
     ) {
@@ -427,6 +461,7 @@ function normalizeBreakpointRules(value: unknown) {
       target,
       adjustment: {
         type: adjustmentType,
+        mode: adjustmentMode,
         value: adjustmentValue,
       },
     };
@@ -465,9 +500,17 @@ function validateBreakpointRule(rule: BreakpointRuleDraft) {
     errors.push("Adjustment type is required.");
   }
 
+  if (!rule.adjustment.mode || !isBreakpointAdjustmentMode(rule.adjustment.mode)) {
+    errors.push("Adjustment mode is required.");
+  }
+
   const adjustmentValue = toNumberOrNull(rule.adjustment.value);
-  if (adjustmentValue === null) {
-    errors.push("Adjustment value must be a number.");
+  if (adjustmentValue === null || adjustmentValue <= 0) {
+    errors.push("Adjustment value must be greater than 0.");
+  }
+
+  if (rule.adjustment.type === "percent" && rule.adjustment.mode === "exact") {
+    errors.push("Exact mode is not allowed for percentage adjustments.");
   }
 
   return errors;
@@ -483,7 +526,8 @@ function toBreakpointRule(rule: BreakpointRuleDraft): BreakpointRule {
     target: rule.target as BreakpointTarget,
     adjustment: {
       type: rule.adjustment.type as BreakpointAdjustmentType,
-      value: Number(rule.adjustment.value),
+      mode: rule.adjustment.mode,
+      value: Math.abs(Number(rule.adjustment.value)),
     },
   };
 }
@@ -569,6 +613,43 @@ function AdjustmentToggle({
             disabled={disabled}
             onClick={() => {
               if (!disabled) {
+                onChange(option.value);
+              }
+            }}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AdjustmentModeToggle({
+  value,
+  onChange,
+  disableExact = false,
+  disabled = false,
+}: {
+  value: BreakpointAdjustmentMode;
+  onChange: (value: BreakpointAdjustmentMode) => void;
+  disableExact?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="option-toggle" role="group" aria-label="Adjustment mode">
+      {breakpointAdjustmentModeOptions.map((option) => {
+        const active = option.value === value;
+        const isDisabled = disabled || (disableExact && option.value === "exact");
+        return (
+          <button
+            key={option.value}
+            type="button"
+            className={active ? "option-toggle-btn option-toggle-btn-active" : "option-toggle-btn"}
+            aria-pressed={active}
+            disabled={isDisabled}
+            onClick={() => {
+              if (!isDisabled) {
                 onChange(option.value);
               }
             }}
@@ -701,7 +782,7 @@ export default function PricingPage() {
       payload: Record<string, unknown>,
       serializedPayload: string,
       comparisonPayload: string = serializedPayload
-    ) => {
+    ): Promise<boolean> => {
       try {
         const { data, error: userError } = await supabase.auth.getUser();
 
@@ -731,12 +812,14 @@ export default function PricingPage() {
         }
 
         lastSavedPayloadRef.current = comparisonPayload;
+        return true;
       } catch (err) {
         setError(
           err && typeof err === "object" && "message" in err
             ? String((err as { message?: string }).message)
             : "Unable to save pricing settings"
         );
+        return false;
       }
     },
     [supabase]
@@ -902,8 +985,13 @@ export default function PricingPage() {
     setBreakpointCollapsed((prev) => ({ ...prev, [draft.id]: false }));
   }
 
-  function handleDeleteBreakpointRule(id: string) {
-    setBreakpointRules((prev) => prev.filter((rule) => rule.id !== id));
+  async function handleDeleteBreakpointRule(id: string) {
+    const previousRules = breakpointRules;
+    const previousLive = breakpointLive;
+    const previousCollapsed = breakpointCollapsed;
+    const nextRules = breakpointRules.filter((rule) => rule.id !== id);
+
+    setBreakpointRules(nextRules);
     setBreakpointLive((prev) => {
       const next = { ...prev };
       delete next[id];
@@ -914,6 +1002,23 @@ export default function PricingPage() {
       delete next[id];
       return next;
     });
+
+    const { payload } = buildSettingsPayload();
+    const breakpointsPayload = nextRules.map(toBreakpointRule);
+    const combinedPayload = {
+      ...payload,
+      breakpoints_json: breakpointsPayload,
+    };
+    const serializedPayload = JSON.stringify(combinedPayload);
+    const baseSerializedPayload = JSON.stringify(payload);
+
+    const success = await persistSettings(combinedPayload, serializedPayload, baseSerializedPayload);
+
+    if (!success) {
+      setBreakpointRules(previousRules);
+      setBreakpointLive(previousLive);
+      setBreakpointCollapsed(previousCollapsed);
+    }
   }
 
   function handleResetBreakpoints() {
@@ -1295,6 +1400,9 @@ export default function PricingPage() {
                 const summaryAdjustmentType = breakpointAdjustmentOptions.find(
                   (option) => option.value === rule.adjustment.type
                 )?.label;
+                const summaryAdjustmentMode = breakpointAdjustmentModeOptions.find(
+                  (option) => option.value === rule.adjustment.mode
+                )?.label;
                 const summaryAdjustmentValue = rule.adjustment.value || "—";
 
                 return (
@@ -1307,6 +1415,9 @@ export default function PricingPage() {
                           {summaryOperator ? summaryOperator.toLowerCase() : "—"}{" "}
                           {rule.threshold_m2 || "—"} m² ·{" "}
                           {summaryTarget ? summaryTarget.toLowerCase() : "—"} ·{" "}
+                          {summaryAdjustmentMode
+                            ? summaryAdjustmentMode.toLowerCase()
+                            : "—"}{" "}
                           {summaryAdjustmentValue} {summaryAdjustmentType ?? ""}
                         </span>
                       </div>
@@ -1433,7 +1544,27 @@ export default function PricingPage() {
                               onChange={(value) => {
                                 updateBreakpointRule(rule.id, (current) => ({
                                   ...current,
-                                  adjustment: { ...current.adjustment, type: value },
+                                  adjustment: {
+                                    ...current.adjustment,
+                                    type: value,
+                                    mode:
+                                      value === "percent" && current.adjustment.mode === "exact"
+                                        ? "more"
+                                        : current.adjustment.mode,
+                                  },
+                                }));
+                              }}
+                            />
+                          </div>
+                          <div className="breakpoint-field">
+                            <span className="breakpoint-field-label">Adjustment mode</span>
+                            <AdjustmentModeToggle
+                              value={rule.adjustment.mode}
+                              disableExact={rule.adjustment.type === "percent"}
+                              onChange={(value) => {
+                                updateBreakpointRule(rule.id, (current) => ({
+                                  ...current,
+                                  adjustment: { ...current.adjustment, mode: value },
                                 }));
                               }}
                             />
@@ -1443,11 +1574,13 @@ export default function PricingPage() {
                             <input
                               type="number"
                               inputMode="decimal"
+                              min="0"
                               value={rule.adjustment.value}
                               onChange={(e) => {
+                                const nextValue = normalizePositiveValue(e.target.value);
                                 updateBreakpointRule(rule.id, (current) => ({
                                   ...current,
-                                  adjustment: { ...current.adjustment, value: e.target.value },
+                                  adjustment: { ...current.adjustment, value: nextValue },
                                 }));
                               }}
                             />
