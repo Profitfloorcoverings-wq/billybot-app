@@ -58,6 +58,8 @@ export default function AccountPage() {
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [accountingSystem, setAccountingSystem] = useState<string | null>(null);
   const [accountingStatusLoaded, setAccountingStatusLoaded] = useState(false);
+  const [stripeId, setStripeId] = useState<string | null>(null);
+  const [stripeStatus, setStripeStatus] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -90,7 +92,7 @@ export default function AccountPage() {
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
           .select(
-            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
+            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded, stripe_id, stripe_status"
           )
           .eq("id", userData.user.id)
           .maybeSingle();
@@ -105,6 +107,8 @@ export default function AccountPage() {
         }
 
         setProfile({ ...EMPTY_PROFILE, ...clientData, is_onboarded: true });
+        setStripeId(clientData?.stripe_id ?? null);
+        setStripeStatus(clientData?.stripe_status ?? null);
       } catch (err) {
         setError(
           err && typeof err === "object" && "message" in err
@@ -175,6 +179,7 @@ export default function AccountPage() {
 
   async function handleManageBilling() {
     try {
+      setError(null);
       setLoadingPortal(true);
 
       const res = await fetch("/api/billing/manage", {
@@ -183,14 +188,14 @@ export default function AccountPage() {
 
       const data = await res.json();
 
-      if (data?.url) {
+      if (res.ok && data?.url) {
         window.location.href = data.url;
       } else {
-        alert("Unable to open billing portal.");
+        setError(data?.error ?? "Unable to open billing options.");
       }
     } catch (err) {
       console.error("Billing portal error:", err);
-      alert("Error opening billing portal.");
+      setError("Error opening billing options.");
     } finally {
       setLoadingPortal(false);
     }
@@ -423,12 +428,16 @@ export default function AccountPage() {
 
         <div className="flex items-center justify-between">
           <div className="inline-flex items-center rounded-full px-3 py-1 text-xs bg-white/10 text-white/80">
-            Premium access
+            {!stripeId
+              ? "Free trial"
+              : stripeStatus
+              ? stripeStatus.replace(/_/g, " ").replace(/\b\w/g, (match) => match.toUpperCase())
+              : "Premium access"}
           </div>
         </div>
 
         <button onClick={handleManageBilling} disabled={loadingPortal} className="btn btn-primary w-full">
-          {loadingPortal ? "Loading…" : "Manage subscription"}
+          {loadingPortal ? "Loading…" : stripeId ? "Manage subscription" : "Choose plan"}
         </button>
       </div>
 
