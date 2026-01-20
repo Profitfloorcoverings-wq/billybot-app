@@ -224,6 +224,14 @@ select option:hover {
   scrollbar-gutter: stable;
 }
 
+.quotes-scrollbox {
+  height: calc(100vh - 420px);
+  min-height: 320px;
+  max-height: 720px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
 .supplierPriceInput {
   width: 6rem;
   min-width: 96px;

@@ -75,12 +75,6 @@ export default function QuotesPage() {
     }).format(date);
   };
 
-  const unseenCutoff = useMemo(() => {
-    if (!initialLastViewed) return null;
-    const time = Date.parse(initialLastViewed);
-    return Number.isNaN(time) ? null : time;
-  }, [initialLastViewed]);
-
   const filteredQuotes = useMemo(() => {
     if (!search.trim()) return quotes;
     const query = search.toLowerCase();
@@ -99,6 +93,12 @@ export default function QuotesPage() {
       );
     });
   }, [quotes, search]);
+
+  const unseenCutoff = useMemo(() => {
+    if (!initialLastViewed) return null;
+    const time = Date.parse(initialLastViewed);
+    return Number.isNaN(time) ? null : time;
+  }, [initialLastViewed]);
 
   const hasQuotes = quotes.length > 0;
   const hasFilteredQuotes = filteredQuotes.length > 0;
@@ -128,73 +128,94 @@ export default function QuotesPage() {
         )}
 
         {!loading && !error && hasQuotes && (
-          <div className="stack gap-4">
-            <div className="card stack">
-              <div className="stack md:row md:items-center md:justify-between">
-                <div className="stack">
-                  <p className="section-subtitle">Search</p>
-                  <input
-                    className="input-fluid"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search by quote ID, customer, job, or date"
-                  />
-                </div>
-
-                <div className="tag">
-                  {hasFilteredQuotes ? `${filteredQuotes.length} showing` : "0 showing"}
-                </div>
+          <div className="card stack gap-4 min-h-0">
+            <div className="stack md:row md:items-end md:justify-between gap-3">
+              <div className="stack flex-1">
+                <p className="section-subtitle">Search</p>
+                <input
+                  className="input-fluid"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by quote ID, customer, job, or date"
+                />
               </div>
+              <p className="text-xs text-[var(--muted)] md:text-right">
+                {hasFilteredQuotes ? `${filteredQuotes.length} showing` : "0 showing"}
+              </p>
             </div>
 
             {hasFilteredQuotes ? (
-              <div className="quotes-scroll">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {filteredQuotes.map((quote) => {
-                    const isNew = unseenCutoff
-                      ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
-                      : true;
+              <div className="table-card">
+                <div className="quotes-scrollbox min-h-0">
+                  <div className="overflow-x-auto">
+                    <table className="data-table">
+                      <thead className="sticky top-0 z-10 bg-[var(--card)]">
+                      <tr>
+                        <th>Quote</th>
+                        <th>Customer</th>
+                        <th>Job</th>
+                        <th>Created</th>
+                        <th className="sticky-cell text-right" aria-label="Quote actions" />
+                      </tr>
+                      </thead>
+                      <tbody>
+                        {filteredQuotes.map((quote) => {
+                          const isNew = unseenCutoff
+                            ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
+                            : true;
+                          const customerName =
+                            quote.customer_name?.trim() || "Unknown customer";
+                          const jobRef = quote.job_ref?.trim() || "No job description";
+                          const createdDate =
+                            formatDate(quote.created_at) || "Date unavailable";
+                          const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
 
-                    const customerName = quote.customer_name?.trim() || "Unknown customer";
-                    const jobRef = quote.job_ref?.trim() || "No job description";
-                    const createdDate = formatDate(quote.created_at) || "Date unavailable";
-                    const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
-
-                    return (
-                      <div
-                        key={quote.id}
-                        className="card quote-tile flex h-full flex-col gap-4 min-h-[220px]"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                            <span className="tag">{quoteLabel}</span>
-                          </div>
-                          {isNew ? <span className="tag">New</span> : null}
-                        </div>
-
-                        <div className="stack gap-2">
-                          <p className="text-lg font-semibold leading-tight text-white">
-                            {customerName}
-                          </p>
-                          <p className="text-sm text-[var(--muted)]">{jobRef}</p>
-                          <p className="text-xs text-[var(--muted)]">
-                            Created {createdDate}
-                          </p>
-                        </div>
-
-                        <div className="mt-auto flex justify-center">
-                          <Link
-                            href={quote.pdf_url ?? "#"}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-primary w-full justify-center text-center md:w-auto"
-                          >
-                            Open PDF
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
+                          return (
+                            <tr key={quote.id}>
+                              <td>
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                                  <span className="tag font-mono text-[10px]">
+                                    {quoteLabel}
+                                  </span>
+                                  {isNew ? <span className="tag">New</span> : null}
+                                </div>
+                              </td>
+                              <td>
+                                <p className="text-[15px] font-semibold text-white">
+                                  {customerName}
+                                </p>
+                              </td>
+                              <td>
+                                <span
+                                  className="text-sm text-[var(--muted)] truncate block max-w-[260px]"
+                                  title={jobRef}
+                                >
+                                  {jobRef}
+                                </span>
+                              </td>
+                              <td>
+                                <span className="text-xs text-[var(--muted)]">
+                                  {createdDate}
+                                </span>
+                              </td>
+                              <td className="sticky-cell">
+                                <div className="flex items-center justify-end">
+                                  <Link
+                                    href={quote.pdf_url ?? "#"}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="btn btn-primary btn-small rounded-full px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent1)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(15,23,42,0.92)]"
+                                  >
+                                    Open quote
+                                  </Link>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             ) : (
