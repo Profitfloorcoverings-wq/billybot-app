@@ -8,14 +8,78 @@ function parseBreakpoints(value: unknown) {
 
   if (typeof value === "string") {
     try {
-      return JSON.parse(value || "[]");
+      const parsed = JSON.parse(value || "[]");
+      if (!Array.isArray(parsed)) {
+        console.warn("breakpoints_json is not an array");
+        return [] as unknown[];
+      }
+      return parsed;
     } catch (err) {
       console.warn("Unable to parse breakpoints_json", err);
       return [] as unknown[];
     }
   }
 
+  if (!Array.isArray(value)) {
+    console.warn("breakpoints_json is not an array");
+    return [] as unknown[];
+  }
+
   return value;
+}
+
+type BreakpointAdjustmentMode = "more" | "less" | "exact";
+
+function isBreakpointAdjustmentMode(value: unknown): value is BreakpointAdjustmentMode {
+  return value === "more" || value === "less" || value === "exact";
+}
+
+function normalizeBreakpointMode(mode: unknown, adjustmentValue: number | null) {
+  if (typeof adjustmentValue === "number" && adjustmentValue < 0) {
+    return "less";
+  }
+
+  return isBreakpointAdjustmentMode(mode) ? mode : "more";
+}
+
+function normalizeBreakpoints(value: unknown) {
+  const rules = parseBreakpoints(value);
+
+  return rules.map((rule) => {
+    if (!rule || typeof rule !== "object") {
+      return rule;
+    }
+
+    const record = rule as Record<string, unknown>;
+    const adjustment =
+      record.adjustment && typeof record.adjustment === "object"
+        ? (record.adjustment as Record<string, unknown>)
+        : {};
+    const rawValue = adjustment.value;
+    const adjustmentValue =
+      typeof rawValue === "number"
+        ? rawValue
+        : typeof rawValue === "string"
+          ? Number(rawValue)
+          : null;
+    const normalizedMode = normalizeBreakpointMode(
+      adjustment.mode ?? adjustment.direction,
+      Number.isFinite(adjustmentValue) ? adjustmentValue : null
+    );
+    const normalizedValue =
+      typeof adjustmentValue === "number" && Number.isFinite(adjustmentValue)
+        ? Math.abs(adjustmentValue)
+        : adjustment.value;
+
+    return {
+      ...record,
+      adjustment: {
+        ...adjustment,
+        mode: normalizedMode,
+        value: normalizedValue,
+      },
+    };
+  });
 }
 
 function numberOrZero(value: unknown) {
@@ -36,7 +100,6 @@ export function buildPricingProfile({ settings, vatRegistered }: BuildPricingPro
   const s = settings ?? {};
 
   const services: string[] = [];
-
   if (booleanOr(s.service_domestic_carpet, true)) services.push("domestic_carpet");
   if (booleanOr(s.service_commercial_carpet, true)) services.push("commercial_carpet");
   if (booleanOr(s.service_carpet_tiles, true)) services.push("carpet_tiles");
@@ -50,7 +113,7 @@ export function buildPricingProfile({ settings, vatRegistered }: BuildPricingPro
 
   const profile = {
     rules: {
-      price_breaks: parseBreakpoints(s.breakpoints_json ?? []),
+      price_breaks: normalizeBreakpoints(s.breakpoints_json ?? []),
       small_job_fee: numberOrZero(s.small_job_charge),
     },
     extras: {
