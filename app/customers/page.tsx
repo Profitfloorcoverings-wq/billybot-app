@@ -137,9 +137,9 @@ export default function CustomersPage() {
                 <thead className="sticky top-0 z-10 bg-[var(--card)]">
                   <tr>
                     <th>Name</th>
-                    <th className="hidden md:table-cell">Email</th>
-                    <th className="hidden md:table-cell">Phone</th>
-                    <th className="sticky-cell text-right">Actions</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th className="sticky-cell text-right" aria-label="Edit actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -150,10 +150,10 @@ export default function CustomersPage() {
                       contactName &&
                       contactName.toLowerCase() !== customerName.toLowerCase();
                     const email = customer.email?.trim() || "";
-                    const phone = customer.phone?.trim() || customer.mobile?.trim() || "";
+                    const phone = customer.mobile?.trim() || customer.phone?.trim() || "";
 
                     return (
-                      <tr key={customer.id} className="group">
+                      <tr key={customer.id}>
                         <td>
                           <div className="stack gap-1">
                             <p className="text-[15px] font-semibold text-white">
@@ -162,17 +162,9 @@ export default function CustomersPage() {
                             {showContact ? (
                               <p className="text-sm text-[var(--muted)]">{contactName}</p>
                             ) : null}
-                            <div className="mt-2 flex flex-col gap-1 text-sm text-[var(--muted)] md:hidden">
-                              <span className="truncate" title={email || undefined}>
-                                {email || "—"}
-                              </span>
-                              <span className="font-mono tabular-nums">
-                                {phone || "—"}
-                              </span>
-                            </div>
                           </div>
                         </td>
-                        <td className="hidden md:table-cell">
+                        <td>
                           <span
                             className="text-sm text-[var(--muted)] truncate block max-w-[280px]"
                             title={email || undefined}
@@ -180,7 +172,7 @@ export default function CustomersPage() {
                             {email || "—"}
                           </span>
                         </td>
-                        <td className="hidden md:table-cell">
+                        <td>
                           <span className="text-sm text-[var(--muted)] font-mono tabular-nums">
                             {phone || "—"}
                           </span>
@@ -189,23 +181,9 @@ export default function CustomersPage() {
                           <div className="flex items-center justify-end">
                             <Link
                               href={`/customers/${customer.id}`}
-                              aria-label={`View ${customerName}`}
-                              className="btn btn-secondary btn-small h-9 w-9 p-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent1)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(15,23,42,0.92)]"
+                              className="btn btn-secondary btn-small rounded-full px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent1)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(15,23,42,0.92)]"
                             >
-                              <svg
-                                aria-hidden="true"
-                                viewBox="0 0 20 20"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                className="h-4 w-4"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M7.5 4.5L12.5 10L7.5 15.5"
-                                />
-                              </svg>
+                              Edit
                             </Link>
                           </div>
                         </td>
