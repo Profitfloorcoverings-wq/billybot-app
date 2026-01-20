@@ -2,7 +2,6 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
@@ -29,7 +28,6 @@ async function fetchCustomers(supabase: ReturnType<typeof createClient>, profile
 }
 
 export default function CustomersPage() {
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
@@ -96,9 +94,9 @@ export default function CustomersPage() {
         </Link>
       </div>
 
-      <div className="card stack">
-        <div className="stack md:row md:items-center md:justify-between">
-          <div className="stack">
+      <div className="card stack gap-4">
+        <div className="stack md:row md:items-end md:justify-between gap-3">
+          <div className="stack flex-1">
             <p className="section-subtitle">Search</p>
             <input
               className="input-fluid"
@@ -108,7 +106,9 @@ export default function CustomersPage() {
             />
           </div>
 
-          <div className="tag">{customers.length} total</div>
+          <p className="text-xs text-[var(--muted)] md:text-right">
+            {customers.length} total
+          </p>
         </div>
 
         <div className="table-card scrollable-table">
@@ -133,40 +133,65 @@ export default function CustomersPage() {
             )}
 
             {!loading && !error && filteredCustomers.length > 0 && (
-              <div>
-                {filteredCustomers.map((customer) => (
-                  <button
-                    key={customer.id}
-                    onClick={() => router.push(`/customers/${customer.id}`)}
-                    className="list-row text-left w-full"
-                  >
-                    <div className="stack gap-1">
-                      <p className="font-semibold text-[15px] text-white">
-                        {customer.customer_name || "Untitled"}
-                      </p>
-                      <p className="text-sm text-[var(--muted)] md:hidden">
-                        {customer.contact_name || "No contact"}
-                      </p>
-                    </div>
+              <table className="data-table">
+                <thead className="sticky top-0 z-10 bg-[var(--card)]">
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th className="sticky-cell text-right" aria-label="Edit actions" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCustomers.map((customer) => {
+                    const customerName = customer.customer_name?.trim() || "Untitled";
+                    const contactName = customer.contact_name?.trim() || "";
+                    const showContact =
+                      contactName &&
+                      contactName.toLowerCase() !== customerName.toLowerCase();
+                    const email = customer.email?.trim() || "";
+                    const phone = customer.mobile?.trim() || customer.phone?.trim() || "";
 
-                    <p className="text-sm text-[var(--muted)] hidden md:block">
-                      {customer.contact_name || "—"}
-                    </p>
-
-                    <p className="text-sm text-[var(--muted)] truncate">
-                      {customer.email || "—"}
-                    </p>
-
-                    <p className="text-sm text-[var(--muted)]">
-                      {customer.phone || customer.mobile || "—"}
-                    </p>
-
-                    <div className="flex items-center justify-end text-[var(--muted)]">
-                      →
-                    </div>
-                  </button>
-                ))}
-              </div>
+                    return (
+                      <tr key={customer.id}>
+                        <td>
+                          <div className="stack gap-1">
+                            <p className="text-[15px] font-semibold text-white">
+                              {customerName}
+                            </p>
+                            {showContact ? (
+                              <p className="text-sm text-[var(--muted)]">{contactName}</p>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td>
+                          <span
+                            className="text-sm text-[var(--muted)] truncate block max-w-[280px]"
+                            title={email || undefined}
+                          >
+                            {email || "—"}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="text-sm text-[var(--muted)] font-mono tabular-nums">
+                            {phone || "—"}
+                          </span>
+                        </td>
+                        <td className="sticky-cell">
+                          <div className="flex items-center justify-end">
+                            <Link
+                              href={`/customers/${customer.id}`}
+                              className="btn btn-secondary btn-small rounded-full px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent1)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(15,23,42,0.92)]"
+                            >
+                              Edit
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
