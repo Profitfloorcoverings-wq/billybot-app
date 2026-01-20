@@ -406,7 +406,7 @@ export default function SuppliersPricingPage() {
         return;
       }
 
-      setUploadMessage(“Price list accepted – processing started. Prices will appear once complete.”);
+      setUploadMessage("Price list accepted – processing started. Prices will appear once complete.");
     } catch (err) {
       console.error("Supplier price list upload error", err);
       setUploadError(
