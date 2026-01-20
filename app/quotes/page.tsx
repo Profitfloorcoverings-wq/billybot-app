@@ -24,7 +24,12 @@ export default function QuotesPage() {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [initialLastViewed, setInitialLastViewed] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    setInitialLastViewed(localStorage.getItem(QUOTES_LAST_VIEWED_KEY));
+  }, []);
 
   useEffect(() => {
     async function loadQuotes() {
@@ -89,6 +94,12 @@ export default function QuotesPage() {
     });
   }, [quotes, search]);
 
+  const unseenCutoff = useMemo(() => {
+    if (!initialLastViewed) return null;
+    const time = Date.parse(initialLastViewed);
+    return Number.isNaN(time) ? null : time;
+  }, [initialLastViewed]);
+
   const hasQuotes = quotes.length > 0;
   const hasFilteredQuotes = filteredQuotes.length > 0;
 
@@ -101,7 +112,7 @@ export default function QuotesPage() {
             Review, track, and open every quote in one place.
           </p>
         </div>
-        <span className="btn btn-secondary btn-small">Live feed</span>
+        <div className="tag">Live feed</div>
       </div>
 
       <div className="stack gap-4">
@@ -128,56 +139,81 @@ export default function QuotesPage() {
                   placeholder="Search by quote ID, customer, job, or date"
                 />
               </div>
+              <p className="text-xs text-[var(--muted)] md:text-right">
+                {hasFilteredQuotes ? `${filteredQuotes.length} showing` : "0 showing"}
+              </p>
             </div>
 
-            <p className="text-xs text-[var(--muted)]">
-              {hasFilteredQuotes ? `${filteredQuotes.length} showing` : "0 showing"}
-            </p>
-
             {hasFilteredQuotes ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {filteredQuotes.map((quote) => {
-                  const customerName =
-                    quote.customer_name?.trim() || "Unknown customer";
-                  const jobRef = quote.job_ref?.trim() || "No job description";
-                  const createdDate = formatDate(quote.created_at) || "Date unavailable";
-                  const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
+              <div className="table-card">
+                <div className="overflow-x-auto">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Quote</th>
+                        <th>Customer</th>
+                        <th>Job</th>
+                        <th>Created</th>
+                        <th className="sticky-cell text-right" aria-label="Quote actions" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredQuotes.map((quote) => {
+                        const isNew = unseenCutoff
+                          ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
+                          : true;
+                        const customerName =
+                          quote.customer_name?.trim() || "Unknown customer";
+                        const jobRef = quote.job_ref?.trim() || "No job description";
+                        const createdDate = formatDate(quote.created_at) || "Date unavailable";
+                        const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
 
-                  return (
-                    <div
-                      key={quote.id}
-                      className="card flex min-h-[160px] flex-col gap-3 p-4 transition hover:-translate-y-0.5 hover:border-[rgba(59,130,246,0.45)]"
-                    >
-                      <div className="flex items-center justify-between gap-2 text-xs text-[var(--muted)]">
-                        <span className="tag font-mono text-[10px]">{quoteLabel}</span>
-                        <span>{createdDate}</span>
-                      </div>
-
-                      <div className="stack gap-1">
-                        <p className="truncate text-[15px] font-semibold text-white">
-                          {customerName}
-                        </p>
-                        <p
-                          className="text-sm text-[var(--muted)] line-clamp-2"
-                          title={jobRef}
-                        >
-                          {jobRef}
-                        </p>
-                      </div>
-
-                      <div className="mt-auto">
-                        <Link
-                          href={quote.pdf_url ?? "#"}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="btn btn-primary btn-small w-full justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent1)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(15,23,42,0.92)]"
-                        >
-                          Open quote
-                        </Link>
-                      </div>
-                    </div>
-                  );
-                })}
+                        return (
+                          <tr key={quote.id}>
+                            <td>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+                                <span className="tag font-mono text-[10px]">
+                                  {quoteLabel}
+                                </span>
+                                {isNew ? <span className="tag">New</span> : null}
+                              </div>
+                            </td>
+                            <td>
+                              <p className="text-[15px] font-semibold text-white">
+                                {customerName}
+                              </p>
+                            </td>
+                            <td>
+                              <span
+                                className="text-sm text-[var(--muted)] truncate block max-w-[260px]"
+                                title={jobRef}
+                              >
+                                {jobRef}
+                              </span>
+                            </td>
+                            <td>
+                              <span className="text-xs text-[var(--muted)]">
+                                {createdDate}
+                              </span>
+                            </td>
+                            <td className="sticky-cell">
+                              <div className="flex items-center justify-end">
+                                <Link
+                                  href={quote.pdf_url ?? "#"}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="btn btn-primary btn-small rounded-full px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent1)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(15,23,42,0.92)]"
+                                >
+                                  Open quote
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : (
               <div className="empty-state">No quotes match your search.</div>
