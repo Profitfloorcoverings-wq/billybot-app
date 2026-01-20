@@ -145,10 +145,13 @@ export default function QuotesPage() {
             </div>
 
             {hasFilteredQuotes ? (
-              <div className="table-card">
+              <div
+                className="table-card max-h-[calc(100vh-360px)] overflow-y-auto"
+                style={{ scrollbarGutter: "stable" }}
+              >
                 <div className="overflow-x-auto">
                   <table className="data-table">
-                    <thead>
+                    <thead className="sticky top-0 z-10 bg-[var(--card)]">
                       <tr>
                         <th>Quote</th>
                         <th>Customer</th>
