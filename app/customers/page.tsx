@@ -2,7 +2,6 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
@@ -29,7 +28,6 @@ async function fetchCustomers(supabase: ReturnType<typeof createClient>, profile
 }
 
 export default function CustomersPage() {
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
@@ -96,9 +94,9 @@ export default function CustomersPage() {
         </Link>
       </div>
 
-      <div className="card stack">
-        <div className="stack md:row md:items-center md:justify-between">
-          <div className="stack">
+      <div className="card stack gap-4">
+        <div className="stack md:row md:items-end md:justify-between gap-3">
+          <div className="stack flex-1">
             <p className="section-subtitle">Search</p>
             <input
               className="input-fluid"
@@ -108,7 +106,9 @@ export default function CustomersPage() {
             />
           </div>
 
-          <div className="tag">{customers.length} total</div>
+          <p className="text-xs text-[var(--muted)] md:text-right">
+            {customers.length} total
+          </p>
         </div>
 
         <div className="table-card scrollable-table">
@@ -133,40 +133,87 @@ export default function CustomersPage() {
             )}
 
             {!loading && !error && filteredCustomers.length > 0 && (
-              <div>
-                {filteredCustomers.map((customer) => (
-                  <button
-                    key={customer.id}
-                    onClick={() => router.push(`/customers/${customer.id}`)}
-                    className="list-row text-left w-full"
-                  >
-                    <div className="stack gap-1">
-                      <p className="font-semibold text-[15px] text-white">
-                        {customer.customer_name || "Untitled"}
-                      </p>
-                      <p className="text-sm text-[var(--muted)] md:hidden">
-                        {customer.contact_name || "No contact"}
-                      </p>
-                    </div>
+              <table className="data-table">
+                <thead className="sticky top-0 z-10 bg-[var(--card)]">
+                  <tr>
+                    <th>Name</th>
+                    <th className="hidden md:table-cell">Email</th>
+                    <th className="hidden md:table-cell">Phone</th>
+                    <th className="sticky-cell text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCustomers.map((customer) => {
+                    const customerName = customer.customer_name?.trim() || "Untitled";
+                    const contactName = customer.contact_name?.trim() || "";
+                    const showContact =
+                      contactName &&
+                      contactName.toLowerCase() !== customerName.toLowerCase();
+                    const email = customer.email?.trim() || "";
+                    const phone = customer.phone?.trim() || customer.mobile?.trim() || "";
 
-                    <p className="text-sm text-[var(--muted)] hidden md:block">
-                      {customer.contact_name || "—"}
-                    </p>
-
-                    <p className="text-sm text-[var(--muted)] truncate">
-                      {customer.email || "—"}
-                    </p>
-
-                    <p className="text-sm text-[var(--muted)]">
-                      {customer.phone || customer.mobile || "—"}
-                    </p>
-
-                    <div className="flex items-center justify-end text-[var(--muted)]">
-                      →
-                    </div>
-                  </button>
-                ))}
-              </div>
+                    return (
+                      <tr key={customer.id} className="group">
+                        <td>
+                          <div className="stack gap-1">
+                            <p className="text-[15px] font-semibold text-white">
+                              {customerName}
+                            </p>
+                            {showContact ? (
+                              <p className="text-sm text-[var(--muted)]">{contactName}</p>
+                            ) : null}
+                            <div className="mt-2 flex flex-col gap-1 text-sm text-[var(--muted)] md:hidden">
+                              <span className="truncate" title={email || undefined}>
+                                {email || "—"}
+                              </span>
+                              <span className="font-mono tabular-nums">
+                                {phone || "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="hidden md:table-cell">
+                          <span
+                            className="text-sm text-[var(--muted)] truncate block max-w-[280px]"
+                            title={email || undefined}
+                          >
+                            {email || "—"}
+                          </span>
+                        </td>
+                        <td className="hidden md:table-cell">
+                          <span className="text-sm text-[var(--muted)] font-mono tabular-nums">
+                            {phone || "—"}
+                          </span>
+                        </td>
+                        <td className="sticky-cell">
+                          <div className="flex items-center justify-end">
+                            <Link
+                              href={`/customers/${customer.id}`}
+                              aria-label={`View ${customerName}`}
+                              className="btn btn-secondary btn-small h-9 w-9 p-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent1)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(15,23,42,0.92)]"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                className="h-4 w-4"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M7.5 4.5L12.5 10L7.5 15.5"
+                                />
+                              </svg>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
