@@ -17,6 +17,7 @@ export default function EditCustomerPage() {
   const [phone, setPhone] = useState("");
   const [mobile, setMobile] = useState("");
   const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,6 +112,46 @@ export default function EditCustomerPage() {
     }
   }
 
+  async function handleDeleteCustomer() {
+    const confirmed = window.confirm(
+      "Delete this customer? This will remove all stored details for this customer."
+    );
+
+    if (!confirmed) return;
+
+    setError(null);
+    setDeleting(true);
+
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      const profileId = userData?.user?.id;
+
+      if (userError || !profileId) {
+        throw new Error(userError?.message || "No user found");
+      }
+
+      const { error: deleteError } = await supabase
+        .from("customers")
+        .delete()
+        .eq("id", id)
+        .eq("profile_id", profileId);
+
+      if (deleteError) {
+        throw deleteError;
+      }
+
+      router.push("/customers");
+    } catch (err) {
+      setError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to delete customer"
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div className="page-container">
       <div className="section-header">
@@ -139,7 +180,7 @@ export default function EditCustomerPage() {
                   onChange={(e) => setCustomerName(e.target.value)}
                   placeholder="Acme Corp"
                   required
-                  disabled={loading}
+                  disabled={loading || deleting}
                 />
               </div>
 
@@ -153,7 +194,7 @@ export default function EditCustomerPage() {
                   value={contactName}
                   onChange={(e) => setContactName(e.target.value)}
                   placeholder="Jane Doe"
-                  disabled={loading}
+                  disabled={loading || deleting}
                 />
               </div>
 
@@ -167,7 +208,7 @@ export default function EditCustomerPage() {
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="123 Main Street, Springfield"
-                  disabled={loading}
+                  disabled={loading || deleting}
                 />
               </div>
 
@@ -182,7 +223,7 @@ export default function EditCustomerPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="contact@acme.com"
-                  disabled={loading}
+                  disabled={loading || deleting}
                 />
               </div>
 
@@ -196,7 +237,7 @@ export default function EditCustomerPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="(555) 123-4567"
-                  disabled={loading}
+                  disabled={loading || deleting}
                 />
               </div>
 
@@ -210,7 +251,7 @@ export default function EditCustomerPage() {
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
                   placeholder="(555) 987-6543"
-                  disabled={loading}
+                  disabled={loading || deleting}
                 />
               </div>
             </div>
@@ -221,11 +262,26 @@ export default function EditCustomerPage() {
               </div>
             ) : null}
 
-            <div className="flex items-center gap-3">
-              <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? "Updating…" : "Update customer"}
-              </button>
-              {loading ? <span className="text-sm text-[var(--muted)]">Saving changes…</span> : null}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <button type="submit" className="btn btn-primary" disabled={loading || deleting}>
+                  {loading ? "Updating…" : "Update customer"}
+                </button>
+                {loading ? <span className="text-sm text-[var(--muted)]">Saving changes…</span> : null}
+              </div>
+              <div className="flex flex-col items-end gap-2 text-right">
+                <p className="text-xs text-[var(--muted)]">
+                  Deleting removes this customer and all stored details.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-secondary text-red-200 border border-red-500/40 hover:bg-red-500/10"
+                  onClick={handleDeleteCustomer}
+                  disabled={loading || deleting}
+                >
+                  {deleting ? "Deleting…" : "Delete customer"}
+                </button>
+              </div>
             </div>
           </>
         )}
