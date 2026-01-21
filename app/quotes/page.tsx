@@ -206,7 +206,7 @@ export default function QuotesPage() {
                                     rel="noreferrer"
                                     className="btn btn-primary btn-small rounded-full px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent1)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(15,23,42,0.92)]"
                                   >
-                                    Open quote
+                                    Open
                                   </Link>
                                 </div>
                               </td>
