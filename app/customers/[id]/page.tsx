@@ -113,12 +113,6 @@ export default function EditCustomerPage() {
   }
 
   async function handleDeleteCustomer() {
-    const confirmed = window.confirm(
-      "Delete this customer? This will remove all stored details for this customer."
-    );
-
-    if (!confirmed) return;
-
     setError(null);
     setDeleting(true);
 
@@ -130,14 +124,17 @@ export default function EditCustomerPage() {
         throw new Error(userError?.message || "No user found");
       }
 
-      const { error: deleteError } = await supabase
+      const { error: deleteError, count } = await supabase
         .from("customers")
-        .delete()
-        .eq("id", id)
-        .eq("profile_id", profileId);
+        .delete({ count: "exact" })
+        .eq("id", id);
 
       if (deleteError) {
         throw deleteError;
+      }
+
+      if (!count) {
+        throw new Error("Unable to delete customer");
       }
 
       router.push("/customers");
@@ -262,26 +259,21 @@ export default function EditCustomerPage() {
               </div>
             ) : null}
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-3">
                 <button type="submit" className="btn btn-primary" disabled={loading || deleting}>
                   {loading ? "Updating…" : "Update customer"}
                 </button>
                 {loading ? <span className="text-sm text-[var(--muted)]">Saving changes…</span> : null}
               </div>
-              <div className="flex flex-col items-end gap-2 text-right">
-                <p className="text-xs text-[var(--muted)]">
-                  Deleting removes this customer and all stored details.
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-secondary text-red-200 border border-red-500/40 hover:bg-red-500/10"
-                  onClick={handleDeleteCustomer}
-                  disabled={loading || deleting}
-                >
-                  {deleting ? "Deleting…" : "Delete customer"}
-                </button>
-              </div>
+              <button
+                type="button"
+                className="btn btn-secondary text-red-200 border border-red-500/40 hover:bg-red-500/10"
+                onClick={handleDeleteCustomer}
+                disabled={loading || deleting}
+              >
+                {deleting ? "Deleting…" : "Delete customer"}
+              </button>
             </div>
           </>
         )}
