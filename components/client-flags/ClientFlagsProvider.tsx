@@ -36,9 +36,10 @@ export function ClientFlagsProvider({ children }: { children: React.ReactNode })
     setFlags((prev) => ({ ...prev, loading: true }));
 
     try {
-      const { data, error: userError } = await supabase.auth.getUser();
+      const { data, error: sessionError } = await supabase.auth.getSession();
+      const userId = data.session?.user?.id;
 
-      if (userError || !data?.user) {
+      if (sessionError || !userId) {
         setFlags({ hasEdited: false, hasUploaded: false, loading: false });
         return;
       }
@@ -46,7 +47,7 @@ export function ClientFlagsProvider({ children }: { children: React.ReactNode })
       const { data: clientRow, error: clientError } = await supabase
         .from("clients")
         .select("has_edited_pricing_settings, has_uploaded_price_list")
-        .eq("id", data.user.id)
+        .eq("id", userId)
         .maybeSingle();
 
       if (clientError) {
