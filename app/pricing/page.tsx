@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/client";
+import { useClientFlags } from "@/components/client-flags/ClientFlagsProvider";
 
 type BooleanMap = Record<string, boolean>;
 type NumericMap = Record<string, string>;
@@ -688,6 +689,7 @@ function NumberField({
 export default function PricingPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const { flags, refreshFlags } = useClientFlags();
 
   const [serviceToggles, setServiceToggles] = useState<BooleanMap>(() =>
     createBooleanState(serviceOptions.map((option) => option.column))
@@ -811,6 +813,19 @@ export default function PricingPage() {
           console.debug("Pricing profile rebuilt", profile_json);
         }
 
+        if (!flags.hasEdited) {
+          const { error: clientError } = await supabase
+            .from("clients")
+            .update({ has_edited_pricing_settings: true })
+            .eq("id", currentProfileId);
+
+          if (clientError) {
+            console.error("Failed to update pricing flags:", clientError);
+          } else {
+            await refreshFlags();
+          }
+        }
+
         lastSavedPayloadRef.current = comparisonPayload;
         return true;
       } catch (err) {
@@ -822,7 +837,7 @@ export default function PricingPage() {
         return false;
       }
     },
-    [supabase]
+    [flags.hasEdited, refreshFlags, supabase]
   );
 
   const scheduleSave = useCallback(
