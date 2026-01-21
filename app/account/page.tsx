@@ -421,12 +421,6 @@ export default function AccountPage() {
           <p className="section-subtitle">Manage your billing and plan details.</p>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="inline-flex items-center rounded-full px-3 py-1 text-xs bg-white/10 text-white/80">
-            Premium access
-          </div>
-        </div>
-
         <button onClick={handleManageBilling} disabled={loadingPortal} className="btn btn-primary w-full">
           {loadingPortal ? "Loading…" : "Manage subscription"}
         </button>
