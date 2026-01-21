@@ -369,6 +369,16 @@ export default function ChatPage() {
   if (!session || !session.user) return <LoginPage />;
 
   const effectiveBanner = computedBanner ?? bannerState;
+  let bannerTitle = "Starter prices enabled";
+  let bannerMessage = "update pricing settings or upload supplier price lists";
+
+  if (flags.hasEdited && !flags.hasUploaded) {
+    bannerTitle = "Pricing saved";
+    bannerMessage = "upload a supplier price list to unlock full quoting";
+  } else if (!flags.hasEdited && flags.hasUploaded) {
+    bannerTitle = "Supplier prices added";
+    bannerMessage = "review pricing settings to finish setup";
+  }
 
   return (
     <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
@@ -378,11 +388,9 @@ export default function ChatPage() {
             <div className="starter-banner-left">
               <span className="starter-banner-dot" aria-hidden="true" />
               <span className="starter-banner-text">
-                <strong>Starter prices enabled</strong>
+                <strong>{bannerTitle}</strong>
                 <span className="starter-banner-sep">—</span>
-                <span className="starter-banner-msg">
-                  Update pricing settings or upload supplier lists
-                </span>
+                <span className="starter-banner-msg">{bannerMessage}</span>
               </span>
             </div>
 
