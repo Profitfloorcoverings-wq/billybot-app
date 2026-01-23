@@ -257,63 +257,61 @@ export default function AcceptTermsPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg1)] text-[var(--text)] px-4 py-12 flex items-center justify-center">
-      <div className="w-full max-w-2xl">
-        <div className="card stack gap-6">
-          <div className="stack gap-1">
-            <h1 className="section-title">Accept our terms</h1>
-            <p className="section-subtitle">
-              Please review and accept our Terms of Service and Privacy Policy to continue.
-            </p>
-          </div>
-
-          {error ? (
-            <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
-              {error}
-            </div>
-          ) : null}
-
-          <form onSubmit={handleSubmit} className="stack gap-4">
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                className="mt-1 h-5 w-5"
-                checked={accepted}
-                onChange={(event) => setAccepted(event.target.checked)}
-                disabled={saving}
-              />
-              <span className="text-sm text-[var(--text-secondary)]">
-                I have read and agree to the{" "}
-                <Link
-                  href="/legal/terms"
-                  className="text-[var(--primary)] underline"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setActiveDoc("terms");
-                  }}
-                  aria-haspopup="dialog"
-                >
-                  Terms of Service
-                </Link>{" "}and{" "}
-                <Link
-                  href="/legal/privacy"
-                  className="text-[var(--primary)] underline"
-                  onClick={(event) => {
-                    event.preventDefault();
-                    setActiveDoc("privacy");
-                  }}
-                  aria-haspopup="dialog"
-                >
-                  Privacy Policy
-                </Link>
-                .
-              </span>
-            </label>
-
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? "Saving..." : "Accept and continue"}
-            </button>
-          </form>
+      <div className="card stack gap-6 w-full max-w-md mx-auto">
+        <div className="stack gap-1">
+          <h1 className="section-title">Accept our terms</h1>
+          <p className="section-subtitle">
+            Please review and accept our Terms of Service and Privacy Policy to continue.
+          </p>
         </div>
+
+        {error ? (
+          <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
+            {error}
+          </div>
+        ) : null}
+
+        <form onSubmit={handleSubmit} className="stack gap-4">
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1 h-5 w-5"
+              checked={accepted}
+              onChange={(event) => setAccepted(event.target.checked)}
+              disabled={saving}
+            />
+            <span className="text-sm text-[var(--text-secondary)]">
+              I have read and agree to the{" "}
+              <Link
+                href="/legal/terms"
+                className="text-[var(--primary)] underline"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setActiveDoc("terms");
+                }}
+                aria-haspopup="dialog"
+              >
+                Terms of Service
+              </Link>{" "}and{" "}
+              <Link
+                href="/legal/privacy"
+                className="text-[var(--primary)] underline"
+                onClick={(event) => {
+                  event.preventDefault();
+                  setActiveDoc("privacy");
+                }}
+                aria-haspopup="dialog"
+              >
+                Privacy Policy
+              </Link>
+              .
+            </span>
+          </label>
+
+          <button type="submit" className="btn btn-primary" disabled={saving}>
+            {saving ? "Saving..." : "Accept and continue"}
+          </button>
+        </form>
       </div>
 
       {activeDoc ? (
