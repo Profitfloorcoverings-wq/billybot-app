@@ -257,7 +257,7 @@ export default function AcceptTermsPage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg1)] text-[var(--text)] px-4 py-12 flex items-center justify-center">
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-md mx-auto">
         <div className="card stack gap-6">
           <div className="stack gap-1">
             <h1 className="section-title">Accept our terms</h1>
