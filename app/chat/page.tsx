@@ -12,9 +12,12 @@ import ReactMarkdown from "react-markdown";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
 
+import QrCode from "@/components/QrCode";
 import { createClient as createSupabaseClient } from "@/utils/supabase/client";
 import { getSession } from "@/utils/supabase/session";
 import { useClientFlags } from "@/components/client-flags/ClientFlagsProvider";
+import { isDesktop } from "@/utils/device";
+import { isIosAppCtaDismissed, setIosAppCtaDismissed } from "@/utils/ios-app-cta";
 import LoginPage from "../auth/login/page";
 
 type Message = {
@@ -54,6 +57,8 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [bannerState, setBannerState] = useState<BannerState | null>(null);
+  const [isDesktopView, setIsDesktopView] = useState(false);
+  const [iosCtaDismissed, setIosCtaDismissed] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
@@ -146,6 +151,30 @@ export default function ChatPage() {
     if (!computedBanner) return;
     setBannerState(computedBanner);
   }, [computedBanner]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const updateDesktop = () => setIsDesktopView(isDesktop());
+
+    updateDesktop();
+    setIosCtaDismissed(isIosAppCtaDismissed());
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", updateDesktop);
+    } else {
+      mediaQuery.addListener(updateDesktop);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", updateDesktop);
+      } else {
+        mediaQuery.removeListener(updateDesktop);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (initialLoadRef.current) {
@@ -369,6 +398,8 @@ export default function ChatPage() {
   if (!session || !session.user) return <LoginPage />;
 
   const effectiveBanner = computedBanner ?? bannerState;
+  const showIosCta = isDesktopView && !iosCtaDismissed;
+  const smartLinkUrl = "https://app.billybot.ai/get-the-app";
   let bannerTitle = "Starter prices enabled";
   let bannerMessage = "update pricing settings or upload supplier price lists";
 
@@ -436,6 +467,46 @@ export default function ChatPage() {
 
           <div ref={messagesEndRef} />
         </div>
+
+        {showIosCta ? (
+          <div className="relative mt-4 rounded-2xl border border-[var(--line)] bg-[rgba(9,13,22,0.92)] p-4 shadow-[0_14px_34px_rgba(0,0,0,0.38)]">
+            <button
+              type="button"
+              onClick={() => {
+                setIosAppCtaDismissed(true);
+                setIosCtaDismissed(true);
+              }}
+              className="absolute right-3 top-3 text-lg text-[var(--muted)] transition hover:text-white"
+              aria-label="Dismiss iPhone app prompt"
+            >
+              ×
+            </button>
+
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-2">
+                <h2 className="text-sm font-semibold text-white">Get BillyBot on your iPhone</h2>
+                <p className="text-sm text-[var(--muted)]">
+                  Take photos of jobs, plans and notes on-site and send them straight into
+                  BillyBot. Quote and reply on the go.
+                </p>
+                <a
+                  href={smartLinkUrl}
+                  className="inline-flex items-center justify-center rounded-full border border-transparent bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-black transition hover:bg-gray-100"
+                >
+                  Open in App Store
+                </a>
+              </div>
+
+              <a
+                href={smartLinkUrl}
+                className="flex items-center justify-center"
+                aria-label="Open BillyBot on the App Store"
+              >
+                <QrCode value={smartLinkUrl} size={140} />
+              </a>
+            </div>
+          </div>
+        ) : null}
 
         <div className="chat-composer">
           <div className={`chat-attachment-row ${attachedFiles.length ? "is-visible" : ""}`}>
