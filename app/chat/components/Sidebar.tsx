@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import BillyBotLogo from "./BillyBotLogo";
 import { createClient } from "@/utils/supabase/client";
@@ -24,6 +24,14 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [hasNewQuote, setHasNewQuote] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const normalizedAppBase = useMemo(
+    () => appBaseUrl?.replace(/\/$/, ""),
+    [appBaseUrl],
+  );
+  const [qrUrl, setQrUrl] = useState<string | null>(
+    normalizedAppBase ? `${normalizedAppBase}/get-the-app` : null,
+  );
 
   const checkLatestQuote = useCallback(async () => {
     try {
@@ -92,7 +100,14 @@ export default function Sidebar() {
     };
   }, []);
 
+  useEffect(() => {
+    if (qrUrl || typeof window === "undefined") return;
+    setQrUrl(`${window.location.origin}/get-the-app`);
+  }, [qrUrl]);
+
   const showNav = !!isAuthenticated;
+  const showAppBlock = true;
+  const qrValue = qrUrl ?? "";
 
   return (
     <aside className="sidebar">
@@ -131,6 +146,20 @@ export default function Sidebar() {
             );
           })}
         </nav>
+      ) : null}
+
+      {showAppBlock ? (
+        <div className="sidebar-app-block">
+          <span className="sidebar-app-title">Get the iPhone app</span>
+          <div className="sidebar-app-qr">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(
+                qrValue,
+              )}&margin=0`}
+              alt="QR code to open the BillyBot iPhone app"
+            />
+          </div>
+        </div>
       ) : null}
 
       <div className="sidebar-footer">
