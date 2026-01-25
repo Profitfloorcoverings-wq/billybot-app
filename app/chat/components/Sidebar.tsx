@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { QRCodeCanvas } from "qrcode.react";
 
 import BillyBotLogo from "./BillyBotLogo";
 import { createClient } from "@/utils/supabase/client";
@@ -156,12 +155,13 @@ export default function Sidebar() {
           <span className="sidebar-app-copy">
             Scan to install BillyBot on your iPhone.
           </span>
-          <div
-            className="sidebar-app-qr"
-            role="img"
-            aria-label="QR code to open the BillyBot iPhone app"
-          >
-            <QRCodeCanvas value={qrValue} size={120} level="M" includeMargin={false} />
+          <div className="sidebar-app-qr">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
+                qrValue,
+              )}&margin=0`}
+              alt="QR code to open the BillyBot iPhone app"
+            />
           </div>
           <Link href="/get-the-app" className="sidebar-app-link">
             Open on this device
