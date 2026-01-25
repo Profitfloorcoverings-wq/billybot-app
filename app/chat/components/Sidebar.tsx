@@ -24,7 +24,6 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [hasNewQuote, setHasNewQuote] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const iosAppUrl = process.env.NEXT_PUBLIC_IOS_APP_URL;
   const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL;
   const normalizedAppBase = useMemo(
     () => appBaseUrl?.replace(/\/$/, ""),
@@ -107,7 +106,7 @@ export default function Sidebar() {
   }, [qrUrl]);
 
   const showNav = !!isAuthenticated;
-  const showAppBlock = Boolean(iosAppUrl && qrUrl);
+  const showAppBlock = true;
   const qrValue = qrUrl ?? "";
 
   return (
