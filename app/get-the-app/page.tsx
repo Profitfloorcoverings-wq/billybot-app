@@ -5,8 +5,9 @@ import { isIOS } from "@/utils/device";
 
 const SMART_LINK_URL = "https://app.billybot.ai/get-the-app";
 
-export default function GetTheAppPage() {
-  const userAgent = headers().get("user-agent") ?? "";
+export default async function GetTheAppPage() {
+  const h = await headers();
+  const userAgent = h.get("user-agent") ?? "";
   const iosAppUrl = process.env.NEXT_PUBLIC_IOS_APP_URL ?? "";
 
   if (isIOS(userAgent) && iosAppUrl) {
