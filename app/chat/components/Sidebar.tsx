@@ -151,10 +151,8 @@ export default function Sidebar() {
       {showAppBlock ? (
         <div className="sidebar-app-block">
           <span className="sidebar-app-title">Get the iPhone app</span>
-          <span className="sidebar-app-copy">
-            Scan to install BillyBot on your iPhone.
-          </span>
           <div className="sidebar-app-qr">
+            <span className="sidebar-app-coming">Coming soon</span>
             <img
               src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(
                 qrValue,
@@ -162,9 +160,6 @@ export default function Sidebar() {
               alt="QR code to open the BillyBot iPhone app"
             />
           </div>
-          <Link href="/get-the-app" className="sidebar-app-link">
-            Open on this device
-          </Link>
         </div>
       ) : null}
 
