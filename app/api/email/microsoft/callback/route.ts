@@ -186,13 +186,16 @@ export async function GET(request: NextRequest) {
     });
 
     return response;
-  } catch (err) {
+  } catch (err: unknown) {
+    const message =
+      err instanceof Error
+        ? err.message
+        : typeof err === "string"
+          ? err
+          : JSON.stringify(err);
     console.error("[microsoft oauth callback] error", err);
     return NextResponse.json(
-      {
-        error: "Microsoft OAuth callback failed",
-        message: err?.message ?? String(err),
-      },
+      { error: "Microsoft OAuth callback failed", message },
       { status: 500 }
     );
   }
