@@ -1,11 +1,15 @@
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
 import { encryptToken } from "@/lib/email/crypto";
+import {
+  ensureMicrosoftSubscription,
+  type MicrosoftAccount,
+} from "@/lib/email/microsoft";
 import { MICROSOFT_OAUTH_SCOPES } from "@/lib/email/microsoftScopes";
 import { parseScopeString } from "@/lib/email/scopes";
+import { createEmailServiceClient } from "@/lib/email/serviceClient";
 import { getUserFromCookies } from "@/utils/supabase/auth";
 
 type MicrosoftTokenResponse = {
@@ -122,16 +126,7 @@ export async function GET(request: NextRequest) {
     return redirectToError("missing_email");
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceKey) {
-    return redirectToError("missing_supabase_config");
-  }
-
-  const serviceClient = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const serviceClient = createEmailServiceClient();
 
   const { data: existingAccount } = await serviceClient
     .from("email_accounts")
@@ -152,23 +147,35 @@ export async function GET(request: NextRequest) {
 
   const scopes = parseScopeString(tokenData.scope, MICROSOFT_OAUTH_SCOPES);
 
-  const { error } = await serviceClient.from("email_accounts").upsert(
-    {
-      client_id: user.id,
-      provider: "microsoft",
-      email_address: emailAddress,
-      access_token_enc: accessTokenEnc,
-      refresh_token_enc: refreshTokenEnc,
-      expires_at: expiresAt,
-      scopes,
-      status: "connected",
-      last_error: null,
-    },
-    { onConflict: "client_id,provider,email_address" }
-  );
+  const { data: account, error } = await serviceClient
+    .from("email_accounts")
+    .upsert(
+      {
+        client_id: user.id,
+        provider: "microsoft",
+        email_address: emailAddress,
+        access_token_enc: accessTokenEnc,
+        refresh_token_enc: refreshTokenEnc,
+        expires_at: expiresAt,
+        scopes,
+        status: "connected",
+        last_error: null,
+      },
+      { onConflict: "client_id,provider,email_address" }
+    )
+    .select(
+      "id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, ms_subscription_id, ms_subscription_expires_at"
+    )
+    .maybeSingle<MicrosoftAccount>();
 
-  if (error) {
+  if (error || !account) {
     return redirectToError("db_write_failed");
+  }
+
+  try {
+    await ensureMicrosoftSubscription(account);
+  } catch (subscriptionError) {
+    console.error("Failed to ensure Microsoft subscription", subscriptionError);
   }
 
   const response = NextResponse.redirect(
