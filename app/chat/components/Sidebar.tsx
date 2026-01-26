@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import BillyBotLogo from "./BillyBotLogo";
 import { createClient } from "@/utils/supabase/client";
@@ -24,14 +24,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [hasNewQuote, setHasNewQuote] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL;
-  const normalizedAppBase = useMemo(
-    () => appBaseUrl?.replace(/\/$/, ""),
-    [appBaseUrl],
-  );
-  const [qrUrl, setQrUrl] = useState<string | null>(
-    normalizedAppBase ? `${normalizedAppBase}/get-the-app` : null,
-  );
+  const qrValue = "https://apps.apple.com/gb/app/billybot/id6758058400";
 
   const checkLatestQuote = useCallback(async () => {
     try {
@@ -100,14 +93,8 @@ export default function Sidebar() {
     };
   }, []);
 
-  useEffect(() => {
-    if (qrUrl || typeof window === "undefined") return;
-    setQrUrl(`${window.location.origin}/get-the-app`);
-  }, [qrUrl]);
-
   const showNav = !!isAuthenticated;
   const showAppBlock = true;
-  const qrValue = qrUrl ?? "";
 
   return (
     <aside className="sidebar">
