@@ -10,6 +10,12 @@ export async function GET() {
   const tenant = process.env.MICROSOFT_TENANT_ID;
 
   if (!appUrl || !clientId || !tenant) {
+    console.log("[microsoft oauth env]", {
+      hasClientId: !!process.env.MICROSOFT_CLIENT_ID,
+      hasClientSecret: !!process.env.MICROSOFT_CLIENT_SECRET,
+      hasTenant: !!process.env.MICROSOFT_TENANT,
+      hasAppUrl: !!process.env.NEXT_PUBLIC_APP_URL,
+    });
     return NextResponse.json(
       { error: "Missing Microsoft OAuth configuration" },
       { status: 500 }
