@@ -22,26 +22,31 @@ export async function GET() {
     );
   }
 
-  const state = randomBytes(24).toString("base64url");
-  const redirectUri = new URL("/api/email/microsoft/callback", appUrl).toString();
+  try {
+    const state = randomBytes(24).toString("base64url");
+    const redirectUri = new URL("/api/email/microsoft/callback", appUrl).toString();
 
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: "code",
-    scope: MICROSOFT_OAUTH_SCOPES.join(" "),
-    state,
-  });
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      scope: MICROSOFT_OAUTH_SCOPES.join(" "),
+      state,
+    });
 
-  const authUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize?${params.toString()}`;
+    const authUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize?${params.toString()}`;
 
-  const response = NextResponse.redirect(authUrl);
-  response.cookies.set("bb_microsoft_oauth_state", state, {
-    httpOnly: true,
-    secure: true,
-    maxAge: 60 * 10,
-    path: "/",
-  });
+    const response = NextResponse.redirect(authUrl);
+    response.cookies.set("bb_microsoft_oauth_state", state, {
+      httpOnly: true,
+      secure: true,
+      maxAge: 60 * 10,
+      path: "/",
+    });
 
-  return response;
+    return response;
+  } catch (err) {
+    console.error("[microsoft oauth start error]", err);
+    throw err;
+  }
 }
