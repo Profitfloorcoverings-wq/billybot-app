@@ -34,7 +34,7 @@ export async function GET() {
       response_type: "code",
       scope: MICROSOFT_OAUTH_SCOPES.join(" "),
       state,
-    });
+    } satisfies Record<string, string>);
 
     const authUrl = `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/authorize?${params.toString()}`;
 
@@ -47,8 +47,13 @@ export async function GET() {
     });
 
     return response;
-  } catch (err) {
-    console.error("[microsoft oauth start error]", err);
+  } catch (err: unknown) {
+    const errorMessage =
+      err instanceof Error ? err.message : JSON.stringify(err);
+    console.error(
+      "[microsoft oauth start error]",
+      errorMessage ?? "Unknown error"
+    );
     throw err;
   }
 }
