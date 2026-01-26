@@ -12,15 +12,9 @@ export async function GET() {
   const clientId = process.env.MICROSOFT_CLIENT_ID;
   const tenant = process.env.MICROSOFT_TENANT_ID;
 
-  const missing = {
-    NEXT_PUBLIC_APP_URL: !appUrl,
-    MICROSOFT_CLIENT_ID: !clientId,
-    MICROSOFT_TENANT_ID: !tenant,
-  };
-
-  if (Object.values(missing).some(Boolean)) {
+  if (!appUrl || !clientId || !tenant) {
     return NextResponse.json(
-      { error: "Missing Microsoft OAuth configuration", missing },
+      { error: "Missing Microsoft OAuth configuration" },
       { status: 500 }
     );
   }
