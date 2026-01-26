@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     client_secret: clientSecret,
     redirect_uri: redirectUri,
     grant_type: "authorization_code",
-  });
+  } satisfies Record<string, string>);
 
   const tokenResponse = await fetch(tokenUrl, {
     method: "POST",
