@@ -1,8 +1,11 @@
+export const runtime = "nodejs";
+
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
 import { encryptToken } from "@/lib/email/crypto";
+import { startGmailWatch, type GmailAccount } from "@/lib/email/gmail";
 import { GOOGLE_GMAIL_SCOPES, parseScopeString } from "@/lib/email/scopes";
+import { createEmailServiceClient } from "@/lib/email/serviceClient";
 import { getUserFromCookies } from "@/utils/supabase/auth";
 
 type GoogleTokenResponse = {
@@ -120,16 +123,7 @@ export async function GET(request: NextRequest) {
     return redirectToError("missing_email");
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceKey) {
-    return redirectToError("missing_supabase_config");
-  }
-
-  const serviceClient = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const serviceClient = createEmailServiceClient();
 
   const { data: existingAccount } = await serviceClient
     .from("email_accounts")
@@ -150,23 +144,35 @@ export async function GET(request: NextRequest) {
 
   const scopes = parseScopeString(tokenData.scope, GOOGLE_GMAIL_SCOPES);
 
-  const { error } = await serviceClient.from("email_accounts").upsert(
-    {
-      client_id: user.id,
-      provider: "google",
-      email_address: emailAddress,
-      access_token_enc: accessTokenEnc,
-      refresh_token_enc: refreshTokenEnc,
-      expires_at: expiresAt,
-      scopes,
-      status: "connected",
-      last_error: null,
-    },
-    { onConflict: "client_id,provider,email_address" }
-  );
+  const { data: account, error } = await serviceClient
+    .from("email_accounts")
+    .upsert(
+      {
+        client_id: user.id,
+        provider: "google",
+        email_address: emailAddress,
+        access_token_enc: accessTokenEnc,
+        refresh_token_enc: refreshTokenEnc,
+        expires_at: expiresAt,
+        scopes,
+        status: "connected",
+        last_error: null,
+      },
+      { onConflict: "client_id,provider,email_address" }
+    )
+    .select(
+      "id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, gmail_history_id"
+    )
+    .maybeSingle<GmailAccount>();
 
-  if (error) {
+  if (error || !account) {
     return redirectToError("db_write_failed");
+  }
+
+  try {
+    await startGmailWatch(account);
+  } catch (watchError) {
+    console.error("Failed to start Gmail watch", watchError);
   }
 
   const response = NextResponse.redirect(
