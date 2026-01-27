@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
     const { data: account, error } = await serviceClient
       .from("email_accounts")
       .select(
-        "id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, ms_subscription_id, ms_subscription_expires_at"
+        "id, client_id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, ms_subscription_id, ms_subscription_expires_at"
       )
       .eq("provider", "microsoft")
       .eq("ms_subscription_id", subscriptionId)
@@ -97,7 +97,11 @@ export async function POST(request: NextRequest) {
     try {
       const message = await fetchMicrosoftMessagePayload(account, messageId);
       const { eventId, shouldProcess } = await initEmailEvent(
-        account.id,
+        {
+          id: account.id,
+          client_id: account.client_id,
+          provider: "microsoft",
+        },
         messageId,
         message.receivedAt
       );
