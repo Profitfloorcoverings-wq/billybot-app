@@ -227,6 +227,11 @@ export default function AccountPage() {
     window.location.href = url;
   }
 
+  function handleEmailAdd(provider: "google" | "microsoft") {
+    setEmailModalOpen(false);
+    handleEmailConnect(provider);
+  }
+
   async function handleEmailDisconnect(provider: "google" | "microsoft", accountId?: string) {
     setEmailActionTarget(accountId ?? provider);
     try {
@@ -526,7 +531,7 @@ export default function AccountPage() {
               accounts.
             </p>
           </div>
-          <button className="btn btn-secondary" onClick={() => setEmailModalOpen(true)}>
+          <button className="btn btn-primary" onClick={() => setEmailModalOpen(true)}>
             Add email account
           </button>
         </div>
@@ -631,16 +636,25 @@ export default function AccountPage() {
                     Choose a provider and manage your connected inboxes.
                   </p>
                 </div>
-                <button className="btn btn-secondary" onClick={() => setEmailModalOpen(false)}>
-                  Close
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="btn btn-secondary"
+                    aria-label="Close"
+                    onClick={() => setEmailModalOpen(false)}
+                  >
+                    ×
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => setEmailModalOpen(false)}>
+                    Close
+                  </button>
+                </div>
               </div>
 
               <div className="stack gap-2">
-                <button className="btn btn-primary" onClick={() => handleEmailConnect("google")}>
+                <button className="btn btn-primary" onClick={() => handleEmailAdd("google")}>
                   Add Gmail
                 </button>
-                <button className="btn btn-primary" onClick={() => handleEmailConnect("microsoft")}>
+                <button className="btn btn-primary" onClick={() => handleEmailAdd("microsoft")}>
                   Add Outlook
                 </button>
               </div>
