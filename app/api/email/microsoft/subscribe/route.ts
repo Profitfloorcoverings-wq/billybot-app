@@ -1,6 +1,6 @@
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import {
   ensureMicrosoftSubscription,
@@ -9,7 +9,22 @@ import {
 import { createEmailServiceClient } from "@/lib/email/serviceClient";
 import { getUserFromCookies } from "@/utils/supabase/auth";
 
-export async function POST() {
+function isAuthorized(request: NextRequest) {
+  const expected = process.env.INTERNAL_JOBS_TOKEN;
+
+  if (!expected) {
+    return false;
+  }
+
+  const token = request.headers.get("x-internal-token");
+  return token === expected;
+}
+
+export async function POST(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const user = await getUserFromCookies();
   if (!user?.id) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -25,35 +40,32 @@ export async function POST() {
     .eq("provider", "microsoft");
 
   if (error) {
+    console.error("Microsoft subscribe query failed");
     return NextResponse.json({ error: "query_failed" }, { status: 500 });
   }
 
-  const updated: Array<{
-    accountId: string;
-    subscriptionId: string;
-    expiresAt: string;
-    status: "ok" | "error";
-  }> = [];
-
+  let hadFailure = false;
+  let failureMessage = "";
   for (const account of (accounts ?? []) as MicrosoftAccount[]) {
     try {
-      const subscription = await ensureMicrosoftSubscription(account);
-      updated.push({
-        accountId: account.id,
-        subscriptionId: subscription.id,
-        expiresAt: subscription.expiresAt,
-        status: "ok",
-      });
+      await ensureMicrosoftSubscription(account);
     } catch (error) {
-      console.error("Failed to ensure Microsoft subscription", error);
-      updated.push({
-        accountId: account.id,
-        subscriptionId: account.ms_subscription_id ?? "",
-        expiresAt: account.ms_subscription_expires_at ?? "",
-        status: "error",
-      });
+      hadFailure = true;
+      if (!failureMessage) {
+        failureMessage =
+          error instanceof Error
+            ? error.message
+            : "Unknown subscription error";
+      }
     }
   }
 
-  return NextResponse.json({ ok: true, updated });
+  if (hadFailure) {
+    console.error("Microsoft subscribe failed", {
+      message: failureMessage || "Unknown subscription error",
+    });
+    return NextResponse.json({ error: "subscription_failed" }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

@@ -66,12 +66,18 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as MicrosoftNotificationBody;
   const notifications = body.value ?? [];
+  let hadFailure = false;
+  let hadInvalidClientState = false;
+
+  console.info("Microsoft notification received", {
+    count: notifications.length,
+  });
 
   const serviceClient = createEmailServiceClient();
 
   for (const notification of notifications) {
     if (!validateClientState(notification)) {
-      console.warn("Microsoft notification clientState mismatch");
+      hadInvalidClientState = true;
       continue;
     }
 
@@ -92,7 +98,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle<MicrosoftAccount>();
 
     if (error || !account) {
-      console.error("Microsoft notification account lookup failed", error);
+      hadFailure = true;
       continue;
     }
 
@@ -105,7 +111,8 @@ export async function POST(request: NextRequest) {
           provider: "microsoft",
         },
         messageId,
-        message.receivedAt
+        message.receivedAt,
+        null
       );
 
       if (!shouldProcess) {
@@ -133,7 +140,7 @@ export async function POST(request: NextRequest) {
       await sendToN8n(payloadToSend);
       await markEmailEventProcessed(eventId);
     } catch (messageError) {
-      console.error("Failed to process Microsoft message", messageError);
+      hadFailure = true;
       const errorMessage =
         messageError instanceof Error
           ? messageError.message
@@ -149,6 +156,13 @@ export async function POST(request: NextRequest) {
         await markEmailEventError(existing.id, errorMessage);
       }
     }
+  }
+
+  if (hadInvalidClientState || hadFailure) {
+    console.error("Microsoft notification processing failed", {
+      clientStateMismatch: hadInvalidClientState,
+      messageProcessingFailed: hadFailure,
+    });
   }
 
   return NextResponse.json({ ok: true });
