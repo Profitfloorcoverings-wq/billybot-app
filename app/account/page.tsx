@@ -26,6 +26,8 @@ type EmailAccount = {
   email_address: string | null;
   status: EmailAccountStatus | null;
   last_error: string | null;
+  access_token_enc?: string | null;
+  refresh_token_enc?: string | null;
   gmail_history_id: string | null;
   ms_subscription_id: string | null;
   ms_subscription_expires_at: string | null;
@@ -304,8 +306,14 @@ export default function AccountPage() {
   const googleAccount = emailAccounts.find((account) => account.provider === "google") ?? null;
   const microsoftAccount =
     emailAccounts.find((account) => account.provider === "microsoft") ?? null;
-  const googleAccounts = emailAccounts.filter((account) => account.provider === "google");
-  const microsoftAccounts = emailAccounts.filter((account) => account.provider === "microsoft");
+
+  const isConnected = (account: EmailAccount | null) =>
+    !!account &&
+    account.status === "connected" &&
+    !!account.access_token_enc &&
+    !!account.refresh_token_enc;
+
+  const existsButDisconnected = (account: EmailAccount | null) => !!account && !isConnected(account);
 
   return (
     <div className="page-container stack gap-6">
@@ -517,11 +525,7 @@ export default function AccountPage() {
         <div className="stack gap-1">
           <h2 className="section-title">Email Accounts</h2>
           <p className="section-subtitle">
-            Connect your email so BillyBot can read inbound enquiries.
-          </p>
-          <p className="text-sm text-white/70">
-            You can connect more than one inbox. BillyBot will read enquiries from all connected
-            accounts.
+            Connect your inbox so BillyBot can read enquiries automatically.
           </p>
         </div>
 
@@ -530,38 +534,21 @@ export default function AccountPage() {
 
         <div className="stack gap-3">
           {[
-            { key: "google" as const, label: "Gmail", account: googleAccount, accounts: googleAccounts },
+            { key: "google" as const, label: "Gmail", account: googleAccount },
             {
               key: "microsoft" as const,
               label: "Outlook",
               account: microsoftAccount,
-              accounts: microsoftAccounts,
             },
-          ].map(({ key, label, accounts }) => {
-            const connectedAccounts = accounts.filter((item) => item.status === "connected");
-            const connectedCount = connectedAccounts.length;
-            const providerStatus =
-              connectedCount > 0
-                ? "connected"
-                : accounts.some((item) => item.status === "needs_reauth")
-                ? "needs_reauth"
-                : accounts.some((item) => item.status === "error")
-                ? "error"
-                : "disconnected";
-            const statusConfig =
-              accounts.length > 0 ? getStatusConfig(providerStatus) : getStatusConfig("disconnected");
+          ].map(({ key, label, account }) => {
+            const connected = isConnected(account);
+            const disconnected = existsButDisconnected(account);
+            const shouldReconnect =
+              disconnected && (account?.status === "connected" || !!account?.last_error);
+            const statusConfig = connected
+              ? getStatusConfig("connected")
+              : getStatusConfig("disconnected");
             const isActionLoading = emailActionTarget === key || emailAccountsLoading;
-            const hasAccounts = accounts.length > 0;
-            const shouldReconnect = hasAccounts && providerStatus !== "connected";
-            const shouldDisconnect = hasAccounts;
-            const displayEmail =
-              connectedCount > 1
-                ? `Multiple connected (${connectedCount})`
-                : connectedAccounts[0]?.email_address ?? null;
-            const errorMessage =
-              accounts.find((item) => item.status === "error")?.last_error ??
-              accounts.find((item) => item.status === "needs_reauth")?.last_error ??
-              null;
 
             return (
               <div key={key} className="linked-account-badge">
@@ -572,18 +559,18 @@ export default function AccountPage() {
                       <div className={`tag ${statusConfig.className}`} aria-live="polite">
                         {statusConfig.label}
                       </div>
-                      {displayEmail && providerStatus === "connected" ? (
-                        <p className="text-sm text-white/80">{displayEmail}</p>
+                      {connected && account?.email_address ? (
+                        <p className="text-sm text-white/80">{account.email_address}</p>
                       ) : null}
-                      {providerStatus !== "connected" && errorMessage ? (
-                        <p className="text-xs text-white/60">{errorMessage.slice(0, 140)}</p>
+                      {shouldReconnect && account?.last_error ? (
+                        <p className="text-xs text-white/60">{account.last_error.slice(0, 140)}</p>
                       ) : null}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {!hasAccounts ? (
+                  {!connected && !shouldReconnect ? (
                     <button
                       className="btn btn-primary"
                       onClick={() => handleEmailConnect(key)}
@@ -605,12 +592,10 @@ export default function AccountPage() {
                       {isActionLoading ? "Working..." : "Reconnect"}
                     </button>
                   ) : null}
-                  {shouldDisconnect ? (
+                  {connected ? (
                     <button
                       className="btn btn-secondary"
-                      onClick={() =>
-                        handleEmailDisconnect(key, connectedAccounts[0]?.id ?? accounts[0]?.id)
-                      }
+                      onClick={() => handleEmailDisconnect(key, account?.id)}
                       disabled={isActionLoading}
                     >
                       {isActionLoading ? "Working..." : "Disconnect"}
