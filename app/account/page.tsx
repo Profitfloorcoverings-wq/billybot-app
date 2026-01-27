@@ -18,6 +18,21 @@ type ClientProfile = {
   is_onboarded: boolean;
 };
 
+type EmailAccountStatus = "connected" | "needs_reauth" | "error" | "disconnected";
+
+type EmailAccount = {
+  id: string;
+  provider: "google" | "microsoft";
+  email_address: string | null;
+  status: EmailAccountStatus | null;
+  last_error: string | null;
+  gmail_history_id: string | null;
+  ms_subscription_id: string | null;
+  ms_subscription_expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 const EMPTY_PROFILE: ClientProfile = {
   business_name: "",
   contact_name: "",
@@ -58,6 +73,10 @@ export default function AccountPage() {
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [accountingSystem, setAccountingSystem] = useState<string | null>(null);
   const [accountingStatusLoaded, setAccountingStatusLoaded] = useState(false);
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
+  const [emailAccountsLoading, setEmailAccountsLoading] = useState(true);
+  const [emailAccountsError, setEmailAccountsError] = useState<string | null>(null);
+  const [emailActionProvider, setEmailActionProvider] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -120,6 +139,32 @@ export default function AccountPage() {
     void loadProfile();
   }, [router, supabase]);
 
+  async function loadEmailAccounts() {
+    setEmailAccountsLoading(true);
+    setEmailAccountsError(null);
+
+    try {
+      const res = await fetch("/api/email/accounts");
+      if (!res.ok) {
+        throw new Error("Unable to load email accounts");
+      }
+      const data = (await res.json()) as { data?: EmailAccount[] };
+      setEmailAccounts(data?.data ?? []);
+    } catch (err) {
+      setEmailAccountsError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to load email accounts"
+      );
+    } finally {
+      setEmailAccountsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadEmailAccounts();
+  }, []);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/auth/login");
@@ -173,6 +218,57 @@ export default function AccountPage() {
     window.location.href = url;
   }
 
+  function handleEmailConnect(provider: "google" | "microsoft") {
+    const url =
+      provider === "google"
+        ? "/api/email/google/start"
+        : "/api/email/microsoft/start";
+    window.location.href = url;
+  }
+
+  async function handleEmailDisconnect(provider: "google" | "microsoft") {
+    setEmailActionProvider(provider);
+    try {
+      const res = await fetch("/api/email/accounts/disconnect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Unable to disconnect email account");
+      }
+
+      await loadEmailAccounts();
+    } catch (err) {
+      setEmailAccountsError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to disconnect email account"
+      );
+    } finally {
+      setEmailActionProvider(null);
+    }
+  }
+
+  function getEmailAccount(provider: "google" | "microsoft") {
+    return emailAccounts.find((account) => account.provider === provider) ?? null;
+  }
+
+  function getStatusConfig(status?: EmailAccountStatus | null) {
+    switch (status) {
+      case "connected":
+        return { label: "Connected", className: "bg-emerald-500/15 text-emerald-200" };
+      case "needs_reauth":
+        return { label: "Needs reauth", className: "bg-amber-500/15 text-amber-200" };
+      case "error":
+        return { label: "Error", className: "bg-red-500/15 text-red-200" };
+      case "disconnected":
+      default:
+        return { label: "Disconnected", className: "bg-white/5 text-white/70" };
+    }
+  }
+
   async function handleManageBilling() {
     try {
       setLoadingPortal(true);
@@ -207,6 +303,11 @@ export default function AccountPage() {
     { key: "sage", label: "Sage", connected: isSageConnected },
     { key: "xero", label: "Xero", connected: isXeroConnected },
     { key: "quickbooks", label: "QuickBooks", connected: isQuickBooksConnected },
+  ];
+
+  const emailProviders = [
+    { key: "google" as const, label: "Gmail" },
+    { key: "microsoft" as const, label: "Outlook" },
   ];
 
   return (
@@ -412,6 +513,77 @@ export default function AccountPage() {
               </button>
             </div>
           ))}
+        </div>
+      </div>
+
+      <div className="card stack gap-4">
+        <div className="stack gap-1">
+          <h2 className="section-title">Email Accounts</h2>
+          <p className="section-subtitle">
+            Connect your email so BillyBot can read inbound enquiries.
+          </p>
+        </div>
+
+        {emailAccountsLoading ? <p className="section-subtitle">Loading email accounts…</p> : null}
+        {emailAccountsError ? <p className="text-sm text-red-400">{emailAccountsError}</p> : null}
+
+        <div className="stack gap-3">
+          {emailProviders.map((provider) => {
+            const account = getEmailAccount(provider.key);
+            const status = account?.status ?? "disconnected";
+            const statusConfig = getStatusConfig(status);
+            const primaryAction =
+              status === "connected"
+                ? null
+                : status === "needs_reauth" || status === "error"
+                ? "Reconnect"
+                : "Connect";
+            const isDisconnecting = emailActionProvider === provider.key;
+
+            return (
+              <div key={provider.key} className="linked-account-badge">
+                <div className="linked-account-badge-left">
+                  <div className="linked-account-badge-text">
+                    <p className="linked-account-badge-title">{provider.label}</p>
+                    <div className="stack gap-1">
+                      <div
+                        className={`tag ${statusConfig.className}`}
+                        aria-live="polite"
+                      >
+                        {statusConfig.label}
+                      </div>
+                      {status === "connected" && account?.email_address ? (
+                        <p className="text-sm text-white/80">{account.email_address}</p>
+                      ) : null}
+                      {status === "error" && account?.last_error ? (
+                        <p className="text-xs text-white/60">{account.last_error}</p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {primaryAction ? (
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleEmailConnect(provider.key)}
+                    >
+                      {primaryAction}
+                    </button>
+                  ) : null}
+                  {status === "connected" ? (
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => handleEmailDisconnect(provider.key)}
+                      disabled={isDisconnecting}
+                    >
+                      {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
