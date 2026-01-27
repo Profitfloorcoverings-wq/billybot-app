@@ -221,8 +221,8 @@ export default function AccountPage() {
   function handleEmailConnect(provider: "google" | "microsoft") {
     const url =
       provider === "google"
-        ? "/api/email/google/start"
-        : "/api/email/microsoft/start";
+        ? "/api/email/google/connect"
+        : "/api/email/microsoft/connect";
     window.location.href = url;
   }
 
@@ -251,10 +251,6 @@ export default function AccountPage() {
     }
   }
 
-  function getEmailAccount(provider: "google" | "microsoft") {
-    return emailAccounts.find((account) => account.provider === provider) ?? null;
-  }
-
   function getStatusConfig(status?: EmailAccountStatus | null) {
     switch (status) {
       case "connected":
@@ -265,7 +261,7 @@ export default function AccountPage() {
         return { label: "Error", className: "bg-red-500/15 text-red-200" };
       case "disconnected":
       default:
-        return { label: "Disconnected", className: "bg-white/5 text-white/70" };
+        return { label: "Not connected", className: "bg-white/5 text-white/70" };
     }
   }
 
@@ -305,10 +301,9 @@ export default function AccountPage() {
     { key: "quickbooks", label: "QuickBooks", connected: isQuickBooksConnected },
   ];
 
-  const emailProviders = [
-    { key: "google" as const, label: "Gmail" },
-    { key: "microsoft" as const, label: "Outlook" },
-  ];
+  const googleAccount = emailAccounts.find((account) => account.provider === "google") ?? null;
+  const microsoftAccount =
+    emailAccounts.find((account) => account.provider === "microsoft") ?? null;
 
   return (
     <div className="page-container stack gap-6">
@@ -522,62 +517,74 @@ export default function AccountPage() {
           <p className="section-subtitle">
             Connect your email so BillyBot can read inbound enquiries.
           </p>
+          <p className="text-sm text-white/70">
+            Connect your inbox so BillyBot can read enquiries automatically.
+          </p>
         </div>
 
         {emailAccountsLoading ? <p className="section-subtitle">Loading email accounts…</p> : null}
         {emailAccountsError ? <p className="text-sm text-red-400">{emailAccountsError}</p> : null}
 
         <div className="stack gap-3">
-          {emailProviders.map((provider) => {
-            const account = getEmailAccount(provider.key);
+          {[
+            { key: "google" as const, label: "Gmail", account: googleAccount },
+            { key: "microsoft" as const, label: "Outlook", account: microsoftAccount },
+          ].map(({ key, label, account }) => {
             const status = account?.status ?? "disconnected";
             const statusConfig = getStatusConfig(status);
-            const primaryAction =
-              status === "connected"
-                ? null
-                : status === "needs_reauth" || status === "error"
-                ? "Reconnect"
-                : "Connect";
-            const isDisconnecting = emailActionProvider === provider.key;
+            const isActionLoading = emailActionProvider === key || emailAccountsLoading;
+            const isDisconnected = !account || status === "disconnected";
+            const shouldReconnect = status === "needs_reauth" || status === "error";
+            const shouldDisconnect = status === "connected";
+            const connectLabel = key === "google" ? "Connect Gmail" : "Connect Outlook";
 
             return (
-              <div key={provider.key} className="linked-account-badge">
+              <div key={key} className="linked-account-badge">
                 <div className="linked-account-badge-left">
                   <div className="linked-account-badge-text">
-                    <p className="linked-account-badge-title">{provider.label}</p>
+                    <p className="linked-account-badge-title">{label}</p>
                     <div className="stack gap-1">
-                      <div
-                        className={`tag ${statusConfig.className}`}
-                        aria-live="polite"
-                      >
+                      <div className={`tag ${statusConfig.className}`} aria-live="polite">
                         {statusConfig.label}
                       </div>
                       {status === "connected" && account?.email_address ? (
                         <p className="text-sm text-white/80">{account.email_address}</p>
                       ) : null}
-                      {status === "error" && account?.last_error ? (
-                        <p className="text-xs text-white/60">{account.last_error}</p>
+                      {shouldReconnect && account?.last_error ? (
+                        <p className="text-xs text-white/60">
+                          {account.last_error.slice(0, 140)}
+                        </p>
                       ) : null}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {primaryAction ? (
+                  {isDisconnected ? (
                     <button
                       className="btn btn-primary"
-                      onClick={() => handleEmailConnect(provider.key)}
+                      onClick={() => handleEmailConnect(key)}
+                      disabled={isActionLoading}
                     >
-                      {primaryAction}
+                      {isActionLoading ? "Working..." : connectLabel}
                     </button>
                   ) : null}
-                  {status === "connected" ? (
+                  {shouldReconnect ? (
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => handleEmailConnect(key)}
+                      disabled={isActionLoading}
+                    >
+                      {isActionLoading ? "Working..." : "Reconnect"}
+                    </button>
+                  ) : null}
+                  {shouldDisconnect ? (
                     <button
                       className="btn btn-secondary"
-                      onClick={() => handleEmailDisconnect(provider.key)}
-                      disabled={isDisconnecting}
+                      onClick={() => handleEmailDisconnect(key)}
+                      disabled={isActionLoading}
                     >
-                      {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+                      {isActionLoading ? "Working..." : "Disconnect"}
                     </button>
                   ) : null}
                 </div>

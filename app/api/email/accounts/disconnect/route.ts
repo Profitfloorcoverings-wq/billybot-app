@@ -33,16 +33,11 @@ export async function POST(request: NextRequest) {
     access_token_enc: null,
     refresh_token_enc: null,
     expires_at: null,
+    scopes: "{}",
+    gmail_history_id: null,
+    ms_subscription_id: null,
+    ms_subscription_expires_at: null,
   };
-
-  if (provider === "google") {
-    updatePayload.gmail_history_id = null;
-  }
-
-  if (provider === "microsoft") {
-    updatePayload.ms_subscription_id = null;
-    updatePayload.ms_subscription_expires_at = null;
-  }
 
   const { error } = await serviceClient
     .from("email_accounts")
