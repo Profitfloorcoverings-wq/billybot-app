@@ -9,6 +9,7 @@ type Provider = (typeof PROVIDERS)[number];
 
 type DisconnectBody = {
   provider?: Provider;
+  account_id?: string;
 };
 
 export async function POST(request: NextRequest) {
@@ -20,8 +21,9 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as DisconnectBody;
   const provider = body.provider;
+  const accountId = body.account_id;
 
-  if (!provider || !PROVIDERS.includes(provider)) {
+  if (!accountId && (!provider || !PROVIDERS.includes(provider))) {
     return NextResponse.json({ error: "Invalid provider" }, { status: 400 });
   }
 
@@ -39,11 +41,15 @@ export async function POST(request: NextRequest) {
     ms_subscription_expires_at: null,
   };
 
-  const { error } = await serviceClient
-    .from("email_accounts")
-    .update(updatePayload)
-    .eq("client_id", user.id)
-    .eq("provider", provider);
+  let query = serviceClient.from("email_accounts").update(updatePayload).eq("client_id", user.id);
+
+  if (accountId) {
+    query = query.eq("id", accountId);
+  } else if (provider) {
+    query = query.eq("provider", provider);
+  }
+
+  const { error } = await query;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

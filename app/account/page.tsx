@@ -76,7 +76,8 @@ export default function AccountPage() {
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [emailAccountsLoading, setEmailAccountsLoading] = useState(true);
   const [emailAccountsError, setEmailAccountsError] = useState<string | null>(null);
-  const [emailActionProvider, setEmailActionProvider] = useState<string | null>(null);
+  const [emailActionTarget, setEmailActionTarget] = useState<string | null>(null);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -226,13 +227,13 @@ export default function AccountPage() {
     window.location.href = url;
   }
 
-  async function handleEmailDisconnect(provider: "google" | "microsoft") {
-    setEmailActionProvider(provider);
+  async function handleEmailDisconnect(provider: "google" | "microsoft", accountId?: string) {
+    setEmailActionTarget(accountId ?? provider);
     try {
       const res = await fetch("/api/email/accounts/disconnect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider }),
+        body: JSON.stringify({ provider, account_id: accountId }),
       });
 
       if (!res.ok) {
@@ -247,7 +248,7 @@ export default function AccountPage() {
           : "Unable to disconnect email account"
       );
     } finally {
-      setEmailActionProvider(null);
+      setEmailActionTarget(null);
     }
   }
 
@@ -304,6 +305,8 @@ export default function AccountPage() {
   const googleAccount = emailAccounts.find((account) => account.provider === "google") ?? null;
   const microsoftAccount =
     emailAccounts.find((account) => account.provider === "microsoft") ?? null;
+  const googleAccounts = emailAccounts.filter((account) => account.provider === "google");
+  const microsoftAccounts = emailAccounts.filter((account) => account.provider === "microsoft");
 
   return (
     <div className="page-container stack gap-6">
@@ -512,14 +515,20 @@ export default function AccountPage() {
       </div>
 
       <div className="card stack gap-4">
-        <div className="stack gap-1">
-          <h2 className="section-title">Email Accounts</h2>
-          <p className="section-subtitle">
-            Connect your email so BillyBot can read inbound enquiries.
-          </p>
-          <p className="text-sm text-white/70">
-            Connect your inbox so BillyBot can read enquiries automatically.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="stack gap-1">
+            <h2 className="section-title">Email Accounts</h2>
+            <p className="section-subtitle">
+              Connect your email so BillyBot can read inbound enquiries.
+            </p>
+            <p className="text-sm text-white/70">
+              You can connect more than one inbox. BillyBot will read enquiries from all connected
+              accounts.
+            </p>
+          </div>
+          <button className="btn btn-secondary" onClick={() => setEmailModalOpen(true)}>
+            Add email account
+          </button>
         </div>
 
         {emailAccountsLoading ? <p className="section-subtitle">Loading email accounts…</p> : null}
@@ -527,16 +536,38 @@ export default function AccountPage() {
 
         <div className="stack gap-3">
           {[
-            { key: "google" as const, label: "Gmail", account: googleAccount },
-            { key: "microsoft" as const, label: "Outlook", account: microsoftAccount },
-          ].map(({ key, label, account }) => {
-            const status = account?.status ?? "disconnected";
-            const statusConfig = getStatusConfig(status);
-            const isActionLoading = emailActionProvider === key || emailAccountsLoading;
-            const isDisconnected = !account || status === "disconnected";
-            const shouldReconnect = status === "needs_reauth" || status === "error";
-            const shouldDisconnect = status === "connected";
-            const connectLabel = key === "google" ? "Connect Gmail" : "Connect Outlook";
+            { key: "google" as const, label: "Gmail", account: googleAccount, accounts: googleAccounts },
+            {
+              key: "microsoft" as const,
+              label: "Outlook",
+              account: microsoftAccount,
+              accounts: microsoftAccounts,
+            },
+          ].map(({ key, label, account, accounts }) => {
+            const connectedAccounts = accounts.filter((item) => item.status === "connected");
+            const connectedCount = connectedAccounts.length;
+            const providerStatus =
+              connectedCount > 0
+                ? "connected"
+                : accounts.some((item) => item.status === "needs_reauth")
+                ? "needs_reauth"
+                : accounts.some((item) => item.status === "error")
+                ? "error"
+                : "disconnected";
+            const statusConfig =
+              accounts.length > 0 ? getStatusConfig(providerStatus) : getStatusConfig("disconnected");
+            const isActionLoading = emailActionTarget === key || emailAccountsLoading;
+            const hasAccounts = accounts.length > 0;
+            const shouldReconnect = hasAccounts && providerStatus !== "connected";
+            const shouldDisconnect = hasAccounts;
+            const displayEmail =
+              connectedCount > 1
+                ? `Multiple connected (${connectedCount})`
+                : connectedAccounts[0]?.email_address ?? null;
+            const errorMessage =
+              accounts.find((item) => item.status === "error")?.last_error ??
+              accounts.find((item) => item.status === "needs_reauth")?.last_error ??
+              null;
 
             return (
               <div key={key} className="linked-account-badge">
@@ -547,26 +578,24 @@ export default function AccountPage() {
                       <div className={`tag ${statusConfig.className}`} aria-live="polite">
                         {statusConfig.label}
                       </div>
-                      {status === "connected" && account?.email_address ? (
-                        <p className="text-sm text-white/80">{account.email_address}</p>
+                      {displayEmail && providerStatus === "connected" ? (
+                        <p className="text-sm text-white/80">{displayEmail}</p>
                       ) : null}
-                      {shouldReconnect && account?.last_error ? (
-                        <p className="text-xs text-white/60">
-                          {account.last_error.slice(0, 140)}
-                        </p>
+                      {providerStatus !== "connected" && errorMessage ? (
+                        <p className="text-xs text-white/60">{errorMessage.slice(0, 140)}</p>
                       ) : null}
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {isDisconnected ? (
+                  {!hasAccounts ? (
                     <button
                       className="btn btn-primary"
                       onClick={() => handleEmailConnect(key)}
                       disabled={isActionLoading}
                     >
-                      {isActionLoading ? "Working..." : connectLabel}
+                      {isActionLoading ? "Working..." : "Connect"}
                     </button>
                   ) : null}
                   {shouldReconnect ? (
@@ -581,7 +610,7 @@ export default function AccountPage() {
                   {shouldDisconnect ? (
                     <button
                       className="btn btn-secondary"
-                      onClick={() => handleEmailDisconnect(key)}
+                      onClick={() => handleEmailDisconnect(key, account?.id)}
                       disabled={isActionLoading}
                     >
                       {isActionLoading ? "Working..." : "Disconnect"}
@@ -592,6 +621,77 @@ export default function AccountPage() {
             );
           })}
         </div>
+        {emailModalOpen ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+            <div className="card w-full max-w-2xl stack gap-4">
+              <div className="flex items-center justify-between gap-4">
+                <div className="stack gap-1">
+                  <h3 className="text-xl font-semibold text-white">Add email account</h3>
+                  <p className="section-subtitle">
+                    Choose a provider and manage your connected inboxes.
+                  </p>
+                </div>
+                <button className="btn btn-secondary" onClick={() => setEmailModalOpen(false)}>
+                  Close
+                </button>
+              </div>
+
+              <div className="stack gap-2">
+                <button className="btn btn-primary" onClick={() => handleEmailConnect("google")}>
+                  Add Gmail
+                </button>
+                <button className="btn btn-primary" onClick={() => handleEmailConnect("microsoft")}>
+                  Add Outlook
+                </button>
+              </div>
+
+              <div className="stack gap-3">
+                {[
+                  { key: "google" as const, label: "Gmail", accounts: googleAccounts },
+                  { key: "microsoft" as const, label: "Outlook", accounts: microsoftAccounts },
+                ].map(({ key, label, accounts }) => {
+                  const connectedAccounts = accounts.filter((item) => item.status === "connected");
+
+                  return (
+                    <div key={key} className="stack gap-2">
+                      <p className="text-sm font-semibold text-white">{label}</p>
+                      {connectedAccounts.length === 0 ? (
+                        <p className="text-sm text-white/60">No connected accounts.</p>
+                      ) : (
+                        <div className="stack gap-2">
+                          {connectedAccounts.map((item) => {
+                            const isDisconnecting = emailActionTarget === item.id;
+                            const statusConfig = getStatusConfig(item.status);
+
+                            return (
+                              <div key={item.id} className="flex items-center justify-between gap-3">
+                                <div className="stack gap-1">
+                                  <p className="text-sm text-white/80">
+                                    {item.email_address ?? "—"}
+                                  </p>
+                                  <div className={`tag ${statusConfig.className}`}>
+                                    {statusConfig.label}
+                                  </div>
+                                </div>
+                                <button
+                                  className="btn btn-secondary"
+                                  onClick={() => handleEmailDisconnect(key, item.id)}
+                                  disabled={isDisconnecting}
+                                >
+                                  {isDisconnecting ? "Working..." : "Disconnect"}
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="card stack gap-4">
