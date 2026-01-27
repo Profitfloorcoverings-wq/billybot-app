@@ -27,7 +27,9 @@ type MicrosoftNotificationBody = {
 };
 
 function validateClientState(notification: MicrosoftNotification) {
-  const expected = process.env.MICROSOFT_WEBHOOK_VALIDATION_TOKEN;
+  const expected =
+    process.env.MICROSOFT_CLIENT_STATE_TOKEN ??
+    process.env.MICROSOFT_WEBHOOK_VALIDATION_TOKEN;
   if (!expected) {
     return true;
   }

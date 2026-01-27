@@ -5,6 +5,7 @@ import { getValidAccessToken } from "@/lib/email/tokens";
 
 const GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0";
 const SUBSCRIPTION_TTL_MS = 2 * 24 * 60 * 60 * 1000;
+const SUBSCRIPTION_RENEW_BUFFER_MS = 6 * 60 * 60 * 1000;
 
 export type MicrosoftAccount = {
   id: string;
@@ -48,6 +49,8 @@ type MicrosoftAttachment = {
   contentBytes?: string;
 };
 
+type GraphError = Error & { status?: number };
+
 function parseRecipients(
   recipients?: Array<{ emailAddress?: { address?: string } }>
 ) {
@@ -71,19 +74,39 @@ async function graphRequest(
   });
 
   if (!response.ok) {
-    throw new Error("Microsoft Graph request failed");
+    const error = new Error(
+      `Microsoft Graph request failed (${response.status})`
+    ) as GraphError;
+    error.status = response.status;
+    throw error;
   }
 
   return response;
 }
 
-export async function ensureMicrosoftSubscription(account: MicrosoftAccount) {
-  const clientState = process.env.MICROSOFT_WEBHOOK_VALIDATION_TOKEN;
+async function markMicrosoftAccountError(accountId: string, error: unknown) {
+  const message =
+    error instanceof Error ? error.message : "Microsoft subscription error";
+  const serviceClient = createEmailServiceClient();
+  await serviceClient
+    .from("email_accounts")
+    .update({ status: "error", last_error: message })
+    .eq("id", accountId);
+}
+
+function getMicrosoftClientState() {
+  return (
+    process.env.MICROSOFT_CLIENT_STATE_TOKEN ??
+    process.env.MICROSOFT_WEBHOOK_VALIDATION_TOKEN
+  );
+}
+
+export async function ensureMicrosoftSubscription(
+  account: MicrosoftAccount
+): Promise<{ id: string; expiresAt: string }> {
+  const clientState = getMicrosoftClientState();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-  if (!clientState) {
-    throw new Error("MICROSOFT_WEBHOOK_VALIDATION_TOKEN is required");
-  }
   if (!appUrl) {
     throw new Error("NEXT_PUBLIC_APP_URL is required");
   }
@@ -92,50 +115,69 @@ export async function ensureMicrosoftSubscription(account: MicrosoftAccount) {
     ? new Date(account.ms_subscription_expires_at).getTime()
     : 0;
   const shouldRenew =
-    !account.ms_subscription_id || expiresAt - Date.now() <= 24 * 60 * 60 * 1000;
+    !account.ms_subscription_id ||
+    expiresAt - Date.now() <= SUBSCRIPTION_RENEW_BUFFER_MS;
 
   if (!shouldRenew) {
-    return account.ms_subscription_id;
+    return {
+      id: account.ms_subscription_id!,
+      expiresAt: account.ms_subscription_expires_at ?? new Date(expiresAt).toISOString(),
+    };
   }
 
-  const accessToken = await getValidAccessToken(account);
-  const expirationDateTime = new Date(Date.now() + SUBSCRIPTION_TTL_MS).toISOString();
+  try {
+    const accessToken = await getValidAccessToken(account);
+    const expirationDateTime = new Date(
+      Date.now() + SUBSCRIPTION_TTL_MS
+    ).toISOString();
 
-  const body = {
-    changeType: "created",
-    notificationUrl: `${appUrl}/api/email/microsoft/notify`,
-    resource: "me/mailFolders('inbox')/messages",
-    expirationDateTime,
-    clientState,
-  };
+    const body = {
+      changeType: "created",
+      notificationUrl: `${appUrl}/api/email/microsoft/notify`,
+      resource: "me/mailFolders('Inbox')/messages",
+      expirationDateTime,
+      ...(clientState ? { clientState } : {}),
+    };
 
-  const response = await graphRequest(accessToken, "/subscriptions", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+    const response = await graphRequest(accessToken, "/subscriptions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
 
-  const data = (await response.json()) as {
-    id?: string;
-    expirationDateTime?: string;
-  };
+    const data = (await response.json()) as {
+      id?: string;
+      expirationDateTime?: string;
+    };
 
-  if (!data.id) {
-    throw new Error("Microsoft subscription response missing id");
+    if (!data.id) {
+      throw new Error("Microsoft subscription response missing id");
+    }
+
+    const serviceClient = createEmailServiceClient();
+    const expiresAt = data.expirationDateTime ?? expirationDateTime;
+    await serviceClient
+      .from("email_accounts")
+      .update({
+        ms_subscription_id: data.id,
+        ms_subscription_expires_at: expiresAt,
+      })
+      .eq("id", account.id);
+
+    console.info("Microsoft subscription created", {
+      accountId: account.id,
+      subscriptionId: data.id,
+    });
+
+    return { id: data.id, expiresAt };
+  } catch (error) {
+    await markMicrosoftAccountError(account.id, error);
+    throw error;
   }
-
-  const serviceClient = createEmailServiceClient();
-  await serviceClient
-    .from("email_accounts")
-    .update({
-      ms_subscription_id: data.id,
-      ms_subscription_expires_at: data.expirationDateTime ?? expirationDateTime,
-    })
-    .eq("id", account.id);
-
-  return data.id;
 }
 
-export async function renewMicrosoftSubscription(account: MicrosoftAccount) {
+export async function renewMicrosoftSubscription(
+  account: MicrosoftAccount
+): Promise<{ id: string; expiresAt: string }> {
   if (!account.ms_subscription_id) {
     return ensureMicrosoftSubscription(account);
   }
@@ -154,22 +196,46 @@ export async function renewMicrosoftSubscription(account: MicrosoftAccount) {
     );
 
     const data = (await response.json()) as { expirationDateTime?: string };
+    const expiresAt = data.expirationDateTime ?? expirationDateTime;
     const serviceClient = createEmailServiceClient();
     await serviceClient
       .from("email_accounts")
       .update({
-        ms_subscription_expires_at: data.expirationDateTime ?? expirationDateTime,
+        ms_subscription_expires_at: expiresAt,
       })
       .eq("id", account.id);
 
-    return account.ms_subscription_id;
-  } catch (error) {
-    console.warn("Microsoft subscription renew failed; recreating", error);
-    return ensureMicrosoftSubscription({
-      ...account,
-      ms_subscription_id: null,
-      ms_subscription_expires_at: null,
+    console.info("Microsoft subscription renewed", {
+      accountId: account.id,
+      subscriptionId: account.ms_subscription_id,
     });
+
+    return { id: account.ms_subscription_id, expiresAt };
+  } catch (error) {
+    const graphError = error as GraphError;
+    if (graphError.status === 404 || graphError.status === 410) {
+      console.warn("Microsoft subscription expired; recreating", {
+        accountId: account.id,
+        subscriptionId: account.ms_subscription_id,
+      });
+      const serviceClient = createEmailServiceClient();
+      await serviceClient
+        .from("email_accounts")
+        .update({
+          ms_subscription_id: null,
+          ms_subscription_expires_at: null,
+        })
+        .eq("id", account.id);
+
+      return ensureMicrosoftSubscription({
+        ...account,
+        ms_subscription_id: null,
+        ms_subscription_expires_at: null,
+      });
+    }
+
+    await markMicrosoftAccountError(account.id, error);
+    throw error;
   }
 }
 

@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
       { onConflict: "client_id,provider,email_address" }
     )
     .select(
-      "id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, ms_subscription_id, ms_subscription_expires_at"
+      "id, client_id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, ms_subscription_id, ms_subscription_expires_at"
     )
     .maybeSingle<MicrosoftAccount>();
 
@@ -173,7 +173,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await ensureMicrosoftSubscription(account);
+    const subscription = await ensureMicrosoftSubscription(account);
+    if (
+      subscription.id !== account.ms_subscription_id ||
+      subscription.expiresAt !== account.ms_subscription_expires_at
+    ) {
+      await serviceClient
+        .from("email_accounts")
+        .update({
+          ms_subscription_id: subscription.id,
+          ms_subscription_expires_at: subscription.expiresAt,
+        })
+        .eq("id", account.id);
+    }
   } catch (subscriptionError) {
     console.error("Failed to ensure Microsoft subscription", subscriptionError);
   }
