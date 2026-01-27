@@ -92,7 +92,7 @@ export default function ChatPage() {
 
     if (taskState === "updating_quote") {
       return {
-        title: "Updating / sending quote…",
+        title: "Updating quote…",
         subtext: "Please wait — I’m applying your changes.",
       };
     }
@@ -105,7 +105,7 @@ export default function ChatPage() {
 
     const hint =
       taskState === "updating_quote"
-        ? "Quote is updating/sending. Wait a moment."
+        ? "Quote is updating. Wait a moment."
         : "Quote is still being built. Wait a moment.";
 
     setTaskHint(hint);
@@ -593,59 +593,48 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="chat-input-row">
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  if (isLocked) {
-                    triggerTaskHint();
-                    return;
-                  }
-                  openFilePicker();
-                }}
-                className="chat-upload-btn"
-                aria-label="Upload files"
-                disabled={isLocked}
+          <div
+            className="chat-input-row"
+            onMouseDownCapture={(event) => {
+              if (!isLocked) return;
+              const target = event.target as HTMLElement;
+              if (target.closest(".chat-input") || target.closest(".chat-upload-btn")) {
+                triggerTaskHint();
+              }
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (isLocked) {
+                  triggerTaskHint();
+                  return;
+                }
+                openFilePicker();
+              }}
+              className="chat-upload-btn"
+              aria-label="Upload files"
+              disabled={isLocked}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+                className="chat-upload-icon"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  focusable="false"
-                  className="chat-upload-icon"
-                >
-                  <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
-                </svg>
-              </button>
-              {isLocked ? (
-                <button
-                  type="button"
-                  className="absolute inset-0 z-10 cursor-not-allowed bg-transparent"
-                  onClick={triggerTaskHint}
-                  aria-label="Task in progress"
-                />
-              ) : null}
-            </div>
+                <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
+              </svg>
+            </button>
 
-            <div className="relative flex-1">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={1}
-                placeholder="Tell BillyBot what you need."
-                className="chat-input resize-none"
-                disabled={isLocked}
-              />
-              {isLocked ? (
-                <button
-                  type="button"
-                  className="absolute inset-0 z-10 cursor-not-allowed bg-transparent"
-                  onClick={triggerTaskHint}
-                  aria-label="Task in progress"
-                />
-              ) : null}
-            </div>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder="Tell BillyBot what you need."
+              className="chat-input resize-none"
+              disabled={isLocked}
+            />
 
             <input
               ref={fileInputRef}

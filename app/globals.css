@@ -787,11 +787,6 @@ input[type=number].supplierPriceInput {
   background: rgba(59, 130, 246, 0.12);
 }
 
-.chat-attachment-remove:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
 .chat-input-row {
   display: flex;
   align-items: center;
@@ -826,13 +821,6 @@ input[type=number].supplierPriceInput {
   color: #f8fafc;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
   transform: translateY(-1px);
-}
-
-.chat-upload-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-  box-shadow: none;
-  transform: none;
 }
 
 .chat-upload-icon {
@@ -884,13 +872,6 @@ input[type=number].supplierPriceInput {
 .chat-send-btn:active {
   transform: translateY(1px) scale(0.98);
   box-shadow: 0 0 8px var(--orange-glow);
-}
-
-.chat-send-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-  box-shadow: none;
-  transform: none;
 }
 
 .chat-send-loader {
