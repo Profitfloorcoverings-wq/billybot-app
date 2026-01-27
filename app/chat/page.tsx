@@ -206,7 +206,10 @@ export default function ChatPage() {
     let isMounted = true;
 
     async function fetchTaskState() {
-      const { data, error } = await supabase
+      const client = supabase;
+      if (!client) return;
+
+      const { data, error } = await client
         .from("conversations")
         .select("task_state")
         .eq("id", conversationId)
