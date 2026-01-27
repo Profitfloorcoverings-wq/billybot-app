@@ -107,7 +107,8 @@ export async function POST(request: NextRequest) {
             provider: "google",
           },
           messageId,
-          message.receivedAt
+          message.receivedAt,
+          null
         );
 
         if (!shouldProcess) {

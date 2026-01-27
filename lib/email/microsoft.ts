@@ -5,7 +5,6 @@ import { getValidAccessToken } from "@/lib/email/tokens";
 
 const GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0";
 const SUBSCRIPTION_TTL_MS = 2 * 24 * 60 * 60 * 1000;
-const SUBSCRIPTION_RENEW_BUFFER_MS = 6 * 60 * 60 * 1000;
 
 export type MicrosoftAccount = {
   id: string;
@@ -115,8 +114,7 @@ export async function ensureMicrosoftSubscription(
     ? new Date(account.ms_subscription_expires_at).getTime()
     : 0;
   const shouldRenew =
-    !account.ms_subscription_id ||
-    expiresAt - Date.now() <= SUBSCRIPTION_RENEW_BUFFER_MS;
+    !account.ms_subscription_id || expiresAt <= Date.now();
 
   if (!shouldRenew) {
     return {
@@ -160,6 +158,8 @@ export async function ensureMicrosoftSubscription(
       .update({
         ms_subscription_id: data.id,
         ms_subscription_expires_at: expiresAt,
+        status: "connected",
+        last_error: null,
       })
       .eq("id", account.id);
 
@@ -202,6 +202,8 @@ export async function renewMicrosoftSubscription(
       .from("email_accounts")
       .update({
         ms_subscription_expires_at: expiresAt,
+        status: "connected",
+        last_error: null,
       })
       .eq("id", account.id);
 

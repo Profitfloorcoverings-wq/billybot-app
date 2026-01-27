@@ -16,7 +16,8 @@ export type EmailEventInitResult = {
 export async function initEmailEvent(
   account: { id: string; client_id: string; provider: "google" | "microsoft" },
   providerMessageId: string,
-  receivedAt: string
+  receivedAt: string,
+  providerThreadId?: string | null
 ): Promise<EmailEventInitResult> {
   const serviceClient = createEmailServiceClient();
   const { data: existing, error: existingError } = await serviceClient
@@ -40,6 +41,7 @@ export async function initEmailEvent(
       .update({
         status: "received",
         received_at: receivedAt,
+        provider_thread_id: providerThreadId ?? null,
         error: null,
       })
       .eq("id", existing.id);
@@ -58,6 +60,7 @@ export async function initEmailEvent(
       client_id: account.client_id,
       provider: account.provider,
       provider_message_id: providerMessageId,
+      provider_thread_id: providerThreadId ?? null,
       received_at: receivedAt,
       status: "received",
     })
