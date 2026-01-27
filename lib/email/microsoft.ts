@@ -8,6 +8,7 @@ const SUBSCRIPTION_TTL_MS = 2 * 24 * 60 * 60 * 1000;
 
 export type MicrosoftAccount = {
   id: string;
+  client_id: string;
   provider: "microsoft";
   email_address: string;
   access_token_enc: string | null;

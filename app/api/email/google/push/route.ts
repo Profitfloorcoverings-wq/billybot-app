@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   const { data: account, error } = await serviceClient
     .from("email_accounts")
     .select(
-      "id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, gmail_history_id"
+      "id, client_id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, gmail_history_id"
     )
     .eq("provider", "google")
     .eq("email_address", emailAddress)
@@ -101,7 +101,11 @@ export async function POST(request: NextRequest) {
       try {
         const message = await fetchGmailMessagePayload(account, messageId);
         const { eventId, shouldProcess } = await initEmailEvent(
-          account.id,
+          {
+            id: account.id,
+            client_id: account.client_id,
+            provider: "google",
+          },
           messageId,
           message.receivedAt
         );

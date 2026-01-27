@@ -7,6 +7,7 @@ const GMAIL_BASE_URL = "https://gmail.googleapis.com/gmail/v1/users/me";
 
 export type GmailAccount = {
   id: string;
+  client_id: string;
   provider: "google";
   email_address: string;
   access_token_enc: string | null;

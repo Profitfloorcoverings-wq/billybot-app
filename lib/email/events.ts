@@ -14,7 +14,7 @@ export type EmailEventInitResult = {
 };
 
 export async function initEmailEvent(
-  accountId: string,
+  account: { id: string; client_id: string; provider: "google" | "microsoft" },
   providerMessageId: string,
   receivedAt: string
 ): Promise<EmailEventInitResult> {
@@ -22,7 +22,7 @@ export async function initEmailEvent(
   const { data: existing, error: existingError } = await serviceClient
     .from("email_events")
     .select("id, processed_at, status")
-    .eq("account_id", accountId)
+    .eq("account_id", account.id)
     .eq("provider_message_id", providerMessageId)
     .maybeSingle<EmailEventRecord>();
 
@@ -54,7 +54,9 @@ export async function initEmailEvent(
   const { data: inserted, error: insertError } = await serviceClient
     .from("email_events")
     .insert({
-      account_id: accountId,
+      account_id: account.id,
+      client_id: account.client_id,
+      provider: account.provider,
       provider_message_id: providerMessageId,
       received_at: receivedAt,
       status: "received",
@@ -62,7 +64,13 @@ export async function initEmailEvent(
     .select("id")
     .single<{ id: string }>();
 
-  if (insertError || !inserted) {
+  if (insertError) {
+    if (insertError.code === "23505") {
+      return { eventId: "", shouldProcess: false };
+    }
+    throw new Error("Failed to insert email event");
+  }
+  if (!inserted) {
     throw new Error("Failed to insert email event");
   }
 
