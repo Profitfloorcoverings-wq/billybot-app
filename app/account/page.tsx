@@ -26,8 +26,6 @@ type EmailAccount = {
   email_address: string | null;
   status: EmailAccountStatus | null;
   last_error: string | null;
-  access_token_enc?: string | null;
-  refresh_token_enc?: string | null;
   gmail_history_id: string | null;
   ms_subscription_id: string | null;
   ms_subscription_expires_at: string | null;
@@ -308,12 +306,7 @@ export default function AccountPage() {
     emailAccounts.find((account) => account.provider === "microsoft") ?? null;
 
   const isConnected = (account: EmailAccount | null) =>
-    !!account &&
-    account.status === "connected" &&
-    !!account.access_token_enc &&
-    !!account.refresh_token_enc;
-
-  const existsButDisconnected = (account: EmailAccount | null) => !!account && !isConnected(account);
+    !!account && account.status === "connected";
 
   return (
     <div className="page-container stack gap-6">
@@ -542,9 +535,6 @@ export default function AccountPage() {
             },
           ].map(({ key, label, account }) => {
             const connected = isConnected(account);
-            const disconnected = existsButDisconnected(account);
-            const shouldReconnect =
-              disconnected && (account?.status === "connected" || !!account?.last_error);
             const statusConfig = connected
               ? getStatusConfig("connected")
               : getStatusConfig("disconnected");
@@ -562,7 +552,7 @@ export default function AccountPage() {
                       {connected && account?.email_address ? (
                         <p className="text-sm text-white/80">{account.email_address}</p>
                       ) : null}
-                      {shouldReconnect && account?.last_error ? (
+                      {!connected && account?.last_error ? (
                         <p className="text-xs text-white/60">{account.last_error.slice(0, 140)}</p>
                       ) : null}
                     </div>
@@ -570,7 +560,7 @@ export default function AccountPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {!connected && !shouldReconnect ? (
+                  {!connected ? (
                     <button
                       className="btn btn-primary"
                       onClick={() => handleEmailConnect(key)}
@@ -581,15 +571,6 @@ export default function AccountPage() {
                         : key === "google"
                         ? "Connect Gmail"
                         : "Connect Outlook"}
-                    </button>
-                  ) : null}
-                  {shouldReconnect ? (
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => handleEmailConnect(key)}
-                      disabled={isActionLoading}
-                    >
-                      {isActionLoading ? "Working..." : "Reconnect"}
                     </button>
                   ) : null}
                   {connected ? (
