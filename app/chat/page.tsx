@@ -54,11 +54,16 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [bannerState, setBannerState] = useState<BannerState | null>(null);
+  const [taskState, setTaskState] = useState<
+    "idle" | "building_quote" | "updating_quote" | string
+  >("idle");
+  const [taskHint, setTaskHint] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const initialLoadRef = useRef(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const taskHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { flags } = useClientFlags();
 
@@ -72,6 +77,46 @@ export default function ChatPage() {
 
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
+  const isLocked =
+    taskState === "building_quote" || taskState === "updating_quote";
+
+  const taskBannerContent = useMemo(() => {
+    if (taskState === "building_quote") {
+      return {
+        title: "Building quote…",
+        subtext: "Please wait for it to finish generating before requesting changes.",
+      };
+    }
+
+    if (taskState === "updating_quote") {
+      return {
+        title: "Updating / sending quote…",
+        subtext: "Please wait — I’m applying your changes.",
+      };
+    }
+
+    return null;
+  }, [taskState]);
+
+  const triggerTaskHint = () => {
+    if (!isLocked) return;
+
+    const hint =
+      taskState === "updating_quote"
+        ? "Quote is updating/sending. Wait a moment."
+        : "Quote is still being built. Wait a moment.";
+
+    setTaskHint(hint);
+
+    if (taskHintTimeoutRef.current) {
+      clearTimeout(taskHintTimeoutRef.current);
+    }
+
+    taskHintTimeoutRef.current = setTimeout(() => {
+      setTaskHint(null);
+    }, 2000);
   };
 
   useEffect(() => {
@@ -158,6 +203,35 @@ export default function ChatPage() {
   useEffect(() => {
     if (!supabase || !conversationId) return;
 
+    let isMounted = true;
+
+    async function fetchTaskState() {
+      const { data, error } = await supabase
+        .from("conversations")
+        .select("task_state")
+        .eq("id", conversationId)
+        .maybeSingle();
+
+      if (!isMounted) return;
+
+      if (error) {
+        console.warn("Failed to fetch task state:", error.message);
+        return;
+      }
+
+      setTaskState(data?.task_state ?? "idle");
+    }
+
+    void fetchTaskState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase, conversationId]);
+
+  useEffect(() => {
+    if (!supabase || !conversationId) return;
+
     const channel = supabase
       .channel(`messages-conversation-${conversationId}`)
       .on(
@@ -192,7 +266,48 @@ export default function ChatPage() {
     };
   }, [supabase, conversationId]);
 
+  useEffect(() => {
+    if (!supabase || !conversationId) return;
+
+    const channel = supabase
+      .channel(`conversation-task-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "conversations",
+          filter: `id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const nextState = (payload.new as { task_state?: string }).task_state ?? "idle";
+          setTaskState(nextState);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, conversationId]);
+
+  useEffect(() => {
+    if (!isLocked) {
+      setTaskHint(null);
+    }
+  }, [isLocked]);
+
+  useEffect(() => {
+    return () => {
+      if (taskHintTimeoutRef.current) {
+        clearTimeout(taskHintTimeoutRef.current);
+      }
+    };
+  }, []);
+
   async function sendMessage() {
+    if (isLocked) return;
+
     const userText = input.trim();
     const filesToSend = attachedFiles;
     const hasAttachments = filesToSend.length > 0;
@@ -305,6 +420,7 @@ export default function ChatPage() {
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (isLocked) return;
     if (e.key !== "Enter" || e.shiftKey) return;
 
     if ((input.trim() || attachedFiles.length > 0) && !sending) {
@@ -319,6 +435,7 @@ export default function ChatPage() {
   };
 
   const removeFile = (index: number) => {
+    if (isLocked) return;
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -438,6 +555,21 @@ export default function ChatPage() {
         </div>
 
         <div className="chat-composer">
+          {taskBannerContent ? (
+            <div className="chat-task-banner">
+              <div className="chat-task-loader" aria-hidden="true">
+                <span className="chat-task-dots" />
+                <span className="chat-task-dots" />
+                <span className="chat-task-dots" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-white">{taskBannerContent.title}</div>
+                <div className="text-xs text-[var(--muted)]">{taskBannerContent.subtext}</div>
+              </div>
+            </div>
+          ) : null}
+          {taskHint ? <div className="chat-task-hint">{taskHint}</div> : null}
+
           <div className={`chat-attachment-row ${attachedFiles.length ? "is-visible" : ""}`}>
             <span className="chat-attachment-label">Attachments</span>
             <div className="flex flex-1 flex-wrap gap-2">
@@ -449,6 +581,7 @@ export default function ChatPage() {
                     className="chat-attachment-remove"
                     aria-label={`Remove ${file.name}`}
                     onClick={() => removeFile(index)}
+                    disabled={isLocked}
                   >
                     ×
                   </button>
@@ -458,30 +591,58 @@ export default function ChatPage() {
           </div>
 
           <div className="chat-input-row">
-            <button
-              type="button"
-              onClick={openFilePicker}
-              className="chat-upload-btn"
-              aria-label="Upload files"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-                focusable="false"
-                className="chat-upload-icon"
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  if (isLocked) {
+                    triggerTaskHint();
+                    return;
+                  }
+                  openFilePicker();
+                }}
+                className="chat-upload-btn"
+                aria-label="Upload files"
+                disabled={isLocked}
               >
-                <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
-              </svg>
-            </button>
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  focusable="false"
+                  className="chat-upload-icon"
+                >
+                  <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
+                </svg>
+              </button>
+              {isLocked ? (
+                <button
+                  type="button"
+                  className="absolute inset-0 z-10 cursor-not-allowed bg-transparent"
+                  onClick={triggerTaskHint}
+                  aria-label="Task in progress"
+                />
+              ) : null}
+            </div>
 
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              rows={1}
-              placeholder="Tell BillyBot what you need."
-              className="chat-input resize-none"
-            />
+            <div className="relative flex-1">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                placeholder="Tell BillyBot what you need."
+                className="chat-input resize-none"
+                disabled={isLocked}
+              />
+              {isLocked ? (
+                <button
+                  type="button"
+                  className="absolute inset-0 z-10 cursor-not-allowed bg-transparent"
+                  onClick={triggerTaskHint}
+                  aria-label="Task in progress"
+                />
+              ) : null}
+            </div>
 
             <input
               ref={fileInputRef}
@@ -494,7 +655,7 @@ export default function ChatPage() {
 
             <button
               onClick={sendMessage}
-              disabled={(!input.trim() && attachedFiles.length === 0) || sending}
+              disabled={(!input.trim() && attachedFiles.length === 0) || sending || isLocked}
               className="chat-send-btn flex items-center justify-center gap-2"
             >
               {sending ? (
