@@ -80,13 +80,16 @@ export async function initEmailEvent(
   return { eventId: inserted.id, shouldProcess: true };
 }
 
-export async function markEmailEventProcessed(eventId: string) {
+export async function markEmailEventProcessed(
+  eventId: string,
+  processedAt: string = new Date().toISOString()
+) {
   const serviceClient = createEmailServiceClient();
   const { error } = await serviceClient
     .from("email_events")
     .update({
       status: "processed",
-      processed_at: new Date().toISOString(),
+      processed_at: processedAt,
       error: null,
     })
     .eq("id", eventId);

@@ -25,6 +25,7 @@ export type MicrosoftMessagePayload = {
   cc: string[];
   subject: string;
   receivedAt: string;
+  threadId: string | null;
   bodyText: string;
   bodyHtml: string;
   attachments: Array<{ filename: string; mimeType: string; base64: string }>;
@@ -37,6 +38,7 @@ type MicrosoftMessage = {
   toRecipients?: Array<{ emailAddress?: { address?: string } }>;
   ccRecipients?: Array<{ emailAddress?: { address?: string } }>;
   receivedDateTime?: string;
+  conversationId?: string;
   body?: { contentType?: string; content?: string };
   bodyPreview?: string;
 };
@@ -248,7 +250,7 @@ export async function fetchMicrosoftMessagePayload(
   const accessToken = await getValidAccessToken(account);
   const messageResponse = await graphRequest(
     accessToken,
-    `/me/messages/${messageId}?$select=subject,from,toRecipients,ccRecipients,receivedDateTime,body,bodyPreview`
+    `/me/messages/${messageId}?$select=subject,from,toRecipients,ccRecipients,receivedDateTime,body,bodyPreview,conversationId`
   );
 
   const message = (await messageResponse.json()) as MicrosoftMessage;
@@ -282,6 +284,7 @@ export async function fetchMicrosoftMessagePayload(
     cc: parseRecipients(message.ccRecipients),
     subject: message.subject ?? "",
     receivedAt: message.receivedDateTime ?? new Date().toISOString(),
+    threadId: message.conversationId ?? null,
     bodyText,
     bodyHtml,
     attachments,
