@@ -140,7 +140,8 @@ async function markEventProcessed(
   serviceClient: ReturnType<typeof createEmailServiceClient>,
   eventId: string,
   providerThreadId: string | null,
-  meta: Record<string, unknown>
+  meta: Record<string, unknown>,
+  payload?: EmailPayload
 ) {
   const { error } = await serviceClient
     .from("email_events")
@@ -150,6 +151,22 @@ async function markEventProcessed(
       provider_thread_id: providerThreadId,
       error: null,
       meta,
+      ...(payload
+        ? {
+            from_email: payload.from,
+            to_emails: payload.to,
+            cc_emails: payload.cc,
+            subject: payload.subject,
+            body_text: payload.bodyText,
+            body_html: payload.bodyHtml,
+            attachments: payload.attachments.map((attachment) => ({
+              filename: attachment.filename,
+              mime_type: attachment.mimeType,
+              base64: attachment.base64,
+            })),
+            received_at: payload.receivedAt,
+          }
+        : {}),
     })
     .eq("id", eventId);
 
@@ -333,11 +350,17 @@ export async function POST(request: NextRequest) {
         throw new Error("Failed to update conversation activity");
       }
 
-      await markEventProcessed(serviceClient, event.id, providerThreadId, {
-        job_id: jobId,
-        conversation_id: conversationId,
-        processed_at: new Date().toISOString(),
-      });
+      await markEventProcessed(
+        serviceClient,
+        event.id,
+        providerThreadId,
+        {
+          job_id: jobId,
+          conversation_id: conversationId,
+          processed_at: new Date().toISOString(),
+        },
+        payload
+      );
 
       results.push({ eventId: event.id, status: "processed" });
       processed += 1;

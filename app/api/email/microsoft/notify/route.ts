@@ -138,7 +138,16 @@ export async function POST(request: NextRequest) {
       };
 
       await sendToN8n(payloadToSend);
-      await markEmailEventProcessed(eventId);
+      await markEmailEventProcessed(eventId, {
+        from: message.from,
+        to: message.to,
+        cc: message.cc,
+        subject: message.subject,
+        receivedAt: message.receivedAt,
+        bodyText: message.bodyText,
+        bodyHtml: message.bodyHtml,
+        attachments: message.attachments,
+      });
     } catch (messageError) {
       hadFailure = true;
       const errorMessage =
