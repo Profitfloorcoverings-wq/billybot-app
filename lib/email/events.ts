@@ -13,6 +13,17 @@ export type EmailEventInitResult = {
   shouldProcess: boolean;
 };
 
+type EmailEventPayload = {
+  from: string;
+  to: string[];
+  cc: string[];
+  subject: string;
+  receivedAt: string;
+  bodyText: string;
+  bodyHtml: string;
+  attachments: Array<{ filename: string; mimeType: string; base64: string }>;
+};
+
 export async function initEmailEvent(
   account: { id: string; client_id: string; provider: "google" | "microsoft" },
   providerMessageId: string,
@@ -80,7 +91,10 @@ export async function initEmailEvent(
   return { eventId: inserted.id, shouldProcess: true };
 }
 
-export async function markEmailEventProcessed(eventId: string) {
+export async function markEmailEventProcessed(
+  eventId: string,
+  payload?: EmailEventPayload
+) {
   const serviceClient = createEmailServiceClient();
   const { error } = await serviceClient
     .from("email_events")
@@ -88,6 +102,22 @@ export async function markEmailEventProcessed(eventId: string) {
       status: "processed",
       processed_at: new Date().toISOString(),
       error: null,
+      ...(payload
+        ? {
+            from_email: payload.from,
+            to_emails: payload.to,
+            cc_emails: payload.cc,
+            subject: payload.subject,
+            body_text: payload.bodyText,
+            body_html: payload.bodyHtml,
+            attachments: payload.attachments.map((attachment) => ({
+              filename: attachment.filename,
+              mime_type: attachment.mimeType,
+              base64: attachment.base64,
+            })),
+            received_at: payload.receivedAt,
+          }
+        : {}),
     })
     .eq("id", eventId);
 
