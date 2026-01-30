@@ -4,9 +4,6 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-// Dev fallback profile
-const DEV_PROFILE_ID = "19b639a4-6e14-4c69-9ddf-04d371a3e45b";
-
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -21,21 +18,26 @@ export async function POST(req: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Insert assistant message into your messages table
     const { error } = await supabase.from("messages").insert({
       conversation_id,
       role: "assistant",
+      type: "text",
       content: reply,
-      profile_id: DEV_PROFILE_ID
+      created_at: new Date().toISOString(),
     });
 
     if (error) throw error;
 
     return NextResponse.json({ status: "ok" });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("SYSTEM ROUTE ERROR:", err);
     return NextResponse.json(
-      { error: err.message || "Server error" },
+      {
+        error:
+          err && typeof err === "object" && "message" in err
+            ? String((err as { message?: string }).message)
+            : "Server error",
+      },
       { status: 500 }
     );
   }

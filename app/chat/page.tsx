@@ -10,10 +10,13 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 function createBrowserSupabaseClient(): SupabaseClient | null {
   if (typeof window === "undefined") return null;
+<<<<<<< HEAD
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error("Supabase env vars are missing in the browser.");
     return null;
   }
+=======
+>>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
   return createClient(supabaseUrl, supabaseAnonKey);
 }
 
@@ -41,12 +44,20 @@ export default function ChatPage() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
+<<<<<<< HEAD
 
   useEffect(() => {
     setSupabaseClient(createBrowserSupabaseClient());
   }, []);
+=======
+>>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  // Init browser client
+  useEffect(() => {
+    setSupabaseClient(createBrowserSupabaseClient());
+  }, []);
 
   // ---------- Load chat history ----------
   const loadMessagesFromSupabase = useCallback(
@@ -55,7 +66,11 @@ export default function ChatPage() {
 
       const { data, error } = await supabaseClient
         .from("messages")
+<<<<<<< HEAD
         .select("id, role, content, type, quote_reference, conversation_id, created_at")
+=======
+        .select("id, role, content, type, quote_reference, created_at")
+>>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
         .eq("conversation_id", conversation_id)
         .order("created_at", { ascending: true });
 
@@ -77,6 +92,10 @@ export default function ChatPage() {
     [supabaseClient]
   );
 
+<<<<<<< HEAD
+=======
+  // ---------- Load or create conversation ----------
+>>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
   const initializeConversation = useCallback(async () => {
     try {
       const res = await fetch("/api/chat", {
@@ -90,6 +109,7 @@ export default function ChatPage() {
       const data = await res.json();
       const rows = (data?.messages ?? []) as DbMessage[];
 
+<<<<<<< HEAD
       const convIdFromRows = rows.length ? rows[0].conversation_id : null;
       const convIdFromPayload =
         typeof data?.conversation_id === "string" ? data.conversation_id : null;
@@ -98,6 +118,19 @@ export default function ChatPage() {
 
       if (resolvedConversationId) {
         setConversationId((prev) => prev ?? resolvedConversationId);
+=======
+      const existingConvIdFromRows =
+        rows.length > 0 ? rows[0].conversation_id : null;
+
+      const existingConvIdFromPayload =
+        typeof data?.conversation_id === "string" ? data.conversation_id : null;
+
+      const resolvedConversationId =
+        existingConvIdFromRows ?? existingConvIdFromPayload;
+
+      if (resolvedConversationId) {
+        setConversationId(resolvedConversationId);
+>>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
         await loadMessagesFromSupabase(resolvedConversationId);
       }
     } catch (err) {
@@ -106,6 +139,7 @@ export default function ChatPage() {
   }, [loadMessagesFromSupabase]);
 
   useEffect(() => {
+<<<<<<< HEAD
     if (!supabaseClient) return;
     initializeConversation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -115,8 +149,14 @@ export default function ChatPage() {
     if (!supabaseClient || !conversationId) return;
     loadMessagesFromSupabase(conversationId);
   }, [conversationId, loadMessagesFromSupabase, supabaseClient]);
+=======
+    if (supabaseClient) {
+      initializeConversation();
+    }
+  }, [supabaseClient, initializeConversation]);
+>>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
 
-  // ---------- Supabase Realtime ----------
+  // ---------- Realtime subscription ----------
   useEffect(() => {
     if (!conversationId || !supabaseClient) return;
 
@@ -130,8 +170,8 @@ export default function ChatPage() {
           table: "messages",
           filter: `conversation_id=eq.${conversationId}`,
         },
-        (payload: { new: DbMessage }) => {
-          const row = payload.new;
+        (payload) => {
+          const row = payload.new as DbMessage;
 
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
@@ -141,7 +181,11 @@ export default function ChatPage() {
               {
                 id: row.id,
                 role: row.role,
+<<<<<<< HEAD
                 content: row.content ?? "",
+=======
+                content: row.content,
+>>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
                 type: row.type ?? undefined,
                 quote_reference: row.quote_reference ?? undefined,
               },
@@ -170,10 +214,8 @@ export default function ChatPage() {
     setIsSending(true);
 
     // optimistic UI
-    setMessages((prev) => [
-      ...prev,
-      { id: `local-${Date.now()}`, role: "user", content: text },
-    ]);
+    const localId = `local-${Date.now()}`;
+    setMessages((prev) => [...prev, { id: localId, role: "user", content: text }]);
 
     try {
       const res = await fetch("/api/chat", {
@@ -184,7 +226,6 @@ export default function ChatPage() {
 
       if (!res.ok) {
         console.error("Send failed", await res.text());
-        return;
       }
 
       if (!conversationId) {
@@ -215,11 +256,9 @@ export default function ChatPage() {
   // ---------- UI ----------
   return (
     <div className="flex h-full flex-col gap-4 p-5">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
-          Chat
-        </h1>
-      </div>
+      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
+        Chat
+      </h1>
 
       <div className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.85)] p-4">
         {messages.map((m) => (
@@ -259,7 +298,8 @@ export default function ChatPage() {
             </div>
           </div>
         ))}
-        <div ref={bottomRef} />
+
+        <div ref={bottomRef}></div>
       </div>
 
       <div className="rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-3 py-2">
