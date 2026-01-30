@@ -23,6 +23,7 @@ export type GmailMessagePayload = {
   cc: string[];
   subject: string;
   receivedAt: string;
+  threadId: string | null;
   bodyText: string;
   bodyHtml: string;
   attachments: Array<{ filename: string; mimeType: string; base64: string }>;
@@ -40,6 +41,7 @@ type GmailMessagePart = {
 
 type GmailMessage = {
   id: string;
+  threadId?: string;
   internalDate?: string;
   payload?: GmailMessagePart;
 };
@@ -303,6 +305,7 @@ export async function fetchGmailMessagePayload(
     cc,
     subject,
     receivedAt,
+    threadId: message.threadId ?? null,
     bodyText,
     bodyHtml,
     attachments,
