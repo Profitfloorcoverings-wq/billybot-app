@@ -162,32 +162,22 @@ export async function POST(request: NextRequest) {
   };
   const limit = resolveLimit(body?.limit);
   const serviceClient = createEmailServiceClient();
-  const statusesToProcess = ["received", "queued", "processing"];
 
-  const { data: events, error: eventsError } = await serviceClient
-    .from("email_events")
-    .select("*")
-    .in("status", statusesToProcess)
-    .order("received_at", { ascending: true })
-    .limit(limit);
+  // Atomically claim a batch of email events to avoid duplicate processing.
+  const { data: claimed, error: claimError } = await serviceClient.rpc(
+    "claim_email_events",
+    { p_limit: limit }
+  );
 
-  if (eventsError) {
-    return NextResponse.json({ error: "query_failed" }, { status: 500 });
+  if (claimError) {
+    console.error("claim_email_events failed", claimError);
+    return NextResponse.json({ error: "claim_failed" }, { status: 500 });
   }
 
-  const eventList = (events ?? []) as EmailEventRecord[];
-  const eventIds = eventList.map((event) => event.id).filter(Boolean);
+  const eventList = (claimed ?? []) as EmailEventRecord[];
 
-  if (eventIds.length > 0) {
-    const { error: claimError } = await serviceClient
-      .from("email_events")
-      .update({ status: "processing" })
-      .in("id", eventIds)
-      .in("status", statusesToProcess);
-
-    if (claimError) {
-      return NextResponse.json({ error: "claim_failed" }, { status: 500 });
-    }
+  if (!eventList.length) {
+    return NextResponse.json({ ok: true, processed: 0, errors: 0, results: [] });
   }
 
   const results: EmailEventResult[] = [];
