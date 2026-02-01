@@ -23,6 +23,8 @@ export async function middleware(req: NextRequest) {
   // Ensure onboarding guards are evaluated with fresh data on every request.
   res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
   res.headers.set("Pragma", "no-cache");
+  res.headers.set("x-url", req.nextUrl.href);
+  res.headers.set("x-pathname", req.nextUrl.pathname);
 
   // Initialize Supabase server client using request cookies
   const supabase = createServerClient(
@@ -52,18 +54,13 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = req.nextUrl.pathname;
-  const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
-  const isOnboardingRoute = ONBOARDING_ROUTES.some((route) =>
-    pathname.startsWith(route)
-  );
-  const isPublicRoute = PUBLIC_ROUTES.some((route) =>
-    pathname.startsWith(route)
-  );
-  const isNextAsset = pathname.startsWith("/_next") || pathname === "/favicon.ico";
-  const isPublic = isAuthRoute || isOnboardingRoute || isPublicRoute || isNextAsset;
+  const isPublicRoute =
+    PUBLIC_ROUTES.some((route) => pathname.startsWith(route)) ||
+    AUTH_ROUTES.some((route) => pathname.startsWith(route)) ||
+    ONBOARDING_ROUTES.some((route) => pathname.startsWith(route));
 
   if (!user) {
-    if (isPublic) {
+    if (isPublicRoute) {
       return res;
     }
 
@@ -93,7 +90,7 @@ export async function middleware(req: NextRequest) {
   const isFullyOnboarded = businessComplete && hasAcceptedTerms;
 
   if (isFullyOnboarded) {
-    if (isAuthRoute || isOnboardingRoute) {
+    if (AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
       return redirectWithCookies(req, res, "/chat");
     }
 
@@ -101,14 +98,14 @@ export async function middleware(req: NextRequest) {
   }
 
   if (!businessComplete) {
-    if (isOnboardingRoute || isPublic) {
+    if (isPublicRoute) {
       return res;
     }
     return redirectWithCookies(req, res, "/account/setup");
   }
 
   if (!hasAcceptedTerms) {
-    if (isOnboardingRoute || isPublic) {
+    if (isPublicRoute) {
       return res;
     }
     return redirectWithCookies(req, res, "/account/accept-terms");
