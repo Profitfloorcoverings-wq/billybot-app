@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 import { JOB_STATUS_OPTIONS } from "@/app/jobs/constants";
 import JobStatusBadge from "@/app/jobs/components/JobStatusBadge";
@@ -95,9 +96,27 @@ function normalizeParamId(value: string | string[] | undefined) {
   return value ?? "";
 }
 
+async function getDebugFlagFromHeaders() {
+  const headerList = await headers();
+  const url =
+    headerList.get("x-url") ??
+    headerList.get("next-url") ??
+    headerList.get("referer") ??
+    "";
+  if (!url) return false;
+
+  try {
+    const parsed = new URL(url, "http://localhost");
+    return parsed.searchParams.get("debug") === "1";
+  } catch {
+    return false;
+  }
+}
+
 export default async function JobDetailPage({ params, searchParams }: JobDetailPageProps) {
   const supabase = await createServerClient();
-  const debugEnabled = searchParams?.debug === "1";
+  const debugEnabled =
+    searchParams?.debug === "1" || (await getDebugFlagFromHeaders());
   const jobId = String(normalizeParamId(params?.id));
   const isValidJobId = UUID_RE.test(jobId);
 
