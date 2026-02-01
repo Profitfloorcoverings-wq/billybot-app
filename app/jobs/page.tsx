@@ -177,19 +177,20 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
                 </thead>
                 <tbody>
                   {jobs.map((job) => {
+                    const id = job.id;
                     const title = job.title?.trim() || "Untitled job";
                     const customer = job.customer_name?.trim() || "Unknown customer";
                     const lastActivityLabel = formatRelativeTime(job.last_activity_at);
                     const lastActivityExact = formatTimestamp(job.last_activity_at);
                     const hasQuote =
-                      quotesByJob.has(job.id) ||
+                      quotesByJob.has(id) ||
                       (job.title ? quoteRefs.has(job.title) : false);
 
                     return (
-                      <tr key={job.id}>
+                      <tr key={id}>
                         <td>
                           <Link
-                            href={`/jobs/${job.id}`}
+                            href={`/jobs/${id}`}
                             className="text-[15px] font-semibold text-white hover:underline"
                           >
                             {title}
