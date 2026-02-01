@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { JOB_STATUS_FILTERS } from "@/app/jobs/constants";
 import JobStatusBadge from "@/app/jobs/components/JobStatusBadge";
 import ProviderBadge from "@/app/jobs/components/ProviderBadge";
-import { formatRelativeTime, formatTimestamp, normalizeStatus } from "@/app/jobs/utils";
+import { formatRelativeTime, formatTimestamp, normalizeStatus, JOB_SELECT } from "@/app/jobs/utils";
 import { createServerClient } from "@/utils/supabase/server";
 
 type Job = {
@@ -46,9 +46,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   if (user) {
     let query = supabase
       .from("jobs")
-      .select(
-        "id, title, customer_name, customer_email, status, provider, last_activity_at"
-      )
+      .select(JOB_SELECT)
       .eq("client_id", user.id)
       .order("last_activity_at", { ascending: false });
 

@@ -13,6 +13,7 @@ import {
   humanizeStatus,
   normalizeStatus,
   stripHtml,
+  JOB_SELECT,
 } from "@/app/jobs/utils";
 import { createServerClient } from "@/utils/supabase/server";
 
@@ -29,10 +30,13 @@ type Job = {
   provider_thread_id?: string | null;
   last_activity_at?: string | null;
   conversation_id?: string | null;
-  request_text?: string | null;
-  details?: string | null;
-  description?: string | null;
-  notes?: string | null;
+  job_details?: string | null;
+  created_at?: string | null;
+  provider_message_id?: string | null;
+  metadata?: Record<string, unknown> | null;
+  job_thread_id?: string | null;
+  client_id?: string | null;
+  profile_id?: string | null;
 };
 
 type EmailEvent = {
@@ -117,9 +121,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
 
   const { data: jobData, error: jobError } = await supabase
     .from("jobs")
-    .select(
-      "id, title, status, customer_name, customer_email, customer_phone, site_address, postcode, provider, provider_thread_id, last_activity_at, conversation_id, request_text, details, description, notes"
-    )
+    .select(JOB_SELECT)
     .eq("id", params.id)
     .eq("client_id", user.id)
     .maybeSingle<Job>();
@@ -250,12 +252,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
   const outboundEmails = emails.filter((email) => email.direction === "outbound");
   const lastInbound = inboundEmails.at(-1)?.received_at ?? inboundEmails.at(-1)?.created_at;
   const jobTitle = jobData.title?.trim() || "Untitled job";
-  const jobDetails =
-    jobData.request_text?.trim() ||
-    jobData.details?.trim() ||
-    jobData.description?.trim() ||
-    jobData.notes?.trim() ||
-    "";
+  const jobDetails = jobData.job_details?.trim() || "";
   const lastActivityLabel = formatRelativeTime(jobData.last_activity_at);
   const lastActivityExact = formatTimestamp(jobData.last_activity_at);
   const chatHref = jobData.conversation_id
