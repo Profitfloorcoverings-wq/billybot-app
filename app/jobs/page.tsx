@@ -1,14 +1,13 @@
-"use client";
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { redirect } from "next/navigation";
 
 import { JOB_STATUS_FILTERS } from "@/app/jobs/constants";
 import JobStatusBadge from "@/app/jobs/components/JobStatusBadge";
 import ProviderBadge from "@/app/jobs/components/ProviderBadge";
 import { formatRelativeTime, formatTimestamp, normalizeStatus } from "@/app/jobs/utils";
-import { createClient } from "@/utils/supabase/client";
+import { createServerClient } from "@/utils/supabase/server";
 
 type Job = {
   id: string;
@@ -20,126 +19,95 @@ type Job = {
   last_activity_at?: string | null;
 };
 
-export default function JobsPage() {
-  const supabase = useMemo(() => createClient(), []);
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [quotesByJob, setQuotesByJob] = useState<Set<string>>(new Set());
-  const [quoteRefs, setQuoteRefs] = useState<Set<string>>(new Set());
+type JobsPageProps = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
 
-  useEffect(() => {
-    let active = true;
-    const timeout = setTimeout(() => {
-      async function loadJobs() {
-        setLoading(true);
-        setError(null);
+export default async function JobsPage({ searchParams }: JobsPageProps) {
+  const supabase = await createServerClient();
+  const debugEnabled = searchParams?.debug === "1";
+  const searchValue =
+    typeof searchParams?.search === "string" ? searchParams.search : "";
+  const statusValue =
+    typeof searchParams?.status === "string" ? searchParams.status : "all";
 
-        try {
-          const { data: userData, error: userError } = await supabase.auth.getUser();
-          const clientId = userData?.user?.id;
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const user = userData?.user ?? null;
 
-          if (userError || !clientId) {
-            throw new Error(userError?.message || "Unable to find your account");
-          }
+  if (!user && !debugEnabled) {
+    redirect("/auth/login");
+  }
 
-          let query = supabase
-            .from("jobs")
-            .select(
-              "id, title, customer_name, customer_email, status, provider, last_activity_at"
-            )
-            .eq("client_id", clientId)
-            .order("last_activity_at", { ascending: false });
+  let jobsError: { message?: string } | null = null;
+  let jobs: Job[] = [];
+  let quotesByJob = new Set<string>();
+  let quoteRefs = new Set<string>();
 
-          const trimmedSearch = search.trim();
-          if (trimmedSearch) {
-            const escaped = trimmedSearch.replace(/,/g, "");
-            query = query.or(
-              `title.ilike.%${escaped}%,customer_name.ilike.%${escaped}%,customer_email.ilike.%${escaped}%`
-            );
-          }
+  if (user) {
+    let query = supabase
+      .from("jobs")
+      .select(
+        "id, title, customer_name, customer_email, status, provider, last_activity_at"
+      )
+      .eq("client_id", user.id)
+      .order("last_activity_at", { ascending: false });
 
-          if (status !== "all") {
-            const normalized = normalizeStatus(status);
-            const pattern =
-              normalized === "awaiting_info" ? "awaiting%info" : normalized;
-            query = query.ilike("status", pattern);
-          }
+    const trimmedSearch = searchValue.trim();
+    if (trimmedSearch) {
+      const escaped = trimmedSearch.replace(/,/g, "");
+      query = query.or(
+        `title.ilike.%${escaped}%,customer_name.ilike.%${escaped}%,customer_email.ilike.%${escaped}%`
+      );
+    }
 
-          const { data, error: jobsError } = await query;
+    if (statusValue !== "all") {
+      const normalized = normalizeStatus(statusValue);
+      const pattern = normalized === "awaiting_info" ? "awaiting%info" : normalized;
+      query = query.ilike("status", pattern);
+    }
 
-          if (jobsError) {
-            throw jobsError;
-          }
+    const { data, error } = await query;
+    if (error) {
+      jobsError = { message: error.message };
+    } else {
+      jobs = data ?? [];
+    }
 
-          const list = data ?? [];
-          if (active) {
-            setJobs(list);
-          }
+    if (!jobsError && jobs.length > 0) {
+      const jobIds = jobs.map((job) => job.id);
+      const jobTitles = jobs
+        .map((job) => job.title?.trim())
+        .filter((title): title is string => Boolean(title));
 
-          const jobIds = list.map((job) => job.id);
-          const jobTitles = list
-            .map((job) => job.title?.trim())
-            .filter((title): title is string => Boolean(title));
+      if (jobIds.length > 0) {
+        const { data: quotesById } = await supabase
+          .from("quotes")
+          .select("id, job_id")
+          .in("job_id", jobIds)
+          .eq("client_id", user.id);
 
-          const nextQuoteIds = new Set<string>();
-          const nextQuoteRefs = new Set<string>();
-
-          if (jobIds.length > 0) {
-            const { data: quotesById } = await supabase
-              .from("quotes")
-              .select("id, job_id")
-              .in("job_id", jobIds)
-              .eq("client_id", clientId);
-
-            quotesById?.forEach((quote) => {
-              if (quote.job_id) nextQuoteIds.add(quote.job_id);
-            });
-          }
-
-          if (jobTitles.length > 0) {
-            const { data: quotesByRef } = await supabase
-              .from("quotes")
-              .select("id, job_ref")
-              .in("job_ref", jobTitles)
-              .eq("client_id", clientId);
-
-            quotesByRef?.forEach((quote) => {
-              if (quote.job_ref) nextQuoteRefs.add(quote.job_ref);
-            });
-          }
-
-          if (active) {
-            setQuotesByJob(nextQuoteIds);
-            setQuoteRefs(nextQuoteRefs);
-          }
-        } catch (err) {
-          if (active) {
-            setError(
-              err && typeof err === "object" && "message" in err
-                ? String((err as { message?: string }).message)
-                : "Unable to load jobs"
-            );
-          }
-        } finally {
-          if (active) {
-            setLoading(false);
-          }
-        }
+        quotesById?.forEach((quote) => {
+          if (quote.job_id) quotesByJob.add(quote.job_id);
+        });
       }
 
-      void loadJobs();
-    }, 250);
+      if (jobTitles.length > 0) {
+        const { data: quotesByRef } = await supabase
+          .from("quotes")
+          .select("id, job_ref")
+          .in("job_ref", jobTitles)
+          .eq("client_id", user.id);
 
-    return () => {
-      active = false;
-      clearTimeout(timeout);
-    };
-  }, [supabase, search, status]);
+        quotesByRef?.forEach((quote) => {
+          if (quote.job_ref) quoteRefs.add(quote.job_ref);
+        });
+      }
+    }
+  }
 
   const hasJobs = jobs.length > 0;
+  const showEmpty = !jobsError && !hasJobs;
+  const showError = !!jobsError;
 
   return (
     <div className="page-container">
@@ -153,23 +121,19 @@ export default function JobsPage() {
       </div>
 
       <div className="card stack gap-4">
-        <div className="stack md:row md:items-end md:justify-between gap-3">
+        <form className="stack md:row md:items-end md:justify-between gap-3" method="get">
           <div className="stack flex-1">
             <p className="section-subtitle">Search</p>
             <input
               className="input-fluid"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              name="search"
+              defaultValue={searchValue}
               placeholder="Search by job title, customer name, or email"
             />
           </div>
           <div className="stack min-w-[200px]">
             <p className="section-subtitle">Status</p>
-            <select
-              className="input-fluid"
-              value={status}
-              onChange={(event) => setStatus(event.target.value)}
-            >
+            <select className="input-fluid" name="status" defaultValue={statusValue}>
               {JOB_STATUS_FILTERS.map((filter) => (
                 <option key={filter.value} value={filter.value}>
                   {filter.label}
@@ -177,14 +141,19 @@ export default function JobsPage() {
               ))}
             </select>
           </div>
-        </div>
+          {debugEnabled ? <input type="hidden" name="debug" value="1" /> : null}
+          <div className="flex items-end">
+            <button type="submit" className="btn btn-secondary">
+              Apply
+            </button>
+          </div>
+        </form>
 
         <div className="table-card scrollable-table">
           <div className="relative w-full max-h-[70vh] overflow-y-auto">
-            {loading && <div className="empty-state">Loading jobs…</div>}
-            {error && !loading && <div className="empty-state">{error}</div>}
+            {showError && <div className="empty-state">{jobsError?.message}</div>}
 
-            {!loading && !error && !hasJobs && (
+            {showEmpty && (
               <div className="empty-state stack items-center">
                 <h3 className="section-title">No jobs yet</h3>
                 <p className="section-subtitle">
@@ -196,7 +165,7 @@ export default function JobsPage() {
               </div>
             )}
 
-            {!loading && !error && hasJobs && (
+            {!showError && hasJobs && (
               <table className="data-table">
                 <thead className="sticky top-0 z-10 bg-[var(--card)]">
                   <tr>
@@ -273,6 +242,29 @@ export default function JobsPage() {
           </div>
         </div>
       </div>
+
+      {debugEnabled ? (
+        <div className="card">
+          <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
+            {JSON.stringify(
+              {
+                user_id: user?.id ?? null,
+                user_email: user?.email ?? null,
+                user_error: userError?.message ?? null,
+                node_env: process.env.NODE_ENV ?? null,
+                supabase_url_host: process.env.NEXT_PUBLIC_SUPABASE_URL
+                  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
+                  : null,
+                jobs_filter_key: "client_id",
+                jobs_error: jobsError?.message ?? null,
+                jobs_count: jobs.length,
+              },
+              null,
+              2
+            )}
+          </pre>
+        </div>
+      ) : null}
     </div>
   );
 }

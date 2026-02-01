@@ -1,9 +1,7 @@
-"use client";
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { notFound, redirect } from "next/navigation";
 
 import { JOB_STATUS_OPTIONS } from "@/app/jobs/constants";
 import JobStatusBadge from "@/app/jobs/components/JobStatusBadge";
@@ -16,11 +14,10 @@ import {
   normalizeStatus,
   stripHtml,
 } from "@/app/jobs/utils";
-import { createClient } from "@/utils/supabase/client";
+import { createServerClient } from "@/utils/supabase/server";
 
 type Job = {
   id: string;
-  profile_id?: string | null;
   title?: string | null;
   status?: string | null;
   customer_name?: string | null;
@@ -80,271 +77,190 @@ type TimelineEntry = {
   pdfUrl?: string | null;
 };
 
-export default function JobDetailPage() {
-  const params = useParams<{ id: string }>();
-  const jobId = Array.isArray(params?.id) ? params.id[0] : params?.id;
-  const supabase = useMemo(() => createClient(), []);
+type JobDetailPageProps = {
+  params: { id: string };
+  searchParams?: Record<string, string | string[] | undefined>;
+};
 
-  const [job, setJob] = useState<Job | null>(null);
-  const [emails, setEmails] = useState<EmailEvent[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [statusValue, setStatusValue] = useState("new");
-  const [statusUpdating, setStatusUpdating] = useState(false);
+export default async function JobDetailPage({ params, searchParams }: JobDetailPageProps) {
+  const supabase = await createServerClient();
+  const debugEnabled = searchParams?.debug === "1";
 
-  useEffect(() => {
-    let active = true;
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const user = userData?.user ?? null;
 
-    async function loadJob() {
-      if (!jobId) return;
-      setLoading(true);
-      setError(null);
-      setNotFound(false);
-
-      try {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        const clientId = userData?.user?.id;
-
-        if (userError || !clientId) {
-          throw new Error(userError?.message || "Unable to find your account");
-        }
-
-        const { data: jobData, error: jobError } = await supabase
-          .from("jobs")
-          .select(
-            "id, profile_id, title, status, customer_name, customer_email, customer_phone, customer_mobile, site_address, site_postcode, provider, provider_thread_id, last_activity_at, conversation_id, request_text, details, description, notes"
-          )
-          .eq("id", jobId)
-          .eq("client_id", clientId)
-          .maybeSingle<Job>();
-
-        if (jobError) {
-          throw jobError;
-        }
-
-        if (!jobData) {
-          if (active) {
-            setNotFound(true);
-          }
-          return;
-        }
-
-        if (active) {
-          setJob(jobData);
-          setStatusValue(normalizeStatus(jobData.status) || "new");
-        }
-
-        const emailQuery = supabase
-          .from("email_events")
-          .select(
-            "id, direction, from_email, to_emails, cc_emails, subject, body_text, body_html, received_at, created_at"
-          )
-          .eq("client_id", clientId)
-          .eq("job_id", jobData.id)
-          .order("received_at", { ascending: true });
-
-        let { data: emailData } = await emailQuery;
-
-        if (!emailData?.length && jobData.provider && jobData.provider_thread_id) {
-          const { data: fallbackEmails } = await supabase
-            .from("email_events")
-            .select(
-              "id, direction, from_email, to_emails, cc_emails, subject, body_text, body_html, received_at, created_at"
-            )
-            .eq("client_id", clientId)
-            .eq("provider", jobData.provider)
-            .eq("provider_thread_id", jobData.provider_thread_id)
-            .order("received_at", { ascending: true });
-
-          emailData = fallbackEmails ?? [];
-        }
-
-        const { data: messageData } = jobData.conversation_id
-          ? await supabase
-              .from("messages")
-              .select("id, role, content, created_at")
-              .eq("profile_id", clientId)
-              .eq("conversation_id", jobData.conversation_id)
-              .order("created_at", { ascending: true })
-          : { data: [] };
-
-        let { data: quoteData } = await supabase
-          .from("quotes")
-          .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
-          .eq("client_id", clientId)
-          .eq("job_id", jobData.id)
-          .order("created_at", { ascending: false });
-
-        if (!quoteData?.length && jobData.title) {
-          const { data: fallbackQuotes } = await supabase
-            .from("quotes")
-            .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
-            .eq("client_id", clientId)
-            .eq("job_ref", jobData.title)
-            .order("created_at", { ascending: false });
-
-          quoteData = fallbackQuotes ?? [];
-        }
-
-        if (active) {
-          setEmails(emailData ?? []);
-          setMessages(messageData ?? []);
-          setQuotes(quoteData ?? []);
-        }
-      } catch (err) {
-        if (active) {
-          setError(
-            err && typeof err === "object" && "message" in err
-              ? String((err as { message?: string }).message)
-              : "Unable to load job"
-          );
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
+  if (!user) {
+    if (!debugEnabled) {
+      redirect("/auth/login");
     }
 
-    void loadJob();
-
-    return () => {
-      active = false;
-    };
-  }, [jobId, supabase]);
-
-  useEffect(() => {
-    const nextTimeline: TimelineEntry[] = [];
-
-    emails.forEach((email) => {
-      const directionLabel = email.direction === "outbound" ? "Outbound" : "Inbound";
-      const from = email.from_email ?? "Unknown sender";
-      const to = email.to_emails?.join(", ") ?? "Unknown recipient";
-      const subtitle = `${directionLabel} · ${from} → ${to}`;
-      const timestamp = email.received_at ?? email.created_at ?? null;
-      const bodyText = email.body_text?.trim();
-      const bodyHtml = stripHtml(email.body_html);
-      const preview = bodyText || bodyHtml;
-      const body = [bodyText, bodyText && bodyHtml ? "" : null, bodyHtml]
-        .filter((value): value is string => Boolean(value && value.trim()))
-        .join("\n\n");
-
-      nextTimeline.push({
-        id: `email-${email.id}`,
-        type: "email",
-        title: email.subject?.trim() || "Email update",
-        subtitle,
-        preview: preview ? preview.slice(0, 200) : null,
-        body: body || null,
-        timestamp,
-      });
-    });
-
-    messages.forEach((message) => {
-      const role = message.role ?? "user";
-      nextTimeline.push({
-        id: `chat-${message.id}`,
-        type: "chat",
-        title: `${role.toString().toUpperCase()} message`,
-        subtitle: "Chat conversation",
-        preview: message.content?.trim().slice(0, 200) ?? null,
-        body: message.content?.trim() ?? null,
-        timestamp: message.created_at ?? null,
-      });
-    });
-
-    quotes.forEach((quote) => {
-      nextTimeline.push({
-        id: `quote-${quote.id}`,
-        type: "quote",
-        title: quote.quote_reference ? `Quote ${quote.quote_reference}` : "Quote created",
-        subtitle: quote.status ? `Status: ${humanizeStatus(quote.status)}` : null,
-        preview: quote.pdf_url ? "Quote PDF available" : "Quote ready",
-        body: quote.pdf_url ?? null,
-        timestamp: quote.created_at ?? null,
-        pdfUrl: quote.pdf_url ?? null,
-      });
-    });
-
-    nextTimeline.sort((a, b) => {
-      const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-      const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-      return aTime - bTime;
-    });
-
-    setTimeline(nextTimeline);
-  }, [emails, messages, quotes]);
-
-  async function handleStatusChange(nextStatus: string) {
-    if (!job) return;
-    const normalized = normalizeStatus(nextStatus);
-    setStatusValue(normalized);
-    setStatusUpdating(true);
-
-    try {
-      const { error: updateError } = await supabase
-        .from("jobs")
-        .update({ status: normalized })
-        .eq("id", job.id);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      setJob((prev) => (prev ? { ...prev, status: normalized } : prev));
-    } catch (err) {
-      setStatusValue(normalizeStatus(job.status) || "new");
-      setError(
-        err && typeof err === "object" && "message" in err
-          ? String((err as { message?: string }).message)
-          : "Unable to update status"
-      );
-    } finally {
-      setStatusUpdating(false);
-    }
-  }
-
-  const inboundEmails = emails.filter((email) => email.direction !== "outbound");
-  const outboundEmails = emails.filter((email) => email.direction === "outbound");
-  const lastInbound = inboundEmails.at(-1)?.received_at ?? inboundEmails.at(-1)?.created_at;
-
-  if (loading) {
     return (
       <div className="page-container">
-        <div className="empty-state">Loading job…</div>
-      </div>
-    );
-  }
-
-  if (notFound || !job) {
-    return (
-      <div className="page-container">
-        <div className="empty-state stack items-center">
-          <h3 className="section-title">Job not found</h3>
-          <p className="section-subtitle">We couldn&apos;t locate that job.</p>
-          <Link href="/jobs" className="btn btn-primary">
-            Back to Jobs
-          </Link>
+        <div className="empty-state">Not signed in.</div>
+        <div className="card mt-4">
+          <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
+            {JSON.stringify(
+              {
+                user_error: userError?.message ?? null,
+                node_env: process.env.NODE_ENV ?? null,
+                supabase_url_host: process.env.NEXT_PUBLIC_SUPABASE_URL
+                  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).host
+                  : null,
+              },
+              null,
+              2
+            )}
+          </pre>
         </div>
       </div>
     );
   }
 
-  const jobTitle = job.title?.trim() || "Untitled job";
+  const { data: jobData, error: jobError } = await supabase
+    .from("jobs")
+    .select(
+      "id, title, status, customer_name, customer_email, customer_phone, customer_mobile, site_address, site_postcode, provider, provider_thread_id, last_activity_at, conversation_id, request_text, details, description, notes"
+    )
+    .eq("id", params.id)
+    .eq("client_id", user.id)
+    .maybeSingle<Job>();
+
+  if (jobError) {
+    throw jobError;
+  }
+
+  if (!jobData) {
+    notFound();
+  }
+
+  const emailQuery = supabase
+    .from("email_events")
+    .select(
+      "id, direction, from_email, to_emails, cc_emails, subject, body_text, body_html, received_at, created_at"
+    )
+    .eq("client_id", user.id)
+    .eq("job_id", jobData.id)
+    .order("received_at", { ascending: true });
+
+  let { data: emailData } = await emailQuery;
+
+  if (!emailData?.length && jobData.provider && jobData.provider_thread_id) {
+    const { data: fallbackEmails } = await supabase
+      .from("email_events")
+      .select(
+        "id, direction, from_email, to_emails, cc_emails, subject, body_text, body_html, received_at, created_at"
+      )
+      .eq("client_id", user.id)
+      .eq("provider", jobData.provider)
+      .eq("provider_thread_id", jobData.provider_thread_id)
+      .order("received_at", { ascending: true });
+
+    emailData = fallbackEmails ?? [];
+  }
+
+  const { data: messageData } = jobData.conversation_id
+    ? await supabase
+        .from("messages")
+        .select("id, role, content, created_at")
+        .eq("profile_id", user.id)
+        .eq("conversation_id", jobData.conversation_id)
+        .order("created_at", { ascending: true })
+    : { data: [] };
+
+  let { data: quoteData } = await supabase
+    .from("quotes")
+    .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
+    .eq("client_id", user.id)
+    .eq("job_id", jobData.id)
+    .order("created_at", { ascending: false });
+
+  if (!quoteData?.length && jobData.title) {
+    const { data: fallbackQuotes } = await supabase
+      .from("quotes")
+      .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
+      .eq("client_id", user.id)
+      .eq("job_ref", jobData.title)
+      .order("created_at", { ascending: false });
+
+    quoteData = fallbackQuotes ?? [];
+  }
+
+  const emails = emailData ?? [];
+  const messages = messageData ?? [];
+  const quotes = quoteData ?? [];
+
+  const timeline: TimelineEntry[] = [];
+
+  emails.forEach((email) => {
+    const directionLabel = email.direction === "outbound" ? "Outbound" : "Inbound";
+    const from = email.from_email ?? "Unknown sender";
+    const to = email.to_emails?.join(", ") ?? "Unknown recipient";
+    const subtitle = `${directionLabel} · ${from} → ${to}`;
+    const timestamp = email.received_at ?? email.created_at ?? null;
+    const bodyText = email.body_text?.trim();
+    const bodyHtml = stripHtml(email.body_html);
+    const preview = bodyText || bodyHtml;
+    const body = [bodyText, bodyText && bodyHtml ? "" : null, bodyHtml]
+      .filter((value): value is string => Boolean(value && value.trim()))
+      .join("\n\n");
+
+    timeline.push({
+      id: `email-${email.id}`,
+      type: "email",
+      title: email.subject?.trim() || "Email update",
+      subtitle,
+      preview: preview ? preview.slice(0, 200) : null,
+      body: body || null,
+      timestamp,
+    });
+  });
+
+  messages.forEach((message) => {
+    const role = message.role ?? "user";
+    timeline.push({
+      id: `chat-${message.id}`,
+      type: "chat",
+      title: `${role.toString().toUpperCase()} message`,
+      subtitle: "Chat conversation",
+      preview: message.content?.trim().slice(0, 200) ?? null,
+      body: message.content?.trim() ?? null,
+      timestamp: message.created_at ?? null,
+    });
+  });
+
+  quotes.forEach((quote) => {
+    timeline.push({
+      id: `quote-${quote.id}`,
+      type: "quote",
+      title: quote.quote_reference ? `Quote ${quote.quote_reference}` : "Quote created",
+      subtitle: quote.status ? `Status: ${humanizeStatus(quote.status)}` : null,
+      preview: quote.pdf_url ? "Quote PDF available" : "Quote ready",
+      body: quote.pdf_url ?? null,
+      timestamp: quote.created_at ?? null,
+      pdfUrl: quote.pdf_url ?? null,
+    });
+  });
+
+  timeline.sort((a, b) => {
+    const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return aTime - bTime;
+  });
+
+  const inboundEmails = emails.filter((email) => email.direction !== "outbound");
+  const outboundEmails = emails.filter((email) => email.direction === "outbound");
+  const lastInbound = inboundEmails.at(-1)?.received_at ?? inboundEmails.at(-1)?.created_at;
+  const jobTitle = jobData.title?.trim() || "Untitled job";
   const jobDetails =
-    job.request_text?.trim() ||
-    job.details?.trim() ||
-    job.description?.trim() ||
-    job.notes?.trim() ||
+    jobData.request_text?.trim() ||
+    jobData.details?.trim() ||
+    jobData.description?.trim() ||
+    jobData.notes?.trim() ||
     "";
-  const lastActivityLabel = formatRelativeTime(job.last_activity_at);
-  const lastActivityExact = formatTimestamp(job.last_activity_at);
-  const chatHref = job.conversation_id
-    ? `/chat?conversation_id=${job.conversation_id}`
+  const lastActivityLabel = formatRelativeTime(jobData.last_activity_at);
+  const lastActivityExact = formatTimestamp(jobData.last_activity_at);
+  const chatHref = jobData.conversation_id
+    ? `/chat?conversation_id=${jobData.conversation_id}`
     : "/chat";
 
   return (
@@ -356,7 +272,7 @@ export default function JobDetailPage() {
           </Link>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="section-title">{jobTitle}</h1>
-            <JobStatusBadge status={job.status} />
+            <JobStatusBadge status={jobData.status} />
           </div>
           <p className="text-xs text-[var(--muted)]" title={lastActivityExact}>
             Last activity {lastActivityLabel}
@@ -366,9 +282,9 @@ export default function JobDetailPage() {
           <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Status</p>
           <select
             className="input-fluid"
-            value={statusValue}
-            onChange={(event) => handleStatusChange(event.target.value)}
-            disabled={statusUpdating}
+            defaultValue={normalizeStatus(jobData.status)}
+            disabled
+            title="Status updates are currently read-only."
           >
             {JOB_STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -378,8 +294,6 @@ export default function JobDetailPage() {
           </select>
         </div>
       </div>
-
-      {error ? <div className="toast">{error}</div> : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="stack gap-6">
@@ -391,24 +305,26 @@ export default function JobDetailPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="stack gap-1">
                 <p className="section-subtitle">Customer</p>
-                <p className="text-sm text-white">{job.customer_name || "Unknown"}</p>
-                <p className="text-xs text-[var(--muted)]">{job.customer_email || "—"}</p>
+                <p className="text-sm text-white">{jobData.customer_name || "Unknown"}</p>
                 <p className="text-xs text-[var(--muted)]">
-                  {job.customer_phone || job.customer_mobile || "—"}
+                  {jobData.customer_email || "—"}
+                </p>
+                <p className="text-xs text-[var(--muted)]">
+                  {jobData.customer_phone || jobData.customer_mobile || "—"}
                 </p>
               </div>
               <div className="stack gap-1">
                 <p className="section-subtitle">Site</p>
-                <p className="text-sm text-white">{job.site_address || "—"}</p>
-                <p className="text-xs text-[var(--muted)]">{job.site_postcode || "—"}</p>
+                <p className="text-sm text-white">{jobData.site_address || "—"}</p>
+                <p className="text-xs text-[var(--muted)]">{jobData.site_postcode || "—"}</p>
               </div>
             </div>
             <div className="stack gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <ProviderBadge provider={job.provider} />
-                {job.provider_thread_id ? (
+                <ProviderBadge provider={jobData.provider} />
+                {jobData.provider_thread_id ? (
                   <span className="text-xs text-[var(--muted)]">
-                    Thread {job.provider_thread_id}
+                    Thread {jobData.provider_thread_id}
                   </span>
                 ) : null}
               </div>
@@ -498,10 +414,10 @@ export default function JobDetailPage() {
             <Link
               href={chatHref}
               className={`btn btn-secondary w-full justify-center ${
-                job.conversation_id ? "" : "pointer-events-none opacity-60"
+                jobData.conversation_id ? "" : "pointer-events-none opacity-60"
               }`}
               title={
-                job.conversation_id
+                jobData.conversation_id
                   ? "Open the related conversation"
                   : "No conversation linked to this job yet"
               }
@@ -520,9 +436,7 @@ export default function JobDetailPage() {
           <div className="card stack gap-3">
             <div className="flex items-center justify-between">
               <h3 className="section-title text-lg">Quotes</h3>
-              <span className="text-xs text-[var(--muted)]">
-                {quotes.length} total
-              </span>
+              <span className="text-xs text-[var(--muted)]">{quotes.length} total</span>
             </div>
             {quotes.length === 0 ? (
               <p className="text-sm text-[var(--muted)]">
