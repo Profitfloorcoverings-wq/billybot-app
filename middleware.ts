@@ -2,15 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PROTECTED_ROUTES = [
-  "/chat",
-  "/quotes",
-  "/customers",
-  "/pricing",
-  "/requests",
-  "/account",
+const ONBOARDING_ROUTES = [
+  "/account/setup",
+  "/account/accept-terms",
+  "/post-onboard",
 ];
-const ONBOARDING_ROUTES = ["/account/setup", "/account/accept-terms", "/post-onboard"];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 const PUBLIC_ROUTES = ["/terms", "/privacy"];
 
@@ -56,31 +52,22 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = req.nextUrl.pathname;
-
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
-    return res;
-  }
-
   const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
   const isOnboardingRoute = ONBOARDING_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
-  const isSetupRoute = pathname.startsWith("/account/setup");
-  const isAcceptTermsRoute = pathname.startsWith("/account/accept-terms");
-  const isProtected = PROTECTED_ROUTES.some((route) =>
+  const isPublicRoute = PUBLIC_ROUTES.some((route) =>
     pathname.startsWith(route)
   );
+  const isNextAsset = pathname.startsWith("/_next") || pathname === "/favicon.ico";
+  const isPublic = isAuthRoute || isOnboardingRoute || isPublicRoute || isNextAsset;
 
   if (!user) {
-    if (isAuthRoute) {
+    if (isPublic) {
       return res;
     }
 
-    if (isProtected || isOnboardingRoute) {
-      return redirectWithCookies(req, res, "/auth/login");
-    }
-
-    return res;
+    return redirectWithCookies(req, res, "/auth/login");
   }
 
   const { data: clientProfile } = await supabase
@@ -114,14 +101,14 @@ export async function middleware(req: NextRequest) {
   }
 
   if (!businessComplete) {
-    if (isSetupRoute) {
+    if (isOnboardingRoute || isPublic) {
       return res;
     }
     return redirectWithCookies(req, res, "/account/setup");
   }
 
   if (!hasAcceptedTerms) {
-    if (isAcceptTermsRoute) {
+    if (isOnboardingRoute || isPublic) {
       return res;
     }
     return redirectWithCookies(req, res, "/account/accept-terms");
