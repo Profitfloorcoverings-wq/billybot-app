@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 import { JOB_STATUS_OPTIONS } from "@/app/jobs/constants";
 import JobStatusBadge from "@/app/jobs/components/JobStatusBadge";
@@ -82,12 +83,39 @@ type TimelineEntry = {
 
 type JobDetailPageProps = {
   params: { id: string };
-  searchParams?: Record<string, string | string[] | undefined>;
 };
 
-export default async function JobDetailPage({ params, searchParams }: JobDetailPageProps) {
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function getDebugFlag() {
+  const headerList = headers();
+  const url =
+    headerList.get("x-url") ??
+    headerList.get("next-url") ??
+    headerList.get("referer") ??
+    "";
+  if (!url) return false;
+
+  try {
+    const parsed = new URL(url, "http://localhost");
+    return parsed.searchParams.get("debug") === "1";
+  } catch {
+    return false;
+  }
+}
+
+export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const supabase = await createServerClient();
-  const debugEnabled = searchParams?.debug === "1";
+  const debugEnabled = getDebugFlag();
+  const jobId = params?.id;
+
+  if (!jobId || !isUuid(jobId)) {
+    return notFound();
+  }
 
   const { data: userData, error: userError } = await supabase.auth.getUser();
   const user = userData?.user ?? null;
@@ -122,30 +150,32 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
   const { data: jobData, error: jobError } = await supabase
     .from("jobs")
     .select(JOB_SELECT)
-    .eq("id", params.id)
+    .eq("id", jobId)
     .eq("client_id", user.id)
-    .maybeSingle<Job>();
+    .single<Job>();
 
-  if (jobError) {
-    throw jobError;
+  if (jobError || !jobData) {
+    return notFound();
   }
 
-  if (!jobData) {
-    notFound();
+  let emails: EmailEvent[] = [];
+  let quotes: Quote[] = [];
+  let messages: Message[] = [];
+
+  if (jobData.id) {
+    const { data: emailData } = await supabase
+      .from("email_events")
+      .select(
+        "id, direction, from_email, to_emails, cc_emails, subject, body_text, body_html, received_at, created_at"
+      )
+      .eq("client_id", user.id)
+      .eq("job_id", jobData.id)
+      .order("received_at", { ascending: true });
+
+    emails = emailData ?? [];
   }
 
-  const emailQuery = supabase
-    .from("email_events")
-    .select(
-      "id, direction, from_email, to_emails, cc_emails, subject, body_text, body_html, received_at, created_at"
-    )
-    .eq("client_id", user.id)
-    .eq("job_id", jobData.id)
-    .order("received_at", { ascending: true });
-
-  let { data: emailData } = await emailQuery;
-
-  if (!emailData?.length && jobData.provider && jobData.provider_thread_id) {
+  if (!emails.length && jobData.provider && jobData.provider_thread_id) {
     const { data: fallbackEmails } = await supabase
       .from("email_events")
       .select(
@@ -156,26 +186,32 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
       .eq("provider_thread_id", jobData.provider_thread_id)
       .order("received_at", { ascending: true });
 
-    emailData = fallbackEmails ?? [];
+    emails = fallbackEmails ?? [];
   }
 
-  const { data: messageData } = jobData.conversation_id
-    ? await supabase
-        .from("messages")
-        .select("id, role, content, created_at")
-        .eq("profile_id", user.id)
-        .eq("conversation_id", jobData.conversation_id)
-        .order("created_at", { ascending: true })
-    : { data: [] };
+  if (jobData.conversation_id && isUuid(jobData.conversation_id)) {
+    const { data: messageData } = await supabase
+      .from("messages")
+      .select("id, role, content, created_at")
+      .eq("profile_id", user.id)
+      .eq("conversation_id", jobData.conversation_id)
+      .order("created_at", { ascending: true });
 
-  let { data: quoteData } = await supabase
-    .from("quotes")
-    .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
-    .eq("client_id", user.id)
-    .eq("job_id", jobData.id)
-    .order("created_at", { ascending: false });
+    messages = messageData ?? [];
+  }
 
-  if (!quoteData?.length && jobData.title) {
+  if (jobData.id) {
+    const { data: quoteData } = await supabase
+      .from("quotes")
+      .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
+      .eq("client_id", user.id)
+      .eq("job_id", jobData.id)
+      .order("created_at", { ascending: false });
+
+    quotes = quoteData ?? [];
+  }
+
+  if (!quotes.length && jobData.title) {
     const { data: fallbackQuotes } = await supabase
       .from("quotes")
       .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
@@ -183,12 +219,8 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
       .eq("job_ref", jobData.title)
       .order("created_at", { ascending: false });
 
-    quoteData = fallbackQuotes ?? [];
+    quotes = fallbackQuotes ?? [];
   }
-
-  const emails = emailData ?? [];
-  const messages = messageData ?? [];
-  const quotes = quoteData ?? [];
 
   const timeline: TimelineEntry[] = [];
 
@@ -290,6 +322,24 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
           </select>
         </div>
       </div>
+
+      {debugEnabled ? (
+        <div className="card">
+          <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
+            {JSON.stringify(
+              {
+                jobId,
+                job_id: jobData.id ?? null,
+                conversation_id: jobData.conversation_id ?? null,
+                provider: jobData.provider ?? null,
+                provider_thread_id: jobData.provider_thread_id ?? null,
+              },
+              null,
+              2
+            )}
+          </pre>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
         <div className="stack gap-6">
