@@ -99,14 +99,13 @@ function CopyIdChip({ id }: { id: string }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
       <span className="uppercase tracking-[0.2em]">Job ID</span>
-      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 font-mono text-[11px] text-[var(--muted)]">
+      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 font-mono text-[11px] text-[var(--muted)] break-anywhere">
         {id}
       </span>
       <button
         type="button"
         className="btn btn-secondary h-7 px-3 text-[10px] uppercase tracking-[0.2em] opacity-80"
-        disabled
-        title="Copy support will be enabled in a future update."
+        title="Copy job ID"
       >
         Copy
       </button>
@@ -141,9 +140,9 @@ function TimelineEntryCard({ entry }: { entry: TimelineEntry }) {
   return (
     <div className="rounded-xl border border-white/5 bg-white/5 p-4">
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
+        <div className="flex min-w-0 items-start gap-3">
           <span className="text-lg">{icon}</span>
-          <div className="stack gap-1">
+          <div className="stack min-w-0 gap-1">
             <p className="text-sm font-semibold text-white">{entry.title}</p>
             {entry.subtitle ? (
               <p className="text-xs text-[var(--muted)]">{entry.subtitle}</p>
@@ -153,7 +152,7 @@ function TimelineEntryCard({ entry }: { entry: TimelineEntry }) {
         <span className="text-xs text-[var(--muted)]">{timestamp}</span>
       </div>
       {entry.preview ? (
-        <p className="mt-3 text-sm text-[var(--muted)] line-clamp-2 break-words">
+        <p className="mt-3 text-sm text-[var(--muted)] line-clamp-2 break-anywhere">
           {entry.preview}
         </p>
       ) : null}
@@ -162,7 +161,7 @@ function TimelineEntryCard({ entry }: { entry: TimelineEntry }) {
           <summary className="cursor-pointer text-xs font-semibold text-[var(--accent2)]">
             View details
           </summary>
-          <div className="mt-2 text-sm text-[var(--muted)] whitespace-pre-wrap break-words">
+          <div className="mt-2 text-sm text-[var(--muted)] whitespace-pre-wrap break-anywhere">
             {entry.pdfUrl ? (
               <a
                 href={entry.pdfUrl}
@@ -230,7 +229,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
 
   if (!isValidJobId) {
     return (
-      <div className="page-container">
+      <div className="container">
         <div className="empty-state stack items-center">
           <h3 className="section-title">Invalid job id</h3>
           <p className="section-subtitle">
@@ -271,7 +270,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     }
 
     return (
-      <div className="page-container">
+      <div className="container">
         <div className="empty-state">Not signed in.</div>
         <div className="card mt-4">
           <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
@@ -301,7 +300,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
 
   if (jobError) {
     return (
-      <div className="page-container">
+      <div className="container">
         <div className="empty-state stack items-center">
           <h3 className="section-title">Unable to load job</h3>
           <p className="section-subtitle">
@@ -336,7 +335,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
 
   if (!jobData) {
     return (
-      <div className="page-container">
+      <div className="container">
         <div className="empty-state stack items-center">
           <h3 className="section-title">Job not found</h3>
           <p className="section-subtitle">
@@ -430,7 +429,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     const directionLabel = email.direction === "outbound" ? "Outbound" : "Inbound";
     const from = email.from_email ?? "Unknown sender";
     const to = email.to_emails?.join(", ") ?? "Unknown recipient";
-    const subtitle = `${directionLabel} · ${from} → ${to}`;
+    const subtitle = `${from} → ${to}`;
     const timestamp = email.received_at ?? email.created_at ?? null;
     const subject = email.subject?.trim();
     const bodyText = email.body_text?.trim();
@@ -443,7 +442,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     timeline.push({
       id: `email-${email.id}`,
       type: "email",
-      title: `Email · ${directionLabel}`,
+      title: directionLabel === "Outbound" ? "Email sent" : "Email received",
       subtitle,
       preview: preview ? preview.slice(0, 200) : null,
       body: body || null,
@@ -454,12 +453,12 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
   messages.forEach((message) => {
     const role = message.role ?? "user";
     const roleLabel =
-      role.toString().toLowerCase() === "assistant" ? "Assistant" : "User";
+      role.toString().toLowerCase() === "assistant" ? "BillyBot note" : "Customer message";
     timeline.push({
       id: `chat-${message.id}`,
       type: "chat",
-      title: `Chat · ${roleLabel}`,
-      subtitle: "Conversation update",
+      title: roleLabel,
+      subtitle: "Chat update",
       preview: message.content?.trim().slice(0, 200) ?? null,
       body: message.content?.trim() ?? null,
       timestamp: message.created_at ?? null,
@@ -470,8 +469,8 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     timeline.push({
       id: `quote-${quote.id}`,
       type: "quote",
-      title: quote.quote_reference ? `Quote ${quote.quote_reference}` : "Quote update",
-      subtitle: quote.status ? humanizeStatus(quote.status) : "Quote activity",
+      title: quote.quote_reference ? `Quote ${quote.quote_reference}` : "Quote created",
+      subtitle: quote.status ? humanizeStatus(quote.status) : "Quote update",
       preview: quote.pdf_url ? "Quote PDF available" : "Quote ready",
       body: quote.pdf_url ?? null,
       timestamp: quote.created_at ?? null,
@@ -497,48 +496,43 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     : "/chat";
 
   return (
-    <div className="page-container mx-auto w-full max-w-6xl stack gap-6">
-      <div className="stack gap-4">
+    <div className="container stack gap-6">
+      <div className="stack gap-3">
         <Link href="/jobs" className="text-sm text-[var(--muted)] hover:text-white">
           ← Back to Jobs
         </Link>
-        <div className="flex flex-col gap-4 rounded-2xl border border-white/5 bg-white/5 p-5 lg:flex-row lg:items-start lg:justify-between">
-          <div className="stack gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-semibold text-white">{jobTitle}</h1>
+        <div className="stack gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <h1 className="section-title text-2xl">{jobTitle}</h1>
+            <div className="stack items-end gap-2">
               <JobStatusBadge status={jobData.status} />
+              <select
+                className="input-fluid max-w-[220px]"
+                defaultValue={normalizeStatus(jobData.status)}
+                disabled
+                title="Status updates are currently read-only."
+              >
+                {JOB_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="stack gap-1 text-sm text-[var(--muted)]">
-              <p className="text-base text-white">
-                {jobData.customer_name || "Unknown customer"}
-              </p>
-              <div className="flex flex-wrap items-center gap-3 text-xs">
-                <span>{jobData.customer_email || "No email on file"}</span>
-                <span>{jobData.customer_phone || "No phone on file"}</span>
-              </div>
-            </div>
-            <p className="text-xs text-[var(--muted)]" title={lastActivityExact}>
-              Last activity {lastActivityLabel}
-            </p>
-            <CopyIdChip id={jobId} />
           </div>
-          <div className="stack items-start gap-2 lg:items-end">
-            <span className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-              Status
+          <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--muted)]">
+            <span className="font-semibold text-white">
+              {jobData.customer_name || "Unknown customer"}
             </span>
-            <select
-              className="input-fluid"
-              defaultValue={normalizeStatus(jobData.status)}
-              disabled
-              title="Status updates are currently read-only."
-            >
-              {JOB_STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <span className="break-anywhere">
+              {jobData.customer_email || "No email on file"}
+            </span>
+            <span className="break-anywhere">
+              {jobData.customer_phone || "No phone on file"}
+            </span>
+            <span title={lastActivityExact}>Last activity {lastActivityLabel}</span>
           </div>
+          <CopyIdChip id={jobId} />
         </div>
       </div>
 
@@ -569,8 +563,8 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
-        <div className="stack gap-6">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <div className="stack min-w-0 gap-6">
           <div className="card stack gap-4">
             <div className="stack gap-1">
               <h2 className="section-title text-lg">Overview</h2>
@@ -582,10 +576,10 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
                 <p className="text-sm font-semibold text-white">
                   {jobData.customer_name || "Unknown"}
                 </p>
-                <p className="text-xs text-[var(--muted)] break-words">
+                <p className="text-xs text-[var(--muted)] break-anywhere">
                   {jobData.customer_email || "No email on file"}
                 </p>
-                <p className="text-xs text-[var(--muted)] break-words">
+                <p className="text-xs text-[var(--muted)] break-anywhere">
                   {jobData.customer_phone || "No phone on file"}
                 </p>
               </div>
@@ -600,28 +594,23 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
             <div className="stack gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <ProviderBadge provider={jobData.provider} />
+                {jobData.provider_thread_id ? (
+                  <span className="text-xs text-[var(--muted)] break-anywhere">
+                    Thread {jobData.provider_thread_id}
+                  </span>
+                ) : null}
               </div>
               <div>
                 <p className="section-subtitle">Job notes</p>
-                <p className="text-sm text-[var(--muted)] whitespace-pre-wrap break-words">
+                <p className="text-sm text-[var(--muted)] whitespace-pre-wrap break-anywhere">
                   {jobDetails || "No request details captured yet."}
                 </p>
               </div>
-              {(jobData.provider_thread_id || jobData.conversation_id) && (
-                <details className="rounded-lg border border-white/5 bg-white/5 px-3 py-2">
-                  <summary className="cursor-pointer text-xs font-semibold text-[var(--muted)]">
-                    Technical IDs
-                  </summary>
-                  <div className="mt-2 stack gap-1 text-xs text-[var(--muted)] break-words">
-                    {jobData.provider_thread_id ? (
-                      <span>Provider thread: {jobData.provider_thread_id}</span>
-                    ) : null}
-                    {jobData.conversation_id ? (
-                      <span>Conversation: {jobData.conversation_id}</span>
-                    ) : null}
-                  </div>
-                </details>
-              )}
+              {jobData.conversation_id ? (
+                <p className="text-xs text-[var(--muted)] break-anywhere">
+                  Technical: Conversation {jobData.conversation_id}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -644,12 +633,12 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
           </div>
         </div>
 
-        <div className="stack gap-6">
+        <div className="stack min-w-0 gap-6">
           <div className="card stack gap-4">
             <h3 className="section-title text-lg">Actions</h3>
             <Link
               href={chatHref}
-              className={`btn btn-primary w-full justify-center ${
+              className={`btn btn-primary h-11 w-full justify-center ${
                 jobData.conversation_id ? "" : "pointer-events-none opacity-60"
               }`}
               title={
@@ -661,28 +650,12 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
               View conversation
             </Link>
             <button
-              className="btn btn-secondary w-full justify-center"
+              className="btn btn-secondary h-11 w-full justify-center"
               disabled
               title="Quote creation is not available from this view yet"
             >
               Create quote
             </button>
-          </div>
-
-          <div className="card stack gap-4">
-            <div className="flex items-center justify-between">
-              <h3 className="section-title text-lg">Quick stats</h3>
-              <span className="text-xs text-[var(--muted)]">Email activity</span>
-            </div>
-            <div className="stack gap-3">
-              <StatRow label="Inbound" value={inboundEmails.length} />
-              <StatRow label="Outbound" value={outboundEmails.length} />
-              <StatRow
-                label="Last inbound"
-                value={formatRelativeTime(lastInbound)}
-                hint={formatTimestamp(lastInbound)}
-              />
-            </div>
           </div>
 
           <div className="card stack gap-4">
@@ -728,6 +701,22 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
                 })}
               </div>
             )}
+          </div>
+
+          <div className="card stack gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="section-title text-lg">Email stats</h3>
+              <span className="text-xs text-[var(--muted)]">Email activity</span>
+            </div>
+            <div className="stack gap-3">
+              <StatRow label="Inbound" value={inboundEmails.length} />
+              <StatRow label="Outbound" value={outboundEmails.length} />
+              <StatRow
+                label="Last inbound"
+                value={formatRelativeTime(lastInbound)}
+                hint={formatTimestamp(lastInbound)}
+              />
+            </div>
           </div>
         </div>
       </div>
