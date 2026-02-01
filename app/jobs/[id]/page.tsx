@@ -7,7 +7,6 @@ import { headers } from "next/headers";
 import { JOB_STATUS_OPTIONS } from "@/app/jobs/constants";
 import JobStatusBadge from "@/app/jobs/components/JobStatusBadge";
 import ProviderBadge from "@/app/jobs/components/ProviderBadge";
-import TimelineItem from "@/app/jobs/components/TimelineItem";
 import {
   formatRelativeTime,
   formatTimestamp,
@@ -94,6 +93,93 @@ function normalizeParamId(value: string | string[] | undefined) {
     return value[0] ?? "";
   }
   return value ?? "";
+}
+
+function CopyIdChip({ id }: { id: string }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
+      <span className="uppercase tracking-[0.2em]">Job ID</span>
+      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 font-mono text-[11px] text-[var(--muted)]">
+        {id}
+      </span>
+      <button
+        type="button"
+        className="btn btn-secondary h-7 px-3 text-[10px] uppercase tracking-[0.2em] opacity-80"
+        disabled
+        title="Copy support will be enabled in a future update."
+      >
+        Copy
+      </button>
+    </div>
+  );
+}
+
+function StatRow({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string | number;
+  hint?: string | null;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-[var(--muted)]">{label}</span>
+      <span className="font-semibold text-white" title={hint ?? undefined}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function TimelineEntryCard({ entry }: { entry: TimelineEntry }) {
+  const icon = entry.type === "email" ? "✉️" : entry.type === "chat" ? "💬" : "📄";
+  const timestamp = formatTimestamp(entry.timestamp);
+  const hasBody = Boolean(entry.body || entry.pdfUrl);
+
+  return (
+    <div className="rounded-xl border border-white/5 bg-white/5 p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="text-lg">{icon}</span>
+          <div className="stack gap-1">
+            <p className="text-sm font-semibold text-white">{entry.title}</p>
+            {entry.subtitle ? (
+              <p className="text-xs text-[var(--muted)]">{entry.subtitle}</p>
+            ) : null}
+          </div>
+        </div>
+        <span className="text-xs text-[var(--muted)]">{timestamp}</span>
+      </div>
+      {entry.preview ? (
+        <p className="mt-3 text-sm text-[var(--muted)] line-clamp-2 break-words">
+          {entry.preview}
+        </p>
+      ) : null}
+      {hasBody ? (
+        <details className="group mt-3">
+          <summary className="cursor-pointer text-xs font-semibold text-[var(--accent2)]">
+            View details
+          </summary>
+          <div className="mt-2 text-sm text-[var(--muted)] whitespace-pre-wrap break-words">
+            {entry.pdfUrl ? (
+              <a
+                href={entry.pdfUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm font-semibold text-[var(--accent2)] underline"
+              >
+                Open quote PDF
+              </a>
+            ) : (
+              entry.body || "No additional details available."
+            )}
+          </div>
+        </details>
+      ) : null}
+    </div>
+  );
 }
 
 async function getDebugFlagFromHeaders() {
@@ -346,9 +432,10 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     const to = email.to_emails?.join(", ") ?? "Unknown recipient";
     const subtitle = `${directionLabel} · ${from} → ${to}`;
     const timestamp = email.received_at ?? email.created_at ?? null;
+    const subject = email.subject?.trim();
     const bodyText = email.body_text?.trim();
     const bodyHtml = stripHtml(email.body_html);
-    const preview = bodyText || bodyHtml;
+    const preview = [subject, bodyText || bodyHtml].filter(Boolean).join(" — ");
     const body = [bodyText, bodyText && bodyHtml ? "" : null, bodyHtml]
       .filter((value): value is string => Boolean(value && value.trim()))
       .join("\n\n");
@@ -356,7 +443,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     timeline.push({
       id: `email-${email.id}`,
       type: "email",
-      title: email.subject?.trim() || "Email update",
+      title: `Email · ${directionLabel}`,
       subtitle,
       preview: preview ? preview.slice(0, 200) : null,
       body: body || null,
@@ -366,11 +453,13 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
 
   messages.forEach((message) => {
     const role = message.role ?? "user";
+    const roleLabel =
+      role.toString().toLowerCase() === "assistant" ? "Assistant" : "User";
     timeline.push({
       id: `chat-${message.id}`,
       type: "chat",
-      title: `${role.toString().toUpperCase()} message`,
-      subtitle: "Chat conversation",
+      title: `Chat · ${roleLabel}`,
+      subtitle: "Conversation update",
       preview: message.content?.trim().slice(0, 200) ?? null,
       body: message.content?.trim() ?? null,
       timestamp: message.created_at ?? null,
@@ -381,8 +470,8 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     timeline.push({
       id: `quote-${quote.id}`,
       type: "quote",
-      title: quote.quote_reference ? `Quote ${quote.quote_reference}` : "Quote created",
-      subtitle: quote.status ? `Status: ${humanizeStatus(quote.status)}` : null,
+      title: quote.quote_reference ? `Quote ${quote.quote_reference}` : "Quote update",
+      subtitle: quote.status ? humanizeStatus(quote.status) : "Quote activity",
       preview: quote.pdf_url ? "Quote PDF available" : "Quote ready",
       body: quote.pdf_url ?? null,
       timestamp: quote.created_at ?? null,
@@ -408,43 +497,48 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     : "/chat";
 
   return (
-    <div className="page-container stack gap-6">
-      <div className="card stack gap-2">
-        <h1 className="section-title">Job Detail</h1>
-        <p className="text-xs text-[var(--muted)]">ID: {jobId}</p>
-        <p className="text-sm text-white">{jobData.title?.trim() || "Untitled job"}</p>
-        <p className="text-sm text-[var(--muted)]">
-          {jobData.customer_name || "Unknown customer"}
-        </p>
-      </div>
-
-      <div className="section-header items-start">
-        <div className="stack gap-2">
-          <Link href="/jobs" className="text-sm text-[var(--muted)] hover:text-white">
-            ← Back to Jobs
-          </Link>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="section-title">{jobTitle}</h1>
-            <JobStatusBadge status={jobData.status} />
+    <div className="page-container mx-auto w-full max-w-6xl stack gap-6">
+      <div className="stack gap-4">
+        <Link href="/jobs" className="text-sm text-[var(--muted)] hover:text-white">
+          ← Back to Jobs
+        </Link>
+        <div className="flex flex-col gap-4 rounded-2xl border border-white/5 bg-white/5 p-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="stack gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-semibold text-white">{jobTitle}</h1>
+              <JobStatusBadge status={jobData.status} />
+            </div>
+            <div className="stack gap-1 text-sm text-[var(--muted)]">
+              <p className="text-base text-white">
+                {jobData.customer_name || "Unknown customer"}
+              </p>
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <span>{jobData.customer_email || "No email on file"}</span>
+                <span>{jobData.customer_phone || "No phone on file"}</span>
+              </div>
+            </div>
+            <p className="text-xs text-[var(--muted)]" title={lastActivityExact}>
+              Last activity {lastActivityLabel}
+            </p>
+            <CopyIdChip id={jobId} />
           </div>
-          <p className="text-xs text-[var(--muted)]" title={lastActivityExact}>
-            Last activity {lastActivityLabel}
-          </p>
-        </div>
-        <div className="stack items-end gap-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Status</p>
-          <select
-            className="input-fluid"
-            defaultValue={normalizeStatus(jobData.status)}
-            disabled
-            title="Status updates are currently read-only."
-          >
-            {JOB_STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <div className="stack items-start gap-2 lg:items-end">
+            <span className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
+              Status
+            </span>
+            <select
+              className="input-fluid"
+              defaultValue={normalizeStatus(jobData.status)}
+              disabled
+              title="Status updates are currently read-only."
+            >
+              {JOB_STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -480,40 +574,54 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
           <div className="card stack gap-4">
             <div className="stack gap-1">
               <h2 className="section-title text-lg">Overview</h2>
-              <p className="section-subtitle">Customer and request details.</p>
+              <p className="section-subtitle">Customer and job details.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
-              <div className="stack gap-1">
+              <div className="stack gap-2">
                 <p className="section-subtitle">Customer</p>
-                <p className="text-sm text-white">{jobData.customer_name || "Unknown"}</p>
-                <p className="text-xs text-[var(--muted)]">
-                  {jobData.customer_email || "—"}
+                <p className="text-sm font-semibold text-white">
+                  {jobData.customer_name || "Unknown"}
                 </p>
-                <p className="text-xs text-[var(--muted)]">
-                  {jobData.customer_phone || "—"}
+                <p className="text-xs text-[var(--muted)] break-words">
+                  {jobData.customer_email || "No email on file"}
+                </p>
+                <p className="text-xs text-[var(--muted)] break-words">
+                  {jobData.customer_phone || "No phone on file"}
                 </p>
               </div>
-              <div className="stack gap-1">
+              <div className="stack gap-2">
                 <p className="section-subtitle">Site</p>
-                <p className="text-sm text-white">{jobData.site_address || "—"}</p>
+                <p className="text-sm font-semibold text-white">
+                  {jobData.site_address || "No site address yet"}
+                </p>
                 <p className="text-xs text-[var(--muted)]">{jobData.postcode || "—"}</p>
               </div>
             </div>
-            <div className="stack gap-2">
+            <div className="stack gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 <ProviderBadge provider={jobData.provider} />
-                {jobData.provider_thread_id ? (
-                  <span className="text-xs text-[var(--muted)]">
-                    Thread {jobData.provider_thread_id}
-                  </span>
-                ) : null}
               </div>
               <div>
-                <p className="section-subtitle">Job details</p>
-                <p className="text-sm text-[var(--muted)] whitespace-pre-wrap">
+                <p className="section-subtitle">Job notes</p>
+                <p className="text-sm text-[var(--muted)] whitespace-pre-wrap break-words">
                   {jobDetails || "No request details captured yet."}
                 </p>
               </div>
+              {(jobData.provider_thread_id || jobData.conversation_id) && (
+                <details className="rounded-lg border border-white/5 bg-white/5 px-3 py-2">
+                  <summary className="cursor-pointer text-xs font-semibold text-[var(--muted)]">
+                    Technical IDs
+                  </summary>
+                  <div className="mt-2 stack gap-1 text-xs text-[var(--muted)] break-words">
+                    {jobData.provider_thread_id ? (
+                      <span>Provider thread: {jobData.provider_thread_id}</span>
+                    ) : null}
+                    {jobData.conversation_id ? (
+                      <span>Conversation: {jobData.conversation_id}</span>
+                    ) : null}
+                  </div>
+                </details>
+              )}
             </div>
           </div>
 
@@ -528,72 +636,20 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
               <div className="empty-state">No activity yet.</div>
             ) : (
               <div className="stack gap-3">
-                {timeline.map((item) => {
-                  if (item.type === "email") {
-                    return (
-                      <TimelineItem
-                        key={item.id}
-                        icon="✉️"
-                        title={item.title}
-                        subtitle={item.subtitle}
-                        timestamp={item.timestamp}
-                        preview={item.preview}
-                      >
-                        {item.body || "No email body captured."}
-                      </TimelineItem>
-                    );
-                  }
-
-                  if (item.type === "chat") {
-                    return (
-                      <TimelineItem
-                        key={item.id}
-                        icon="💬"
-                        title={item.title}
-                        subtitle={item.subtitle}
-                        timestamp={item.timestamp}
-                        preview={item.preview}
-                      >
-                        {item.body || "No message content."}
-                      </TimelineItem>
-                    );
-                  }
-
-                  return (
-                    <TimelineItem
-                      key={item.id}
-                      icon="📄"
-                      title={item.title}
-                      subtitle={item.subtitle}
-                      timestamp={item.timestamp}
-                      preview={item.preview}
-                    >
-                      {item.pdfUrl ? (
-                        <a
-                          href={item.pdfUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-sm font-semibold text-[var(--accent2)] underline"
-                        >
-                          Open quote PDF
-                        </a>
-                      ) : (
-                        "Quote created without a PDF link."
-                      )}
-                    </TimelineItem>
-                  );
-                })}
+                {timeline.map((item) => (
+                  <TimelineEntryCard key={item.id} entry={item} />
+                ))}
               </div>
             )}
           </div>
         </div>
 
         <div className="stack gap-6">
-          <div className="card stack gap-3">
+          <div className="card stack gap-4">
             <h3 className="section-title text-lg">Actions</h3>
             <Link
               href={chatHref}
-              className={`btn btn-secondary w-full justify-center ${
+              className={`btn btn-primary w-full justify-center ${
                 jobData.conversation_id ? "" : "pointer-events-none opacity-60"
               }`}
               title={
@@ -605,7 +661,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
               View conversation
             </Link>
             <button
-              className="btn btn-primary w-full justify-center"
+              className="btn btn-secondary w-full justify-center"
               disabled
               title="Quote creation is not available from this view yet"
             >
@@ -613,9 +669,25 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
             </button>
           </div>
 
-          <div className="card stack gap-3">
+          <div className="card stack gap-4">
             <div className="flex items-center justify-between">
-              <h3 className="section-title text-lg">Quotes</h3>
+              <h3 className="section-title text-lg">Quick stats</h3>
+              <span className="text-xs text-[var(--muted)]">Email activity</span>
+            </div>
+            <div className="stack gap-3">
+              <StatRow label="Inbound" value={inboundEmails.length} />
+              <StatRow label="Outbound" value={outboundEmails.length} />
+              <StatRow
+                label="Last inbound"
+                value={formatRelativeTime(lastInbound)}
+                hint={formatTimestamp(lastInbound)}
+              />
+            </div>
+          </div>
+
+          <div className="card stack gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="section-title text-lg">Linked quotes</h3>
               <span className="text-xs text-[var(--muted)]">{quotes.length} total</span>
             </div>
             {quotes.length === 0 ? (
@@ -630,7 +702,10 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
                     : "Quote";
                   const createdAt = formatTimestamp(quote.created_at);
                   return (
-                    <div key={quote.id} className="surface p-3 stack gap-1">
+                    <div
+                      key={quote.id}
+                      className="rounded-xl border border-white/5 bg-white/5 p-3 stack gap-1"
+                    >
                       <p className="text-sm font-semibold text-white">{label}</p>
                       <p className="text-xs text-[var(--muted)]">{createdAt}</p>
                       {quote.status ? (
@@ -653,26 +728,6 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
                 })}
               </div>
             )}
-          </div>
-
-          <div className="card stack gap-3">
-            <h3 className="section-title text-lg">Emails</h3>
-            <div className="metric-grid">
-              <div className="metric">
-                <p className="metric-label">Inbound</p>
-                <p className="metric-value">{inboundEmails.length}</p>
-              </div>
-              <div className="metric">
-                <p className="metric-label">Outbound</p>
-                <p className="metric-value">{outboundEmails.length}</p>
-              </div>
-              <div className="metric">
-                <p className="metric-label">Last inbound</p>
-                <p className="metric-value text-base" title={formatTimestamp(lastInbound)}>
-                  {formatRelativeTime(lastInbound)}
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
