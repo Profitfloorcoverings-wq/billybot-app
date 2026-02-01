@@ -4,7 +4,7 @@ import { decryptToken, encryptToken } from "@/lib/email/crypto";
 import { createEmailServiceClient } from "@/lib/email/serviceClient";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
-const REFRESH_BUFFER_MS = 2 * 60 * 1000;
+const REFRESH_BUFFER_MS = 60 * 1000;
 
 type EmailAccount = {
   id: string;
@@ -20,6 +20,7 @@ type GoogleRefreshResponse = {
   expires_in?: number;
   scope?: string;
   token_type?: string;
+  refresh_token?: string;
 };
 
 type MicrosoftRefreshResponse = {
@@ -27,11 +28,12 @@ type MicrosoftRefreshResponse = {
   expires_in?: number;
   scope?: string;
   token_type?: string;
+  refresh_token?: string;
 };
 
 function isExpiringSoon(expiresAt: string | null) {
   if (!expiresAt) {
-    return false;
+    return true;
   }
 
   return new Date(expiresAt).getTime() - Date.now() <= REFRESH_BUFFER_MS;
@@ -40,9 +42,15 @@ function isExpiringSoon(expiresAt: string | null) {
 async function refreshGoogleToken(
   account: EmailAccount,
   refreshToken: string
-): Promise<{ accessToken: string; expiresAt: string | null }> {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+): Promise<{
+  accessToken: string;
+  expiresAt: string | null;
+  refreshToken?: string;
+}> {
+  const clientId =
+    process.env.GOOGLE_OAUTH_CLIENT_ID ?? process.env.GOOGLE_CLIENT_ID;
+  const clientSecret =
+    process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? process.env.GOOGLE_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     throw new Error("Missing Google OAuth credentials");
@@ -74,16 +82,30 @@ async function refreshGoogleToken(
     ? new Date(Date.now() + data.expires_in * 1000).toISOString()
     : account.expires_at;
 
-  return { accessToken: data.access_token, expiresAt };
+  return {
+    accessToken: data.access_token,
+    expiresAt,
+    refreshToken: data.refresh_token ?? undefined,
+  };
 }
 
 async function refreshMicrosoftToken(
   account: EmailAccount,
   refreshToken: string
-): Promise<{ accessToken: string; expiresAt: string | null }> {
-  const clientId = process.env.MICROSOFT_CLIENT_ID;
-  const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
-  const tenant = process.env.MICROSOFT_TENANT_ID;
+): Promise<{
+  accessToken: string;
+  expiresAt: string | null;
+  refreshToken?: string;
+}> {
+  const clientId =
+    process.env.MICROSOFT_OAUTH_CLIENT_ID ?? process.env.MICROSOFT_CLIENT_ID;
+  const clientSecret =
+    process.env.MICROSOFT_OAUTH_CLIENT_SECRET ??
+    process.env.MICROSOFT_CLIENT_SECRET;
+  const tenant =
+    process.env.MICROSOFT_OAUTH_TENANT_ID ??
+    process.env.MICROSOFT_TENANT_ID ??
+    "common";
 
   if (!clientId || !clientSecret || !tenant) {
     throw new Error("Missing Microsoft OAuth credentials");
@@ -121,7 +143,11 @@ async function refreshMicrosoftToken(
     ? new Date(Date.now() + data.expires_in * 1000).toISOString()
     : account.expires_at;
 
-  return { accessToken: data.access_token, expiresAt };
+  return {
+    accessToken: data.access_token,
+    expiresAt,
+    refreshToken: data.refresh_token ?? undefined,
+  };
 }
 
 export async function getValidAccessToken(account: EmailAccount) {
@@ -150,6 +176,9 @@ export async function getValidAccessToken(account: EmailAccount) {
     .update({
       access_token_enc: encryptToken(refreshed.accessToken),
       expires_at: refreshed.expiresAt,
+      ...(refreshed.refreshToken
+        ? { refresh_token_enc: encryptToken(refreshed.refreshToken) }
+        : {}),
     })
     .eq("id", account.id);
 

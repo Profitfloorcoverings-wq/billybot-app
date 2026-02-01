@@ -7,17 +7,19 @@ const IV_LENGTH = 12;
 const KEY_LENGTH = 32;
 
 function getEncryptionKey(): Buffer {
-  const keyBase64 = process.env.EMAIL_TOKEN_ENCRYPTION_KEY;
+  const keyBase64 =
+    process.env.EMAIL_TOKENS_ENCRYPTION_KEY ??
+    process.env.EMAIL_TOKEN_ENCRYPTION_KEY;
 
   if (!keyBase64) {
-    throw new Error("EMAIL_TOKEN_ENCRYPTION_KEY is required");
+    throw new Error("EMAIL_TOKENS_ENCRYPTION_KEY is required");
   }
 
   const key = Buffer.from(keyBase64, "base64");
 
   if (key.length !== KEY_LENGTH) {
     throw new Error(
-      "EMAIL_TOKEN_ENCRYPTION_KEY must be base64-encoded 32 bytes"
+      "EMAIL_TOKENS_ENCRYPTION_KEY must be base64-encoded 32 bytes"
     );
   }
 
