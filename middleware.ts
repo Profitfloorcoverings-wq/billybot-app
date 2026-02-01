@@ -2,15 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PROTECTED_ROUTES = [
-  "/chat",
-  "/quotes",
-  "/customers",
-  "/pricing",
-  "/requests",
-  "/account",
+const ONBOARDING_ROUTES = [
+  "/account/setup",
+  "/account/accept-terms",
+  "/post-onboard",
 ];
-const ONBOARDING_ROUTES = ["/account/setup", "/account/accept-terms", "/post-onboard"];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
 const PUBLIC_ROUTES = ["/terms", "/privacy"];
 
@@ -27,6 +23,8 @@ export async function middleware(req: NextRequest) {
   // Ensure onboarding guards are evaluated with fresh data on every request.
   res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
   res.headers.set("Pragma", "no-cache");
+  res.headers.set("x-url", req.nextUrl.href);
+  res.headers.set("x-pathname", req.nextUrl.pathname);
 
   // Initialize Supabase server client using request cookies
   const supabase = createServerClient(
@@ -56,31 +54,17 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = req.nextUrl.pathname;
-
-  if (PUBLIC_ROUTES.some((route) => pathname.startsWith(route))) {
-    return res;
-  }
-
-  const isAuthRoute = AUTH_ROUTES.some((route) => pathname.startsWith(route));
-  const isOnboardingRoute = ONBOARDING_ROUTES.some((route) =>
-    pathname.startsWith(route)
-  );
-  const isSetupRoute = pathname.startsWith("/account/setup");
-  const isAcceptTermsRoute = pathname.startsWith("/account/accept-terms");
-  const isProtected = PROTECTED_ROUTES.some((route) =>
-    pathname.startsWith(route)
-  );
+  const isPublicRoute =
+    PUBLIC_ROUTES.some((route) => pathname.startsWith(route)) ||
+    AUTH_ROUTES.some((route) => pathname.startsWith(route)) ||
+    ONBOARDING_ROUTES.some((route) => pathname.startsWith(route));
 
   if (!user) {
-    if (isAuthRoute) {
+    if (isPublicRoute) {
       return res;
     }
 
-    if (isProtected || isOnboardingRoute) {
-      return redirectWithCookies(req, res, "/auth/login");
-    }
-
-    return res;
+    return redirectWithCookies(req, res, "/auth/login");
   }
 
   const { data: clientProfile } = await supabase
@@ -106,7 +90,7 @@ export async function middleware(req: NextRequest) {
   const isFullyOnboarded = businessComplete && hasAcceptedTerms;
 
   if (isFullyOnboarded) {
-    if (isAuthRoute || isOnboardingRoute) {
+    if (AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
       return redirectWithCookies(req, res, "/chat");
     }
 
@@ -114,14 +98,14 @@ export async function middleware(req: NextRequest) {
   }
 
   if (!businessComplete) {
-    if (isSetupRoute) {
+    if (isPublicRoute) {
       return res;
     }
     return redirectWithCookies(req, res, "/account/setup");
   }
 
   if (!hasAcceptedTerms) {
-    if (isAcceptTermsRoute) {
+    if (isPublicRoute) {
       return res;
     }
     return redirectWithCookies(req, res, "/account/accept-terms");
