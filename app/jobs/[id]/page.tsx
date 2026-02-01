@@ -293,6 +293,15 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
 
   return (
     <div className="page-container stack gap-6">
+      <div className="card stack gap-2">
+        <h1 className="section-title">Job Detail</h1>
+        <p className="text-xs text-[var(--muted)]">ID: {jobId}</p>
+        <p className="text-sm text-white">{jobData.title?.trim() || "Untitled job"}</p>
+        <p className="text-sm text-[var(--muted)]">
+          {jobData.customer_name || "Unknown customer"}
+        </p>
+      </div>
+
       <div className="section-header items-start">
         <div className="stack gap-2">
           <Link href="/jobs" className="text-sm text-[var(--muted)] hover:text-white">
