@@ -7,10 +7,12 @@ import {
   useState,
   KeyboardEvent,
   ChangeEvent,
+  Suspense,
 } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 import { createClient as createSupabaseClient } from "@/utils/supabase/client";
 import { getSession } from "@/utils/supabase/session";
@@ -44,7 +46,7 @@ type BannerState = {
   showUploadBtn: boolean;
 };
 
-export default function ChatPage() {
+function ChatPageContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [input, setInput] = useState("");
@@ -66,6 +68,8 @@ export default function ChatPage() {
   const taskHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { flags } = useClientFlags();
+  const searchParams = useSearchParams();
+  const requestedConversationId = searchParams.get("conversation_id");
 
   const supabase: SupabaseClient | null = useMemo(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -146,7 +150,10 @@ export default function ChatPage() {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
+          body: JSON.stringify({
+            message: "__LOAD_HISTORY__",
+            conversation_id: requestedConversationId ?? undefined,
+          }),
         });
 
         const data = (await res.json()) as HistoryResponse;
@@ -173,7 +180,7 @@ export default function ChatPage() {
     }
 
     loadHistory();
-  }, [session]);
+  }, [session, requestedConversationId]);
 
   const computedBanner = useMemo(() => {
     if (flags.loading) {
@@ -373,7 +380,7 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userText,
-          conversation_id: conversationId,
+          conversation_id: conversationId ?? requestedConversationId ?? undefined,
           files: filesPayload,
           history,
         }),
@@ -664,5 +671,13 @@ export default function ChatPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatPageContent />
+    </Suspense>
   );
 }

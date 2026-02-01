@@ -10,6 +10,7 @@ import { getSession } from "@/utils/supabase/session";
 
 const navItems = [
   { label: "Chat", href: "/chat" },
+  { label: "Jobs", href: "/jobs" },
   { label: "Quotes", href: "/quotes", watchQuotes: true },
   { label: "Suppliers", href: "/suppliers" },
   { label: "Customers", href: "/customers" },
