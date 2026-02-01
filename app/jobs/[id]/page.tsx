@@ -24,7 +24,7 @@ type Job = {
   customer_email?: string | null;
   customer_phone?: string | null;
   site_address?: string | null;
-  site_postcode?: string | null;
+  postcode?: string | null;
   provider?: string | null;
   provider_thread_id?: string | null;
   last_activity_at?: string | null;
@@ -118,7 +118,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
   const { data: jobData, error: jobError } = await supabase
     .from("jobs")
     .select(
-      "id, title, status, customer_name, customer_email, customer_phone, site_address, site_postcode, provider, provider_thread_id, last_activity_at, conversation_id, request_text, details, description, notes"
+      "id, title, status, customer_name, customer_email, customer_phone, site_address, postcode, provider, provider_thread_id, last_activity_at, conversation_id, request_text, details, description, notes"
     )
     .eq("id", params.id)
     .eq("client_id", user.id)
@@ -315,7 +315,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
               <div className="stack gap-1">
                 <p className="section-subtitle">Site</p>
                 <p className="text-sm text-white">{jobData.site_address || "—"}</p>
-                <p className="text-xs text-[var(--muted)]">{jobData.site_postcode || "—"}</p>
+                <p className="text-xs text-[var(--muted)]">{jobData.postcode || "—"}</p>
               </div>
             </div>
             <div className="stack gap-2">
