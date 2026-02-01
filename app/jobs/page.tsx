@@ -39,9 +39,9 @@ export default function JobsPage() {
 
         try {
           const { data: userData, error: userError } = await supabase.auth.getUser();
-          const profileId = userData?.user?.id;
+          const clientId = userData?.user?.id;
 
-          if (userError || !profileId) {
+          if (userError || !clientId) {
             throw new Error(userError?.message || "Unable to find your account");
           }
 
@@ -50,7 +50,7 @@ export default function JobsPage() {
             .select(
               "id, title, customer_name, customer_email, status, provider, last_activity_at"
             )
-            .eq("profile_id", profileId)
+            .eq("client_id", clientId)
             .order("last_activity_at", { ascending: false });
 
           const trimmedSearch = search.trim();
@@ -92,7 +92,7 @@ export default function JobsPage() {
               .from("quotes")
               .select("id, job_id")
               .in("job_id", jobIds)
-              .eq("client_id", profileId);
+              .eq("client_id", clientId);
 
             quotesById?.forEach((quote) => {
               if (quote.job_id) nextQuoteIds.add(quote.job_id);
@@ -104,7 +104,7 @@ export default function JobsPage() {
               .from("quotes")
               .select("id, job_ref")
               .in("job_ref", jobTitles)
-              .eq("client_id", profileId);
+              .eq("client_id", clientId);
 
             quotesByRef?.forEach((quote) => {
               if (quote.job_ref) nextQuoteRefs.add(quote.job_ref);

@@ -107,9 +107,9 @@ export default function JobDetailPage() {
 
       try {
         const { data: userData, error: userError } = await supabase.auth.getUser();
-        const profileId = userData?.user?.id;
+        const clientId = userData?.user?.id;
 
-        if (userError || !profileId) {
+        if (userError || !clientId) {
           throw new Error(userError?.message || "Unable to find your account");
         }
 
@@ -119,7 +119,7 @@ export default function JobDetailPage() {
             "id, profile_id, title, status, customer_name, customer_email, customer_phone, customer_mobile, site_address, site_postcode, provider, provider_thread_id, last_activity_at, conversation_id, request_text, details, description, notes"
           )
           .eq("id", jobId)
-          .eq("profile_id", profileId)
+          .eq("client_id", clientId)
           .maybeSingle<Job>();
 
         if (jobError) {
@@ -143,7 +143,7 @@ export default function JobDetailPage() {
           .select(
             "id, direction, from_email, to_emails, cc_emails, subject, body_text, body_html, received_at, created_at"
           )
-          .eq("client_id", profileId)
+          .eq("client_id", clientId)
           .eq("job_id", jobData.id)
           .order("received_at", { ascending: true });
 
@@ -155,7 +155,7 @@ export default function JobDetailPage() {
             .select(
               "id, direction, from_email, to_emails, cc_emails, subject, body_text, body_html, received_at, created_at"
             )
-            .eq("client_id", profileId)
+            .eq("client_id", clientId)
             .eq("provider", jobData.provider)
             .eq("provider_thread_id", jobData.provider_thread_id)
             .order("received_at", { ascending: true });
@@ -167,7 +167,7 @@ export default function JobDetailPage() {
           ? await supabase
               .from("messages")
               .select("id, role, content, created_at")
-              .eq("profile_id", profileId)
+              .eq("profile_id", clientId)
               .eq("conversation_id", jobData.conversation_id)
               .order("created_at", { ascending: true })
           : { data: [] };
@@ -175,7 +175,7 @@ export default function JobDetailPage() {
         let { data: quoteData } = await supabase
           .from("quotes")
           .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
-          .eq("client_id", profileId)
+          .eq("client_id", clientId)
           .eq("job_id", jobData.id)
           .order("created_at", { ascending: false });
 
@@ -183,7 +183,7 @@ export default function JobDetailPage() {
           const { data: fallbackQuotes } = await supabase
             .from("quotes")
             .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
-            .eq("client_id", profileId)
+            .eq("client_id", clientId)
             .eq("job_ref", jobData.title)
             .order("created_at", { ascending: false });
 
