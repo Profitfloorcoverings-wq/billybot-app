@@ -7,6 +7,7 @@ import {
   useState,
   KeyboardEvent,
   ChangeEvent,
+  Suspense,
 } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
@@ -45,7 +46,7 @@ type BannerState = {
   showUploadBtn: boolean;
 };
 
-export default function ChatPage() {
+function ChatPageContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [input, setInput] = useState("");
@@ -670,5 +671,13 @@ export default function ChatPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function ChatPage() {
+  return (
+    <Suspense fallback={null}>
+      <ChatPageContent />
+    </Suspense>
   );
 }
