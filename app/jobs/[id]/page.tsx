@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { headers } from "next/headers";
 
 import { JOB_STATUS_OPTIONS } from "@/app/jobs/constants";
 import JobStatusBadge from "@/app/jobs/components/JobStatusBadge";
@@ -82,32 +81,24 @@ type TimelineEntry = {
 };
 
 type JobDetailPageProps = {
-  params: { id: string };
+  params: { id?: string | string[] };
+  searchParams?: Record<string, string | string[] | undefined>;
 };
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-async function getDebugFlag() {
-  const headerList = await headers();
-  const url =
-    headerList.get("x-url") ??
-    headerList.get("next-url") ??
-    headerList.get("referer") ??
-    "";
-  if (!url) return false;
-
-  try {
-    const parsed = new URL(url, "http://localhost");
-    return parsed.searchParams.get("debug") === "1";
-  } catch {
-    return false;
+function normalizeParamId(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] ?? "";
   }
+  return value ?? "";
 }
 
-export default async function JobDetailPage({ params }: JobDetailPageProps) {
+export default async function JobDetailPage({ params, searchParams }: JobDetailPageProps) {
   const supabase = await createServerClient();
-  const debugEnabled = await getDebugFlag();
-  const jobId = String(params?.id ?? "");
+  const debugEnabled = searchParams?.debug === "1";
+  const jobId = String(normalizeParamId(params?.id));
   const isValidJobId = UUID_RE.test(jobId);
 
   if (!isValidJobId) {
@@ -131,6 +122,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
                   params_id: params?.id ?? null,
                   jobId,
                   isValidJobId,
+                  job_found: false,
                 },
                 null,
                 2
@@ -202,6 +194,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
                     message: jobError.message,
                     code: "code" in jobError ? jobError.code : null,
                   },
+                  job_found: false,
                 },
                 null,
                 2
@@ -219,8 +212,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
         <div className="empty-state stack items-center">
           <h3 className="section-title">Job not found</h3>
           <p className="section-subtitle">
-            We couldn&apos;t find this job. It may have been removed or you may not
-            have access.
+            We couldn&apos;t find this job or you don&apos;t have access to it.
           </p>
           <Link href="/jobs" className="btn btn-primary">
             Back to Jobs
@@ -426,6 +418,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
                 job_id: jobData.id ?? null,
                 user_id: user.id,
                 job_query_error: null,
+                job_found: true,
                 conversation_id: jobData.conversation_id ?? null,
                 provider: jobData.provider ?? null,
                 provider_thread_id: jobData.provider_thread_id ?? null,
