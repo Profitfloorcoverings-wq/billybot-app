@@ -394,6 +394,43 @@ input[type=number].supplierPriceInput {
   font-weight: 600;
 }
 
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 16px;
+  }
+}
+
+.line-clamp-1,
+.line-clamp-2,
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-1 {
+  -webkit-line-clamp: 1;
+}
+
+.line-clamp-2 {
+  -webkit-line-clamp: 2;
+}
+
+.line-clamp-3 {
+  -webkit-line-clamp: 3;
+}
+
+.break-anywhere {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;
