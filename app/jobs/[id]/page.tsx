@@ -91,8 +91,8 @@ function isUuid(value: string) {
   );
 }
 
-function getDebugFlag() {
-  const headerList = headers();
+async function getDebugFlag() {
+  const headerList = await headers();
   const url =
     headerList.get("x-url") ??
     headerList.get("next-url") ??
@@ -110,7 +110,7 @@ function getDebugFlag() {
 
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const supabase = await createServerClient();
-  const debugEnabled = getDebugFlag();
+  const debugEnabled = await getDebugFlag();
   const jobId = params?.id;
 
   if (!jobId || !isUuid(jobId)) {
