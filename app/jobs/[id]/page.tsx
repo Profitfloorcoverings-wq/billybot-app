@@ -114,7 +114,19 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const jobId = params?.id;
 
   if (!jobId || !isUuid(jobId)) {
-    return notFound();
+    return (
+      <div className="page-container">
+        <div className="empty-state stack items-center">
+          <h3 className="section-title">Invalid job id</h3>
+          <p className="section-subtitle">
+            The job link is invalid. Return to the Jobs list and try again.
+          </p>
+          <Link href="/jobs" className="btn btn-primary">
+            Back to Jobs
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -154,14 +166,13 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     .eq("client_id", user.id)
     .single<Job>();
 
-  if (jobError || !jobData) {
+  if (jobError) {
     return (
       <div className="page-container">
         <div className="empty-state stack items-center">
-          <h3 className="section-title">Job not found</h3>
+          <h3 className="section-title">Unable to load job</h3>
           <p className="section-subtitle">
-            We couldn&apos;t load this job. It may have been removed or you may not
-            have access.
+            There was an issue loading this job. Please try again shortly.
           </p>
           <Link href="/jobs" className="btn btn-primary">
             Back to Jobs
@@ -173,7 +184,11 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
               {JSON.stringify(
                 {
                   jobId,
-                  job_error: jobError?.message ?? null,
+                  user_id: user.id,
+                  job_error: {
+                    message: jobError.message,
+                    code: "code" in jobError ? jobError.code : null,
+                  },
                 },
                 null,
                 2
@@ -185,24 +200,30 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     );
   }
 
+  if (!jobData) {
+    return (
+      <div className="page-container">
+        <div className="empty-state stack items-center">
+          <h3 className="section-title">Job not found</h3>
+          <p className="section-subtitle">
+            We couldn&apos;t find this job. It may have been removed or you may not
+            have access.
+          </p>
+          <Link href="/jobs" className="btn btn-primary">
+            Back to Jobs
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   let emails: EmailEvent[] = [];
   let quotes: Quote[] = [];
   let messages: Message[] = [];
+  let emailFallback = "none";
+  let quoteFallback = "none";
 
-  if (jobData.id) {
-    const { data: emailData } = await supabase
-      .from("email_events")
-      .select(
-        "id, direction, from_email, to_emails, cc_emails, subject, body_text, body_html, received_at, created_at"
-      )
-      .eq("client_id", user.id)
-      .eq("job_id", jobData.id)
-      .order("received_at", { ascending: true });
-
-    emails = emailData ?? [];
-  }
-
-  if (!emails.length && jobData.provider && jobData.provider_thread_id) {
+  if (jobData.provider && jobData.provider_thread_id) {
     const { data: fallbackEmails } = await supabase
       .from("email_events")
       .select(
@@ -214,6 +235,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
       .order("received_at", { ascending: true });
 
     emails = fallbackEmails ?? [];
+    emailFallback = "provider_thread_id";
   }
 
   if (jobData.conversation_id && isUuid(jobData.conversation_id)) {
@@ -227,26 +249,46 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     messages = messageData ?? [];
   }
 
-  if (jobData.id) {
-    const { data: quoteData } = await supabase
-      .from("quotes")
-      .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
-      .eq("client_id", user.id)
-      .eq("job_id", jobData.id)
-      .order("created_at", { ascending: false });
-
-    quotes = quoteData ?? [];
-  }
-
-  if (!quotes.length && jobData.title) {
+  if (jobData.title) {
     const { data: fallbackQuotes } = await supabase
       .from("quotes")
-      .select("id, quote_reference, pdf_url, created_at, status, job_id, job_ref")
+      .select("id, quote_reference, pdf_url, created_at, status, job_ref")
       .eq("client_id", user.id)
       .eq("job_ref", jobData.title)
       .order("created_at", { ascending: false });
 
     quotes = fallbackQuotes ?? [];
+    if (quotes.length) {
+      quoteFallback = "job_ref";
+    }
+  }
+
+  if (!quotes.length && jobData.customer_email) {
+    const { data: fallbackQuotes } = await supabase
+      .from("quotes")
+      .select("id, quote_reference, pdf_url, created_at, status, job_ref, customer_name")
+      .eq("client_id", user.id)
+      .ilike("customer_email", jobData.customer_email)
+      .order("created_at", { ascending: false });
+
+    quotes = fallbackQuotes ?? [];
+    if (quotes.length) {
+      quoteFallback = "customer_email";
+    }
+  }
+
+  if (!quotes.length && jobData.customer_name) {
+    const { data: fallbackQuotes } = await supabase
+      .from("quotes")
+      .select("id, quote_reference, pdf_url, created_at, status, job_ref, customer_name")
+      .eq("client_id", user.id)
+      .ilike("customer_name", `%${jobData.customer_name}%`)
+      .order("created_at", { ascending: false });
+
+    quotes = fallbackQuotes ?? [];
+    if (quotes.length) {
+      quoteFallback = "customer_name";
+    }
   }
 
   const timeline: TimelineEntry[] = [];
@@ -366,9 +408,13 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
               {
                 jobId,
                 job_id: jobData.id ?? null,
+                user_id: user.id,
+                job_query_error: null,
                 conversation_id: jobData.conversation_id ?? null,
                 provider: jobData.provider ?? null,
                 provider_thread_id: jobData.provider_thread_id ?? null,
+                email_fallback: emailFallback,
+                quote_fallback: quoteFallback,
               },
               null,
               2
