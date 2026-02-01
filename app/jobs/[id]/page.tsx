@@ -85,11 +85,7 @@ type JobDetailPageProps = {
   params: { id: string };
 };
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value
-  );
-}
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 async function getDebugFlag() {
   const headerList = await headers();
@@ -111,9 +107,10 @@ async function getDebugFlag() {
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const supabase = await createServerClient();
   const debugEnabled = await getDebugFlag();
-  const jobId = params?.id;
+  const jobId = String(params?.id ?? "");
+  const isValidJobId = UUID_RE.test(jobId);
 
-  if (!jobId || !isUuid(jobId)) {
+  if (!isValidJobId) {
     return (
       <div className="page-container">
         <div className="empty-state stack items-center">
@@ -125,6 +122,22 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
             Back to Jobs
           </Link>
         </div>
+        {debugEnabled ? (
+          <div className="card mt-4">
+            <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
+              {JSON.stringify(
+                {
+                  params,
+                  params_id: params?.id ?? null,
+                  jobId,
+                  isValidJobId,
+                },
+                null,
+                2
+              )}
+            </pre>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -238,7 +251,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     emailFallback = "provider_thread_id";
   }
 
-  if (jobData.conversation_id && isUuid(jobData.conversation_id)) {
+  if (jobData.conversation_id && UUID_RE.test(jobData.conversation_id)) {
     const { data: messageData } = await supabase
       .from("messages")
       .select("id, role, content, created_at")
@@ -406,7 +419,10 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
           <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
             {JSON.stringify(
               {
+                params,
+                params_id: params?.id ?? null,
                 jobId,
+                isValidJobId,
                 job_id: jobData.id ?? null,
                 user_id: user.id,
                 job_query_error: null,
