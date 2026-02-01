@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
         },
         messageId,
         message.receivedAt,
-        null
+        message.threadId
       );
 
       if (!shouldProcess) {

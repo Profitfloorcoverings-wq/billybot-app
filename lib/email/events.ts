@@ -30,6 +30,14 @@ export async function initEmailEvent(
   receivedAt: string,
   providerThreadId?: string | null
 ): Promise<EmailEventInitResult> {
+  if (!providerThreadId) {
+    console.warn("Email event missing provider thread id", {
+      accountId: account.id,
+      provider: account.provider,
+      providerMessageId,
+    });
+  }
+
   const serviceClient = createEmailServiceClient();
   const { data: existing, error: existingError } = await serviceClient
     .from("email_events")
