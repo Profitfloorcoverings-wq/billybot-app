@@ -155,7 +155,34 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     .single<Job>();
 
   if (jobError || !jobData) {
-    return notFound();
+    return (
+      <div className="page-container">
+        <div className="empty-state stack items-center">
+          <h3 className="section-title">Job not found</h3>
+          <p className="section-subtitle">
+            We couldn&apos;t load this job. It may have been removed or you may not
+            have access.
+          </p>
+          <Link href="/jobs" className="btn btn-primary">
+            Back to Jobs
+          </Link>
+        </div>
+        {debugEnabled ? (
+          <div className="card mt-4">
+            <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
+              {JSON.stringify(
+                {
+                  jobId,
+                  job_error: jobError?.message ?? null,
+                },
+                null,
+                2
+              )}
+            </pre>
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   let emails: EmailEvent[] = [];
