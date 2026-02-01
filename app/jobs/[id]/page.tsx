@@ -23,7 +23,6 @@ type Job = {
   customer_name?: string | null;
   customer_email?: string | null;
   customer_phone?: string | null;
-  customer_mobile?: string | null;
   site_address?: string | null;
   site_postcode?: string | null;
   provider?: string | null;
@@ -119,7 +118,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
   const { data: jobData, error: jobError } = await supabase
     .from("jobs")
     .select(
-      "id, title, status, customer_name, customer_email, customer_phone, customer_mobile, site_address, site_postcode, provider, provider_thread_id, last_activity_at, conversation_id, request_text, details, description, notes"
+      "id, title, status, customer_name, customer_email, customer_phone, site_address, site_postcode, provider, provider_thread_id, last_activity_at, conversation_id, request_text, details, description, notes"
     )
     .eq("id", params.id)
     .eq("client_id", user.id)
@@ -310,7 +309,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
                   {jobData.customer_email || "—"}
                 </p>
                 <p className="text-xs text-[var(--muted)]">
-                  {jobData.customer_phone || jobData.customer_mobile || "—"}
+                  {jobData.customer_phone || "—"}
                 </p>
               </div>
               <div className="stack gap-1">
