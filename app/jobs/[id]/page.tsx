@@ -113,11 +113,33 @@ async function getDebugFlagFromHeaders() {
   }
 }
 
+async function getJobIdFromHeaders() {
+  const headerList = await headers();
+  const url =
+    headerList.get("x-url") ??
+    headerList.get("next-url") ??
+    headerList.get("referer") ??
+    "";
+  if (!url) return "";
+
+  try {
+    const parsed = new URL(url, "http://localhost");
+    const pathname = parsed.pathname;
+    if (!pathname.startsWith("/jobs/")) return "";
+    const parts = pathname.split("/").filter(Boolean);
+    return parts[1] ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export default async function JobDetailPage({ params, searchParams }: JobDetailPageProps) {
   const supabase = await createServerClient();
   const debugEnabled =
     searchParams?.debug === "1" || (await getDebugFlagFromHeaders());
-  const jobId = String(normalizeParamId(params?.id));
+  const paramsId = normalizeParamId(params?.id);
+  const headerId = paramsId ? "" : await getJobIdFromHeaders();
+  const jobId = String(paramsId || headerId);
   const isValidJobId = UUID_RE.test(jobId);
 
   if (!isValidJobId) {
@@ -139,6 +161,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
                 {
                   params,
                   params_id: params?.id ?? null,
+                  header_id: headerId || null,
                   jobId,
                   isValidJobId,
                   job_found: false,
@@ -432,6 +455,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
               {
                 params,
                 params_id: params?.id ?? null,
+                header_id: headerId || null,
                 jobId,
                 isValidJobId,
                 job_id: jobData.id ?? null,
