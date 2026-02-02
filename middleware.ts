@@ -19,6 +19,16 @@ function redirectWithCookies(req: NextRequest, res: NextResponse, pathname: stri
 }
 
 export async function middleware(req: NextRequest) {
+  const pathname = req.nextUrl.pathname;
+  const internalToken = req.headers.get("x-internal-token");
+  const isInternalApiCall =
+    pathname.startsWith("/api/") &&
+    internalToken !== null &&
+    internalToken === process.env.INTERNAL_JOBS_TOKEN;
+  if (isInternalApiCall) {
+    return NextResponse.next();
+  }
+
   const res = NextResponse.next();
   // Ensure onboarding guards are evaluated with fresh data on every request.
   res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
@@ -53,7 +63,6 @@ export async function middleware(req: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = req.nextUrl.pathname;
   const isPublicRoute =
     PUBLIC_ROUTES.some((route) => pathname.startsWith(route)) ||
     AUTH_ROUTES.some((route) => pathname.startsWith(route)) ||
