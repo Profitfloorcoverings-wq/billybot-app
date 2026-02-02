@@ -14,6 +14,7 @@ export type GmailReplyPayload = {
 
 export type MicrosoftReplyPayload = {
   accessToken: string;
+  mailbox: string;
   messageId: string;
   body: string;
 };
@@ -84,7 +85,7 @@ export async function sendMicrosoftReply(
   payload: MicrosoftReplyPayload
 ): Promise<ProviderSendResult> {
   const response = await fetch(
-    `${GRAPH_BASE_URL}/me/messages/${payload.messageId}/reply`,
+    `${GRAPH_BASE_URL}/users/${payload.mailbox}/messages/${payload.messageId}/reply`,
     {
       method: "POST",
       headers: {

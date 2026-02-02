@@ -272,6 +272,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "account_not_found" }, { status: 404 });
   }
 
+  const mailbox = extractStringField(account.email_address);
+
+  if (!mailbox) {
+    return NextResponse.json(
+      { error: "missing_account_email" },
+      { status: 400 }
+    );
+  }
+
   let sendResult: ProviderSendResult;
 
   try {
@@ -287,6 +296,7 @@ export async function POST(request: NextRequest) {
     } else {
       sendResult = await sendMicrosoftReply({
         accessToken,
+        mailbox,
         messageId: inbound.provider_message_id,
         body,
       });
