@@ -287,6 +287,7 @@ export async function POST(request: NextRequest) {
     } else {
       sendResult = await sendMicrosoftReply({
         accessToken,
+        mailbox: account.email_address,
         messageId: inbound.provider_message_id,
         body,
       });
