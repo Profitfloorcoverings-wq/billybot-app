@@ -20,6 +20,9 @@ function redirectWithCookies(req: NextRequest, res: NextResponse, pathname: stri
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
+  }
   const internalToken = req.headers.get("x-internal-token");
   const isInternalApiCall =
     pathname.startsWith("/api/") &&
@@ -124,5 +127,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
