@@ -4,15 +4,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
 
-import { JOB_STATUS_OPTIONS } from "@/app/jobs/constants";
 import JobStatusBadge from "@/app/jobs/components/JobStatusBadge";
-import ProviderBadge from "@/app/jobs/components/ProviderBadge";
 import {
   formatRelativeTime,
   formatTimestamp,
   humanizeStatus,
-  normalizeStatus,
-  stripHtml,
   JOB_SELECT,
 } from "@/app/jobs/utils";
 import { createServerClient } from "@/utils/supabase/server";
@@ -62,24 +58,6 @@ type Quote = {
   job_ref?: string | null;
 };
 
-type Message = {
-  id: string | number;
-  role?: string | null;
-  content?: string | null;
-  created_at?: string | null;
-};
-
-type TimelineEntry = {
-  id: string;
-  type: "email" | "chat" | "quote";
-  title: string;
-  subtitle?: string | null;
-  preview?: string | null;
-  body?: string | null;
-  timestamp?: string | null;
-  pdfUrl?: string | null;
-};
-
 type JobDetailPageProps = {
   params: { id?: string | string[] };
   searchParams?: Record<string, string | string[] | undefined>;
@@ -93,24 +71,6 @@ function normalizeParamId(value: string | string[] | undefined) {
     return value[0] ?? "";
   }
   return value ?? "";
-}
-
-function CopyIdChip({ id }: { id: string }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-      <span className="uppercase tracking-[0.2em]">Job ID</span>
-      <span className="rounded-full border border-white/10 bg-white/5 px-2 py-1 font-mono text-[11px] text-[var(--muted)] break-anywhere">
-        {id}
-      </span>
-      <button
-        type="button"
-        className="btn btn-secondary h-7 px-3 text-[10px] uppercase tracking-[0.2em] opacity-80"
-        title="Copy job ID"
-      >
-        Copy
-      </button>
-    </div>
-  );
 }
 
 function StatRow({
@@ -128,55 +88,6 @@ function StatRow({
       <span className="font-semibold text-white" title={hint ?? undefined}>
         {value}
       </span>
-    </div>
-  );
-}
-
-function TimelineEntryCard({ entry }: { entry: TimelineEntry }) {
-  const icon = entry.type === "email" ? "✉️" : entry.type === "chat" ? "💬" : "📄";
-  const timestamp = formatTimestamp(entry.timestamp);
-  const hasBody = Boolean(entry.body || entry.pdfUrl);
-
-  return (
-    <div className="rounded-xl border border-white/5 bg-white/5 p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="text-lg">{icon}</span>
-          <div className="stack min-w-0 gap-1">
-            <p className="text-sm font-semibold text-white">{entry.title}</p>
-            {entry.subtitle ? (
-              <p className="text-xs text-[var(--muted)]">{entry.subtitle}</p>
-            ) : null}
-          </div>
-        </div>
-        <span className="text-xs text-[var(--muted)]">{timestamp}</span>
-      </div>
-      {entry.preview ? (
-        <p className="mt-3 text-sm text-[var(--muted)] line-clamp-2 break-anywhere">
-          {entry.preview}
-        </p>
-      ) : null}
-      {hasBody ? (
-        <details className="group mt-3">
-          <summary className="cursor-pointer text-xs font-semibold text-[var(--accent2)]">
-            View details
-          </summary>
-          <div className="mt-2 text-sm text-[var(--muted)] whitespace-pre-wrap break-anywhere">
-            {entry.pdfUrl ? (
-              <a
-                href={entry.pdfUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm font-semibold text-[var(--accent2)] underline"
-              >
-                Open quote PDF
-              </a>
-            ) : (
-              entry.body || "No additional details available."
-            )}
-          </div>
-        </details>
-      ) : null}
     </div>
   );
 }
@@ -351,7 +262,6 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
 
   let emails: EmailEvent[] = [];
   let quotes: Quote[] = [];
-  let messages: Message[] = [];
   let emailFallback = "none";
   let quoteFallback = "none";
 
@@ -368,17 +278,6 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
 
     emails = fallbackEmails ?? [];
     emailFallback = "provider_thread_id";
-  }
-
-  if (jobData.conversation_id && UUID_RE.test(jobData.conversation_id)) {
-    const { data: messageData } = await supabase
-      .from("messages")
-      .select("id, role, content, created_at")
-      .eq("profile_id", user.id)
-      .eq("conversation_id", jobData.conversation_id)
-      .order("created_at", { ascending: true });
-
-    messages = messageData ?? [];
   }
 
   if (jobData.title) {
@@ -423,74 +322,11 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     }
   }
 
-  const timeline: TimelineEntry[] = [];
-
-  emails.forEach((email) => {
-    const directionLabel = email.direction === "outbound" ? "Outbound" : "Inbound";
-    const from = email.from_email ?? "Unknown sender";
-    const to = email.to_emails?.join(", ") ?? "Unknown recipient";
-    const subtitle = `${from} → ${to}`;
-    const timestamp = email.received_at ?? email.created_at ?? null;
-    const subject = email.subject?.trim();
-    const bodyText = email.body_text?.trim();
-    const bodyHtml = stripHtml(email.body_html);
-    const preview = [subject, bodyText || bodyHtml].filter(Boolean).join(" — ");
-    const body = [bodyText, bodyText && bodyHtml ? "" : null, bodyHtml]
-      .filter((value): value is string => Boolean(value && value.trim()))
-      .join("\n\n");
-
-    timeline.push({
-      id: `email-${email.id}`,
-      type: "email",
-      title: directionLabel === "Outbound" ? "Email sent" : "Email received",
-      subtitle,
-      preview: preview ? preview.slice(0, 200) : null,
-      body: body || null,
-      timestamp,
-    });
-  });
-
-  messages.forEach((message) => {
-    const role = message.role ?? "user";
-    const roleLabel =
-      role.toString().toLowerCase() === "assistant" ? "BillyBot note" : "Customer message";
-    timeline.push({
-      id: `chat-${message.id}`,
-      type: "chat",
-      title: roleLabel,
-      subtitle: "Chat update",
-      preview: message.content?.trim().slice(0, 200) ?? null,
-      body: message.content?.trim() ?? null,
-      timestamp: message.created_at ?? null,
-    });
-  });
-
-  quotes.forEach((quote) => {
-    timeline.push({
-      id: `quote-${quote.id}`,
-      type: "quote",
-      title: quote.quote_reference ? `Quote ${quote.quote_reference}` : "Quote created",
-      subtitle: quote.status ? humanizeStatus(quote.status) : "Quote update",
-      preview: quote.pdf_url ? "Quote PDF available" : "Quote ready",
-      body: quote.pdf_url ?? null,
-      timestamp: quote.created_at ?? null,
-      pdfUrl: quote.pdf_url ?? null,
-    });
-  });
-
-  timeline.sort((a, b) => {
-    const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-    const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-    return aTime - bTime;
-  });
-
   const inboundEmails = emails.filter((email) => email.direction !== "outbound");
   const outboundEmails = emails.filter((email) => email.direction === "outbound");
   const lastInbound = inboundEmails.at(-1)?.received_at ?? inboundEmails.at(-1)?.created_at;
   const jobTitle = jobData.title?.trim() || "Untitled job";
   const jobDetails = jobData.job_details?.trim() || "";
-  const lastActivityLabel = formatRelativeTime(jobData.last_activity_at);
-  const lastActivityExact = formatTimestamp(jobData.last_activity_at);
   const chatHref = jobData.conversation_id
     ? `/chat?conversation_id=${jobData.conversation_id}`
     : "/chat";
@@ -506,33 +342,8 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
             <h1 className="section-title text-2xl">{jobTitle}</h1>
             <div className="stack items-end gap-2">
               <JobStatusBadge status={jobData.status} />
-              <select
-                className="input-fluid max-w-[220px]"
-                defaultValue={normalizeStatus(jobData.status)}
-                disabled
-                title="Status updates are currently read-only."
-              >
-                {JOB_STATUS_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-[var(--muted)]">
-            <span className="font-semibold text-white">
-              {jobData.customer_name || "Unknown customer"}
-            </span>
-            <span className="break-anywhere">
-              {jobData.customer_email || "No email on file"}
-            </span>
-            <span className="break-anywhere">
-              {jobData.customer_phone || "No phone on file"}
-            </span>
-            <span title={lastActivityExact}>Last activity {lastActivityLabel}</span>
-          </div>
-          <CopyIdChip id={jobId} />
         </div>
       </div>
 
@@ -592,44 +403,13 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
               </div>
             </div>
             <div className="stack gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <ProviderBadge provider={jobData.provider} />
-                {jobData.provider_thread_id ? (
-                  <span className="text-xs text-[var(--muted)] break-anywhere">
-                    Thread {jobData.provider_thread_id}
-                  </span>
-                ) : null}
-              </div>
               <div>
                 <p className="section-subtitle">Job notes</p>
                 <p className="text-sm text-[var(--muted)] whitespace-pre-wrap break-anywhere">
                   {jobDetails || "No request details captured yet."}
                 </p>
               </div>
-              {jobData.conversation_id ? (
-                <p className="text-xs text-[var(--muted)] break-anywhere">
-                  Technical: Conversation {jobData.conversation_id}
-                </p>
-              ) : null}
             </div>
-          </div>
-
-          <div className="card stack gap-4">
-            <div className="stack gap-1">
-              <h2 className="section-title text-lg">Timeline</h2>
-              <p className="section-subtitle">
-                Emails, chat messages, and quotes in chronological order.
-              </p>
-            </div>
-            {timeline.length === 0 ? (
-              <div className="empty-state">No activity yet.</div>
-            ) : (
-              <div className="stack gap-3">
-                {timeline.map((item) => (
-                  <TimelineEntryCard key={item.id} entry={item} />
-                ))}
-              </div>
-            )}
           </div>
         </div>
 
