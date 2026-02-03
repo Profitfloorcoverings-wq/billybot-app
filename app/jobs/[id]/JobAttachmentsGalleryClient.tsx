@@ -22,7 +22,7 @@ export default function JobAttachmentsGalleryClient({
   const [active, setActive] = useState<Attachment | null>(null);
 
   return (
-    <Card className="bb-surface">
+    <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>Attachments</CardTitle>
@@ -31,7 +31,7 @@ export default function JobAttachmentsGalleryClient({
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="p-6 pt-0 space-y-4">
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-4">
         {attachments.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-white/10 bg-white/5 p-6 text-center">
             <span className="text-2xl">📷</span>
@@ -46,7 +46,7 @@ export default function JobAttachmentsGalleryClient({
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {attachments.map((attachment) => (
               <button
                 key={attachment.url}

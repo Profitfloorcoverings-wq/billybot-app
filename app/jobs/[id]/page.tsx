@@ -12,14 +12,9 @@ import {
 } from "@/app/jobs/utils";
 import { createServerClient } from "@/utils/supabase/server";
 import JobAttachmentsGalleryClient from "@/app/jobs/[id]/JobAttachmentsGalleryClient";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Job = {
   id: string;
@@ -113,133 +108,10 @@ function StatRow({
   );
 }
 
-function HealthLight({
-  tone,
-  label,
-  reason,
-}: {
-  tone: "green" | "amber" | "red";
-  label: string;
-  reason: string;
-}) {
-  return (
-    <div className={`bb-pill bb-health bb-health-${tone}`} title={reason}>
-      <span className="bb-health-dot" aria-hidden="true" />
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function JobCommandBar({
-  title,
-  subtitle,
-  statusLabel,
-  healthTone,
-  healthLabel,
-  healthReason,
-  waitingLabel,
-  primaryActions,
-}: {
-  title: string;
-  subtitle: string;
-  statusLabel: string;
-  healthTone: "green" | "amber" | "red";
-  healthLabel: string;
-  healthReason: string;
-  waitingLabel?: string;
-  primaryActions: React.ReactNode;
-}) {
-  return (
-    <div className="bb-commandbar -mx-4 px-4 py-4">
-      <div className="container flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="stack gap-1">
-          <h1 className="section-title text-2xl sm:text-3xl">{title}</h1>
-          <p className="text-sm text-[var(--muted)]">{subtitle}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <span className="bb-pill">{statusLabel}</span>
-          <HealthLight tone={healthTone} label={healthLabel} reason={healthReason} />
-          {waitingLabel ? <span className="bb-pill">{waitingLabel}</span> : null}
-          <div className="flex flex-wrap items-center gap-2">{primaryActions}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function JobKpiGrid({
-  inboundCount,
-  outboundCount,
-  sparkline,
-  lastActivityLabel,
-  lastActivityTone,
-  quoteStatus,
-  blockersCount,
-}: {
-  inboundCount: number;
-  outboundCount: number;
-  sparkline: number[];
-  lastActivityLabel: string;
-  lastActivityTone: "green" | "amber" | "red";
-  quoteStatus: string;
-  blockersCount: number;
-}) {
-  const blockersTone = blockersCount === 0 ? "green" : blockersCount > 2 ? "red" : "amber";
-  const toneClass = (tone: "green" | "amber" | "red") =>
-    tone === "green" ? "text-emerald-300" : tone === "amber" ? "text-amber-300" : "text-rose-300";
-
-  return (
-    <Card className="bb-surface">
-      <CardHeader className="space-y-1">
-        <CardTitle>KPIs</CardTitle>
-        <CardDescription>Fast health checks at a glance.</CardDescription>
-      </CardHeader>
-      <CardContent className="p-6 pt-0 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-            <div className="flex items-center justify-between text-sm font-semibold text-white">
-              <span className="flex items-center gap-2">
-                <span>📥</span>
-                {inboundCount} in / {outboundCount} out
-              </span>
-            </div>
-            <div className="flex items-end gap-1">
-              {sparkline.map((value, index) => (
-                <span
-                  key={`${value}-${index}`}
-                  className="h-4 w-1.5 rounded-full bg-white/10"
-                  style={{ height: `${Math.max(6, value * 6)}px` }}
-                  aria-hidden="true"
-                />
-              ))}
-            </div>
-            <p className="text-xs text-[var(--muted)]">Emails</p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm font-semibold text-white">
-              <span>⏱️</span>
-              <span className={toneClass(lastActivityTone)}>{lastActivityLabel}</span>
-            </div>
-            <p className="text-xs text-[var(--muted)]">Last activity (stale if &gt; 48h)</p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm font-semibold text-white">
-              <span>🧾</span>
-              {quoteStatus}
-            </div>
-            <p className="text-xs text-[var(--muted)]">Quote status</p>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
-            <div className={`flex items-center gap-2 text-sm font-semibold ${toneClass(blockersTone)}`}>
-              <span>🚧</span>
-              {blockersCount} blockers
-            </div>
-            <p className="text-xs text-[var(--muted)]">Blocking progress</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+function toneToVariant(tone: "green" | "amber" | "red") {
+  if (tone === "green") return "success";
+  if (tone === "amber") return "warning";
+  return "danger";
 }
 
 function JobNextActions({
@@ -256,17 +128,15 @@ function JobNextActions({
     : `${items.length} blocker${items.length === 1 ? "" : "s"} — fix these to quote`;
 
   return (
-    <Card className="bb-surface" id="whats-next">
+    <Card id="whats-next">
       <CardHeader className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>What&apos;s next</CardTitle>
-          <span className={`bb-pill ${ready ? "" : "bg-white/5 text-white"}`}>
-            {summaryLabel}
-          </span>
+          <Badge variant={ready ? "success" : "secondary"}>{summaryLabel}</Badge>
         </div>
         <CardDescription>Focus on blockers to move the job forward.</CardDescription>
       </CardHeader>
-      <CardContent className="p-6 pt-0 space-y-4">
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-4">
         {ready ? (
           <div className="flex flex-col gap-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
@@ -284,7 +154,7 @@ function JobNextActions({
             {items.map((item) => (
               <div
                 key={item.id}
-                className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                className="rounded-lg border border-white/10 bg-white/5 p-3 transition hover:bg-white/10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex items-center gap-2 text-sm text-white">
                   <span className="text-lg" aria-hidden="true">
@@ -327,12 +197,12 @@ function JobFacts({
   jobNotes: string;
 }) {
   return (
-    <Card className="bb-surface" id="job-summary">
+    <Card id="job-summary">
       <CardHeader>
         <CardTitle>Job summary</CardTitle>
         <CardDescription>Quick facts to keep the team aligned.</CardDescription>
       </CardHeader>
-      <CardContent className="p-6 pt-0 space-y-4">
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
             <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Customer</p>
@@ -380,12 +250,12 @@ function JobPipelineStepper({
   activeIndex: number;
 }) {
   return (
-    <Card className="bb-surface">
+    <Card>
       <CardHeader>
         <CardTitle>Pipeline stage</CardTitle>
         <CardDescription>Track progress through each phase.</CardDescription>
       </CardHeader>
-      <CardContent className="p-6 pt-0 space-y-4">
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-4">
         <div className="space-y-4">
           {stages.map((stage, index) => {
             const active = index === activeIndex;
@@ -420,72 +290,62 @@ function JobPipelineStepper({
   );
 }
 
-function JobRecentActivity({ items }: { items: ActivityItem[] }) {
-  return (
-    <Card className="bb-surface">
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <CardTitle>Recent activity</CardTitle>
-            <CardDescription>Latest updates across email + quotes.</CardDescription>
-          </div>
-          <span className="text-xs text-[var(--muted)]">Last 5</span>
-        </div>
-      </CardHeader>
-      <CardContent className="p-6 pt-0 space-y-4">
-        {items.length === 0 ? (
-          <div className="empty-state">No recent activity yet.</div>
-        ) : (
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-lg" aria-hidden="true">
-                    {item.icon}
-                  </span>
-                  <span className="text-white line-clamp-1">{item.label}</span>
-                </div>
-                <span className="text-xs text-[var(--muted)]">
-                  {formatRelativeTime(item.timestamp)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function JobCommsStats({
+function JobCommsActivity({
   inbound,
   outbound,
   waitingOn,
   responseRatio,
+  items,
 }: {
   inbound: number;
   outbound: number;
   waitingOn: string;
   responseRatio: string;
+  items: ActivityItem[];
 }) {
   return (
-    <Card className="bb-surface">
+    <Card>
       <CardHeader>
-        <CardTitle>Comms & stats</CardTitle>
-        <CardDescription>Email activity summary.</CardDescription>
+        <CardTitle>Comms & activity</CardTitle>
+        <CardDescription>Recent activity and communication stats.</CardDescription>
       </CardHeader>
-      <CardContent className="p-6 pt-0 space-y-4">
-        <div className="space-y-3">
-          <StatRow label="Inbound" value={inbound} />
-          <StatRow label="Outbound" value={outbound} />
-          <StatRow label="Response ratio" value={responseRatio} />
-          <StatRow label="Waiting on" value={waitingOn} />
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+            <StatRow label="Inbound" value={inbound} />
+            <StatRow label="Outbound" value={outbound} />
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+            <StatRow label="Response ratio" value={responseRatio} />
+            <StatRow label="Waiting on" value={waitingOn} />
+          </div>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-white/5">
-          <div
-            className="h-full rounded-full bg-[var(--accent2)]"
-            style={{ width: `${Math.min(100, Math.round((outbound / Math.max(1, inbound)) * 100))}%` }}
-          />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-xs text-[var(--muted)]">
+            <span>Recent activity</span>
+            <span>Last 5</span>
+          </div>
+          {items.length === 0 ? (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-[var(--muted)]">
+              No recent activity yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {items.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-lg" aria-hidden="true">
+                      {item.icon}
+                    </span>
+                    <span className="text-white line-clamp-1">{item.label}</span>
+                  </div>
+                  <span className="text-xs text-[var(--muted)]">
+                    {formatRelativeTime(item.timestamp)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -541,14 +401,14 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
   if (!isValidJobId) {
     return (
       <div className="container">
-        <div className="empty-state stack items-center">
-          <h3 className="section-title">Invalid job id</h3>
-          <p className="section-subtitle">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center space-y-3">
+          <h3 className="text-lg font-semibold text-white">Invalid job id</h3>
+          <p className="text-sm text-[var(--muted)]">
             The job link is invalid. Return to the Jobs list and try again.
           </p>
-          <Link href="/jobs" className="btn btn-primary">
-            Back to Jobs
-          </Link>
+          <Button asChild>
+            <Link href="/jobs">Back to Jobs</Link>
+          </Button>
         </div>
         {debugEnabled ? (
           <div className="card mt-4">
@@ -582,7 +442,9 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
 
     return (
       <div className="container">
-        <div className="empty-state">Not signed in.</div>
+        <div className="rounded-xl border border-white/10 bg-white/5 p-6 text-center text-sm text-[var(--muted)]">
+          Not signed in.
+        </div>
         <div className="card mt-4">
           <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
             {JSON.stringify(
@@ -612,14 +474,14 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
   if (jobError) {
     return (
       <div className="container">
-        <div className="empty-state stack items-center">
-          <h3 className="section-title">Unable to load job</h3>
-          <p className="section-subtitle">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center space-y-3">
+          <h3 className="text-lg font-semibold text-white">Unable to load job</h3>
+          <p className="text-sm text-[var(--muted)]">
             There was an issue loading this job. Please try again shortly.
           </p>
-          <Link href="/jobs" className="btn btn-primary">
-            Back to Jobs
-          </Link>
+          <Button asChild>
+            <Link href="/jobs">Back to Jobs</Link>
+          </Button>
         </div>
         {debugEnabled ? (
           <div className="card mt-4">
@@ -647,14 +509,14 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
   if (!jobData) {
     return (
       <div className="container">
-        <div className="empty-state stack items-center">
-          <h3 className="section-title">Job not found</h3>
-          <p className="section-subtitle">
+        <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center space-y-3">
+          <h3 className="text-lg font-semibold text-white">Job not found</h3>
+          <p className="text-sm text-[var(--muted)]">
             We couldn&apos;t find this job or you don&apos;t have access to it.
           </p>
-          <Link href="/jobs" className="btn btn-primary">
-            Back to Jobs
-          </Link>
+          <Button asChild>
+            <Link href="/jobs">Back to Jobs</Link>
+          </Button>
         </div>
       </div>
     );
@@ -776,16 +638,6 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
   }));
 
   const statusLabel = humanizeStatus(jobData.status) || "New";
-  const timelineDays = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (6 - index));
-    return date.toISOString().slice(0, 10);
-  });
-  const sparkline = timelineDays.map((day) =>
-    emails.filter((email) => (email.received_at ?? email.created_at ?? "").startsWith(day))
-      .length
-  );
-
   const lastActivityTimestamp = jobData.last_activity_at ?? lastInbound ?? lastOutbound;
   const lastActivityLabel = formatRelativeTime(lastActivityTimestamp);
   const lastActivityMs = lastActivityTimestamp
@@ -830,12 +682,6 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
     })
     .slice(0, 5);
 
-  const quoteStatus = quotes[0]?.status
-    ? humanizeStatus(quotes[0]?.status)
-    : quotes.length
-      ? "Draft"
-      : "None";
-
   const statusStages = ["New", "Gathering info", "Quoting", "Sent", "Won/Lost"];
   const normalizedStatus = (jobData.status ?? "").toLowerCase();
   const statusStageIndex = normalizedStatus.includes("won") || normalizedStatus.includes("lost")
@@ -874,16 +720,31 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
 
   return (
     <div className="pb-10">
-      <JobCommandBar
-        title={jobTitle}
-        subtitle={`${customerName} • ${postcode}`}
-        statusLabel={statusLabel}
-        healthTone={healthTone}
-        healthLabel={healthLabel}
-        healthReason={healthReason}
-        waitingLabel={waitingLabel}
-        primaryActions={
-          <>
+      <div className="mx-auto w-full max-w-5xl space-y-6 px-4 pt-6">
+        <Link href="/jobs" className="text-sm text-[var(--muted)] hover:text-white">
+          ← Back to Jobs
+        </Link>
+
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold text-white sm:text-3xl">{jobTitle}</h1>
+              <p className="text-sm text-[var(--muted)]">
+                {customerName} • {customerEmail}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="secondary">Stage: {statusLabel}</Badge>
+              <Badge variant={toneToVariant(healthTone)} title={healthReason}>
+                Health: {healthLabel}
+              </Badge>
+              {waitingLabel ? <Badge variant="outline">{waitingLabel}</Badge> : null}
+              <Badge variant="secondary">Blockers: {blockers.length}</Badge>
+              <Badge variant="secondary">Last: {lastActivityLabel}</Badge>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
             {quotes.length === 0 ? (
               <Button asChild>
                 <Link href={chatHref}>Create quote</Link>
@@ -901,52 +762,60 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
             <Button asChild variant="ghost">
               <Link href="#whats-next">Request info</Link>
             </Button>
-          </>
-        }
-      />
-
-      <div className="container stack gap-6 pt-6">
-        <Link href="/jobs" className="text-sm text-[var(--muted)] hover:text-white">
-          ← Back to Jobs
-        </Link>
+          </div>
+        </div>
 
         {debugEnabled ? (
-          <div className="card">
-            <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
-              {JSON.stringify(
-                {
-                  params,
-                  params_id: params?.id ?? null,
-                  header_id: headerId || null,
-                  jobId,
-                  isValidJobId,
-                  job_id: jobData.id ?? null,
-                  user_id: user.id,
-                  job_query_error: null,
-                  job_found: true,
-                  conversation_id: jobData.conversation_id ?? null,
-                  provider: jobData.provider ?? null,
-                  provider_thread_id: jobData.provider_thread_id ?? null,
-                  email_fallback: emailFallback,
-                  quote_fallback: quoteFallback,
-                },
-                null,
-                2
-              )}
-            </pre>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Debug</CardTitle>
+              <CardDescription>Job fetch and routing metadata.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+              <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
+                {JSON.stringify(
+                  {
+                    params,
+                    params_id: params?.id ?? null,
+                    header_id: headerId || null,
+                    jobId,
+                    isValidJobId,
+                    job_id: jobData.id ?? null,
+                    user_id: user.id,
+                    job_query_error: null,
+                    job_found: true,
+                    conversation_id: jobData.conversation_id ?? null,
+                    provider: jobData.provider ?? null,
+                    provider_thread_id: jobData.provider_thread_id ?? null,
+                    email_fallback: emailFallback,
+                    quote_fallback: quoteFallback,
+                  },
+                  null,
+                  2
+                )}
+              </pre>
+            </CardContent>
+          </Card>
         ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(340px,1fr)]">
-          <div className="stack min-w-0 gap-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,320px)]">
+          <div className="space-y-6">
             <JobNextActions
               items={blockersWithActions}
               ready={blockers.length === 0}
               chatHref={chatHref}
             />
 
-            <JobAttachmentsGalleryClient attachments={attachments} requestHref={chatHref} />
+            <JobCommsActivity
+              inbound={inboundEmails.length}
+              outbound={outboundEmails.length}
+              waitingOn={waitingOn}
+              responseRatio={responseRatio}
+              items={recentActivity}
+            />
+          </div>
 
+          <div className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             <JobFacts
               customerName={customerName}
               customerEmail={customerEmail}
@@ -956,20 +825,12 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
               jobType={jobType}
               jobNotes={jobDetails}
             />
-          </div>
 
-          <div className="stack min-w-0 gap-6 lg:sticky lg:top-28 lg:self-start">
-            <JobKpiGrid
-              inboundCount={inboundEmails.length}
-              outboundCount={outboundEmails.length}
-              sparkline={sparkline}
-              lastActivityLabel={lastActivityLabel}
-              lastActivityTone={lastActivityTone}
-              quoteStatus={quoteStatus}
-              blockersCount={blockers.length}
-            />
+            <JobAttachmentsGalleryClient attachments={attachments} requestHref={chatHref} />
+
             <JobPipelineStepper stages={statusStages} activeIndex={statusStageIndex} />
-            <Card className="bb-surface">
+
+            <Card>
               <CardHeader>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
@@ -979,7 +840,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
                   <span className="text-xs text-[var(--muted)]">{quotes.length} total</span>
                 </div>
               </CardHeader>
-              <CardContent className="p-6 pt-0 space-y-4">
+              <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0 space-y-4">
                 {quotes.length === 0 ? (
                   <p className="text-sm text-[var(--muted)]">
                     No quotes linked to this job yet.
@@ -1020,13 +881,6 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
                 )}
               </CardContent>
             </Card>
-            <JobRecentActivity items={recentActivity} />
-            <JobCommsStats
-              inbound={inboundEmails.length}
-              outbound={outboundEmails.length}
-              waitingOn={waitingOn}
-              responseRatio={responseRatio}
-            />
           </div>
         </div>
       </div>
