@@ -12,6 +12,14 @@ import {
 } from "@/app/jobs/utils";
 import { createServerClient } from "@/utils/supabase/server";
 import JobAttachmentsGalleryClient from "@/app/jobs/[id]/JobAttachmentsGalleryClient";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 type Job = {
   id: string;
@@ -148,11 +156,11 @@ function JobCommandBar({
           <h1 className="section-title text-2xl sm:text-3xl">{title}</h1>
           <p className="text-sm text-[var(--muted)]">{subtitle}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <span className="bb-pill">{statusLabel}</span>
           <HealthLight tone={healthTone} label={healthLabel} reason={healthReason} />
           {waitingLabel ? <span className="bb-pill">{waitingLabel}</span> : null}
-          <div className="flex flex-wrap gap-2">{primaryActions}</div>
+          <div className="flex flex-wrap items-center gap-2">{primaryActions}</div>
         </div>
       </div>
     </div>
@@ -181,57 +189,56 @@ function JobKpiGrid({
     tone === "green" ? "text-emerald-300" : tone === "amber" ? "text-amber-300" : "text-rose-300";
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="bb-surface bb-surface-hover flex flex-col justify-between gap-2 p-3">
-        <div className="flex items-center justify-between text-sm font-semibold text-white">
-          <span className="flex items-center gap-2">
-            <span>📥</span>
-            {inboundCount} in / {outboundCount} out
-          </span>
-          <span className="text-xs text-[var(--muted)]">Emails</span>
+    <Card className="bb-surface">
+      <CardHeader className="space-y-1">
+        <CardTitle>KPIs</CardTitle>
+        <CardDescription>Fast health checks at a glance.</CardDescription>
+      </CardHeader>
+      <CardContent className="p-6 pt-0 space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+            <div className="flex items-center justify-between text-sm font-semibold text-white">
+              <span className="flex items-center gap-2">
+                <span>📥</span>
+                {inboundCount} in / {outboundCount} out
+              </span>
+            </div>
+            <div className="flex items-end gap-1">
+              {sparkline.map((value, index) => (
+                <span
+                  key={`${value}-${index}`}
+                  className="h-4 w-1.5 rounded-full bg-white/10"
+                  style={{ height: `${Math.max(6, value * 6)}px` }}
+                  aria-hidden="true"
+                />
+              ))}
+            </div>
+            <p className="text-xs text-[var(--muted)]">Emails</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-white">
+              <span>⏱️</span>
+              <span className={toneClass(lastActivityTone)}>{lastActivityLabel}</span>
+            </div>
+            <p className="text-xs text-[var(--muted)]">Last activity (stale if &gt; 48h)</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-white">
+              <span>🧾</span>
+              {quoteStatus}
+            </div>
+            <p className="text-xs text-[var(--muted)]">Quote status</p>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+            <div className={`flex items-center gap-2 text-sm font-semibold ${toneClass(blockersTone)}`}>
+              <span>🚧</span>
+              {blockersCount} blockers
+            </div>
+            <p className="text-xs text-[var(--muted)]">Blocking progress</p>
+          </div>
         </div>
-        <div className="flex items-end gap-1">
-          {sparkline.map((value, index) => (
-            <span
-              key={`${value}-${index}`}
-              className="h-4 w-1.5 rounded-full bg-white/10"
-              style={{ height: `${Math.max(6, value * 6)}px` }}
-              aria-hidden="true"
-            />
-          ))}
-        </div>
-      </div>
-      <div className="bb-surface bb-surface-hover flex flex-col justify-between gap-2 p-3">
-        <div className="flex items-center justify-between text-sm font-semibold text-white">
-          <span className="flex items-center gap-2">
-            <span>⏱️</span>
-            <span className={toneClass(lastActivityTone)}>{lastActivityLabel}</span>
-          </span>
-          <span className="text-xs text-[var(--muted)]">Last activity</span>
-        </div>
-        <p className="text-xs text-[var(--muted)]">Stale if &gt; 48h</p>
-      </div>
-      <div className="bb-surface bb-surface-hover flex flex-col justify-between gap-2 p-3">
-        <div className="flex items-center justify-between text-sm font-semibold text-white">
-          <span className="flex items-center gap-2">
-            <span>🧾</span>
-            {quoteStatus}
-          </span>
-          <span className="text-xs text-[var(--muted)]">Quote status</span>
-        </div>
-        <p className="text-xs text-[var(--muted)]">Latest quote state</p>
-      </div>
-      <div className="bb-surface bb-surface-hover flex flex-col justify-between gap-2 p-3">
-        <div className="flex items-center justify-between text-sm font-semibold text-white">
-          <span className={`flex items-center gap-2 ${toneClass(blockersTone)}`}>
-            <span>🚧</span>
-            {blockersCount} blockers
-          </span>
-          <span className="text-xs text-[var(--muted)]">Blockers</span>
-        </div>
-        <p className="text-xs text-[var(--muted)]">Fix to quote</p>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -249,51 +256,56 @@ function JobNextActions({
     : `${items.length} blocker${items.length === 1 ? "" : "s"} — fix these to quote`;
 
   return (
-    <div className="bb-surface stack gap-4 p-5" id="whats-next">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="section-title text-lg">What&apos;s next</h2>
-        <span className={`bb-pill ${ready ? "" : "bg-white/5 text-white"}`}>
-          {summaryLabel}
-        </span>
-      </div>
-      {ready ? (
-        <div className="flex flex-col gap-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-white">Ready to quote</p>
-            <p className="text-xs text-emerald-100/80">
-              All critical details are captured. Send a quote now.
-            </p>
-          </div>
-          <Link href={chatHref} className="bb-btn bb-btn-primary">
-            Create quote
-          </Link>
+    <Card className="bb-surface" id="whats-next">
+      <CardHeader className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>What&apos;s next</CardTitle>
+          <span className={`bb-pill ${ready ? "" : "bg-white/5 text-white"}`}>
+            {summaryLabel}
+          </span>
         </div>
-      ) : (
-        <div className="stack gap-3">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="bb-next-item sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="flex items-center gap-2 text-sm text-white">
-                <span className="text-lg" aria-hidden="true">
-                  ☐
-                </span>
-                <span>{item.label}</span>
-              </div>
-              <div className="bb-next-actions">
-                <Link href={item.requestHref} className="bb-btn bb-btn-primary">
-                  Request
-                </Link>
-                <Link href={item.addHref} className="bb-btn bb-btn-ghost">
-                  Add now
-                </Link>
-              </div>
+        <CardDescription>Focus on blockers to move the job forward.</CardDescription>
+      </CardHeader>
+      <CardContent className="p-6 pt-0 space-y-4">
+        {ready ? (
+          <div className="flex flex-col gap-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-white">Ready to quote</p>
+              <p className="text-xs text-emerald-100/80">
+                All critical details are captured. Send a quote now.
+              </p>
             </div>
-          ))}
-        </div>
-      )}
-    </div>
+            <Button asChild>
+              <Link href={chatHref}>Create quote</Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="flex items-center gap-2 text-sm text-white">
+                  <span className="text-lg" aria-hidden="true">
+                    ☐
+                  </span>
+                  <span>{item.label}</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button asChild size="sm">
+                    <Link href={item.requestHref}>Request</Link>
+                  </Button>
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href={item.addHref}>Add now</Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -315,39 +327,48 @@ function JobFacts({
   jobNotes: string;
 }) {
   return (
-    <div className="bb-surface stack gap-4 p-5" id="job-summary">
-      <h2 className="section-title text-lg">Job summary</h2>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="bb-inset p-3">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Customer</p>
-          <div className="mt-2 stack gap-1 text-sm text-white">
-            <span>👤 {customerName}</span>
-            <span className="text-xs text-[var(--muted)] break-anywhere">✉️ {customerEmail}</span>
-            <span className="text-xs text-[var(--muted)] break-anywhere">📞 {customerPhone}</span>
+    <Card className="bb-surface" id="job-summary">
+      <CardHeader>
+        <CardTitle>Job summary</CardTitle>
+        <CardDescription>Quick facts to keep the team aligned.</CardDescription>
+      </CardHeader>
+      <CardContent className="p-6 pt-0 space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Customer</p>
+            <div className="space-y-1 text-sm text-white">
+              <span className="block">👤 {customerName}</span>
+              <span className="block text-xs text-[var(--muted)] break-anywhere">
+                ✉️ {customerEmail}
+              </span>
+              <span className="block text-xs text-[var(--muted)] break-anywhere">
+                📞 {customerPhone}
+              </span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2">
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Site</p>
+            <div className="space-y-1 text-sm text-white">
+              <span className="block">📍 {siteAddress}</span>
+              <span className="block text-xs text-[var(--muted)]">🏷️ {postcode}</span>
+            </div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-2 sm:col-span-2">
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Job type</p>
+            <p className="text-sm font-semibold text-white">🧰 {jobType}</p>
           </div>
         </div>
-        <div className="bb-inset p-3">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Site</p>
-          <div className="mt-2 stack gap-1 text-sm text-white">
-            <span>📍 {siteAddress}</span>
-            <span className="text-xs text-[var(--muted)]">🏷️ {postcode}</span>
-          </div>
-        </div>
-        <div className="bb-inset p-3 sm:col-span-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Job type</p>
-          <p className="mt-2 text-sm font-semibold text-white">🧰 {jobType}</p>
-        </div>
-      </div>
-      <p className="text-xs text-[var(--muted)] line-clamp-2">{jobNotes}</p>
-      <details className="bb-inset p-4">
-        <summary className="cursor-pointer text-sm font-semibold text-[var(--accent2)]">
-          Show job notes
-        </summary>
-        <p className="mt-3 text-sm text-[var(--muted)] whitespace-pre-wrap break-anywhere">
-          {jobNotes}
-        </p>
-      </details>
-    </div>
+        <p className="text-xs text-[var(--muted)] line-clamp-2">{jobNotes}</p>
+        <details className="rounded-xl border border-white/10 bg-white/5 p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-[var(--accent2)]">
+            Show job notes
+          </summary>
+          <p className="mt-3 text-sm text-[var(--muted)] whitespace-pre-wrap break-anywhere">
+            {jobNotes}
+          </p>
+        </details>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -359,68 +380,80 @@ function JobPipelineStepper({
   activeIndex: number;
 }) {
   return (
-    <div className="bb-surface stack gap-4 p-5">
-      <h2 className="section-title text-lg">Pipeline stage</h2>
-      <div className="stack gap-4">
-        {stages.map((stage, index) => {
-          const active = index === activeIndex;
-          const complete = index < activeIndex;
-          const isLast = index === stages.length - 1;
-          return (
-            <div key={stage} className="flex items-center gap-3">
-              <div className="flex h-5 w-5 items-center justify-center">
-                <span
-                  className={`h-3 w-3 rounded-full ${
-                    active
-                      ? "bg-emerald-400"
-                      : complete
-                        ? "bg-emerald-400/50"
-                        : "bg-white/10"
-                  }`}
-                  aria-hidden="true"
-                />
+    <Card className="bb-surface">
+      <CardHeader>
+        <CardTitle>Pipeline stage</CardTitle>
+        <CardDescription>Track progress through each phase.</CardDescription>
+      </CardHeader>
+      <CardContent className="p-6 pt-0 space-y-4">
+        <div className="space-y-4">
+          {stages.map((stage, index) => {
+            const active = index === activeIndex;
+            const complete = index < activeIndex;
+            const isLast = index === stages.length - 1;
+            return (
+              <div key={stage} className="flex items-center gap-3">
+                <div className="flex h-5 w-5 items-center justify-center">
+                  <span
+                    className={`h-3 w-3 rounded-full ${
+                      active
+                        ? "bg-emerald-400"
+                        : complete
+                          ? "bg-emerald-400/50"
+                          : "bg-white/10"
+                    }`}
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="flex-1">
+                  <span className={active ? "text-white font-semibold" : "text-[var(--muted)]"}>
+                    {stage}
+                  </span>
+                  {!isLast ? <div className="mt-2 h-px w-full bg-white/5" /> : null}
+                </div>
               </div>
-              <div className="flex-1">
-                <span className={active ? "text-white font-semibold" : "text-[var(--muted)]"}>
-                  {stage}
-                </span>
-                {!isLast ? <div className="mt-2 h-px w-full bg-white/5" /> : null}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
 function JobRecentActivity({ items }: { items: ActivityItem[] }) {
   return (
-    <div className="bb-surface stack gap-4 p-5">
-      <div className="flex items-center justify-between">
-        <h2 className="section-title text-lg">Recent activity</h2>
-        <span className="text-xs text-[var(--muted)]">Last 5</span>
-      </div>
-      {items.length === 0 ? (
-        <div className="empty-state">No recent activity yet.</div>
-      ) : (
-        <div className="stack gap-3">
-          {items.map((item) => (
-            <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-lg" aria-hidden="true">
-                  {item.icon}
-                </span>
-                <span className="text-white line-clamp-1">{item.label}</span>
-              </div>
-              <span className="text-xs text-[var(--muted)]">
-                {formatRelativeTime(item.timestamp)}
-              </span>
-            </div>
-          ))}
+    <Card className="bb-surface">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <CardTitle>Recent activity</CardTitle>
+            <CardDescription>Latest updates across email + quotes.</CardDescription>
+          </div>
+          <span className="text-xs text-[var(--muted)]">Last 5</span>
         </div>
-      )}
-    </div>
+      </CardHeader>
+      <CardContent className="p-6 pt-0 space-y-4">
+        {items.length === 0 ? (
+          <div className="empty-state">No recent activity yet.</div>
+        ) : (
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-lg" aria-hidden="true">
+                    {item.icon}
+                  </span>
+                  <span className="text-white line-clamp-1">{item.label}</span>
+                </div>
+                <span className="text-xs text-[var(--muted)]">
+                  {formatRelativeTime(item.timestamp)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -436,24 +469,26 @@ function JobCommsStats({
   responseRatio: string;
 }) {
   return (
-    <div className="bb-surface stack gap-4 p-5">
-      <div className="flex items-center justify-between">
-        <h2 className="section-title text-lg">Comms & stats</h2>
-        <span className="text-xs text-[var(--muted)]">Email activity</span>
-      </div>
-      <div className="stack gap-3">
-        <StatRow label="Inbound" value={inbound} />
-        <StatRow label="Outbound" value={outbound} />
-        <StatRow label="Response ratio" value={responseRatio} />
-        <StatRow label="Waiting on" value={waitingOn} />
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-white/5">
-        <div
-          className="h-full rounded-full bg-[var(--accent2)]"
-          style={{ width: `${Math.min(100, Math.round((outbound / Math.max(1, inbound)) * 100))}%` }}
-        />
-      </div>
-    </div>
+    <Card className="bb-surface">
+      <CardHeader>
+        <CardTitle>Comms & stats</CardTitle>
+        <CardDescription>Email activity summary.</CardDescription>
+      </CardHeader>
+      <CardContent className="p-6 pt-0 space-y-4">
+        <div className="space-y-3">
+          <StatRow label="Inbound" value={inbound} />
+          <StatRow label="Outbound" value={outbound} />
+          <StatRow label="Response ratio" value={responseRatio} />
+          <StatRow label="Waiting on" value={waitingOn} />
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-white/5">
+          <div
+            className="h-full rounded-full bg-[var(--accent2)]"
+            style={{ width: `${Math.min(100, Math.round((outbound / Math.max(1, inbound)) * 100))}%` }}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -850,20 +885,22 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
         primaryActions={
           <>
             {quotes.length === 0 ? (
-              <Link href={chatHref} className="bb-btn bb-btn-primary">
-                Create quote
-              </Link>
+              <Button asChild>
+                <Link href={chatHref}>Create quote</Link>
+              </Button>
             ) : (
-              <Link href={primaryQuoteHref} className="bb-btn bb-btn-primary">
-                View quote
-              </Link>
+              <Button asChild>
+                <Link href={primaryQuoteHref}>View quote</Link>
+              </Button>
             )}
-            <Link href={chatHref} className="bb-btn bb-btn-secondary">
-              {jobData.conversation_id ? "View conversation" : "Message customer"}
-            </Link>
-            <Link href="#whats-next" className="bb-btn bb-btn-ghost">
-              Request info
-            </Link>
+            <Button asChild variant="secondary">
+              <Link href={chatHref}>
+                {jobData.conversation_id ? "View conversation" : "Message customer"}
+              </Link>
+            </Button>
+            <Button asChild variant="ghost">
+              <Link href="#whats-next">Request info</Link>
+            </Button>
           </>
         }
       />
@@ -932,50 +969,57 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
               blockersCount={blockers.length}
             />
             <JobPipelineStepper stages={statusStages} activeIndex={statusStageIndex} />
-            <div className="bb-surface stack gap-4 p-5">
-              <div className="flex items-center justify-between">
-                <h3 className="section-title text-lg">Linked quotes</h3>
-                <span className="text-xs text-[var(--muted)]">{quotes.length} total</span>
-              </div>
-              {quotes.length === 0 ? (
-                <p className="text-sm text-[var(--muted)]">
-                  No quotes linked to this job yet.
-                </p>
-              ) : (
-                <div className="stack gap-3">
-                  {quotes.map((quote) => {
-                    const label = quote.quote_reference
-                      ? `Quote ${quote.quote_reference}`
-                      : "Quote";
-                    const createdAt = formatTimestamp(quote.created_at);
-                    return (
-                      <div
-                        key={quote.id}
-                        className="rounded-xl border border-white/5 bg-white/5 p-3 stack gap-1"
-                      >
-                        <p className="text-sm font-semibold text-white">{label}</p>
-                        <p className="text-xs text-[var(--muted)]">{createdAt}</p>
-                        {quote.status ? (
-                          <span className="text-xs text-[var(--muted)]">
-                            Status: {humanizeStatus(quote.status)}
-                          </span>
-                        ) : null}
-                        {quote.pdf_url ? (
-                          <a
-                            href={quote.pdf_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs font-semibold text-[var(--accent2)] underline"
-                          >
-                            Open PDF
-                          </a>
-                        ) : null}
-                      </div>
-                    );
-                  })}
+            <Card className="bb-surface">
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <CardTitle>Linked quotes</CardTitle>
+                    <CardDescription>Quoted outcomes for this job.</CardDescription>
+                  </div>
+                  <span className="text-xs text-[var(--muted)]">{quotes.length} total</span>
                 </div>
-              )}
-            </div>
+              </CardHeader>
+              <CardContent className="p-6 pt-0 space-y-4">
+                {quotes.length === 0 ? (
+                  <p className="text-sm text-[var(--muted)]">
+                    No quotes linked to this job yet.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {quotes.map((quote) => {
+                      const label = quote.quote_reference
+                        ? `Quote ${quote.quote_reference}`
+                        : "Quote";
+                      const createdAt = formatTimestamp(quote.created_at);
+                      return (
+                        <div
+                          key={quote.id}
+                          className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-1"
+                        >
+                          <p className="text-sm font-semibold text-white">{label}</p>
+                          <p className="text-xs text-[var(--muted)]">{createdAt}</p>
+                          {quote.status ? (
+                            <span className="text-xs text-[var(--muted)]">
+                              Status: {humanizeStatus(quote.status)}
+                            </span>
+                          ) : null}
+                          {quote.pdf_url ? (
+                            <a
+                              href={quote.pdf_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-semibold text-[var(--accent2)] underline"
+                            >
+                              Open PDF
+                            </a>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
             <JobRecentActivity items={recentActivity} />
             <JobCommsStats
               inbound={inboundEmails.length}
