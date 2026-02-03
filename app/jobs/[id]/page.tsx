@@ -11,6 +11,7 @@ import {
   JOB_SELECT,
 } from "@/app/jobs/utils";
 import { createServerClient } from "@/utils/supabase/server";
+import JobAttachmentsGalleryClient from "@/app/jobs/[id]/JobAttachmentsGalleryClient";
 
 type Job = {
   id: string;
@@ -104,9 +105,17 @@ function StatRow({
   );
 }
 
-function HealthLight({ tone, label }: { tone: "green" | "amber" | "red"; label: string }) {
+function HealthLight({
+  tone,
+  label,
+  reason,
+}: {
+  tone: "green" | "amber" | "red";
+  label: string;
+  reason: string;
+}) {
   return (
-    <div className={`bb-health bb-health-${tone}`} title={label}>
+    <div className={`bb-pill bb-health bb-health-${tone}`} title={reason}>
       <span className="bb-health-dot" aria-hidden="true" />
       <span>{label}</span>
     </div>
@@ -119,6 +128,8 @@ function JobCommandBar({
   statusLabel,
   healthTone,
   healthLabel,
+  healthReason,
+  waitingLabel,
   primaryActions,
 }: {
   title: string;
@@ -126,6 +137,8 @@ function JobCommandBar({
   statusLabel: string;
   healthTone: "green" | "amber" | "red";
   healthLabel: string;
+  healthReason: string;
+  waitingLabel?: string;
   primaryActions: React.ReactNode;
 }) {
   return (
@@ -137,7 +150,8 @@ function JobCommandBar({
         </div>
         <div className="flex flex-wrap items-center gap-3 sm:justify-end">
           <span className="bb-pill">{statusLabel}</span>
-          <HealthLight tone={healthTone} label={healthLabel} />
+          <HealthLight tone={healthTone} label={healthLabel} reason={healthReason} />
+          {waitingLabel ? <span className="bb-pill">{waitingLabel}</span> : null}
           <div className="flex flex-wrap gap-2">{primaryActions}</div>
         </div>
       </div>
@@ -145,7 +159,7 @@ function JobCommandBar({
   );
 }
 
-function JobKpiStrip({
+function JobKpiGrid({
   inboundCount,
   outboundCount,
   sparkline,
@@ -167,49 +181,55 @@ function JobKpiStrip({
     tone === "green" ? "text-emerald-300" : tone === "amber" ? "text-amber-300" : "text-rose-300";
 
   return (
-    <div className="bb-kpi-grid">
-      <div className="bb-kpi bb-surface-hover">
-        <div className="stack gap-1">
-          <p className="bb-kpi-label">Emails</p>
-          <p className="bb-kpi-value">
+    <div className="grid grid-cols-2 gap-3">
+      <div className="bb-surface bb-surface-hover flex flex-col justify-between gap-2 p-3">
+        <div className="flex items-center justify-between text-sm font-semibold text-white">
+          <span className="flex items-center gap-2">
+            <span>📥</span>
             {inboundCount} in / {outboundCount} out
-          </p>
+          </span>
+          <span className="text-xs text-[var(--muted)]">Emails</span>
         </div>
         <div className="flex items-end gap-1">
           {sparkline.map((value, index) => (
             <span
               key={`${value}-${index}`}
-              className="h-8 w-1.5 rounded-full bg-white/10"
-              style={{ height: `${Math.max(20, value * 10)}px` }}
+              className="h-4 w-1.5 rounded-full bg-white/10"
+              style={{ height: `${Math.max(6, value * 6)}px` }}
               aria-hidden="true"
             />
           ))}
         </div>
       </div>
-      <div className="bb-kpi bb-surface-hover">
-        <div className="stack gap-1">
-          <p className="bb-kpi-label">Last activity</p>
-          <p className={`text-lg font-semibold ${toneClass(lastActivityTone)}`}>
-            {lastActivityLabel}
-          </p>
+      <div className="bb-surface bb-surface-hover flex flex-col justify-between gap-2 p-3">
+        <div className="flex items-center justify-between text-sm font-semibold text-white">
+          <span className="flex items-center gap-2">
+            <span>⏱️</span>
+            <span className={toneClass(lastActivityTone)}>{lastActivityLabel}</span>
+          </span>
+          <span className="text-xs text-[var(--muted)]">Last activity</span>
         </div>
-        <span className="text-2xl">⏱️</span>
+        <p className="text-xs text-[var(--muted)]">Stale if &gt; 48h</p>
       </div>
-      <div className="bb-kpi bb-surface-hover">
-        <div className="stack gap-1">
-          <p className="bb-kpi-label">Quote status</p>
-          <p className="bb-kpi-value">{quoteStatus}</p>
+      <div className="bb-surface bb-surface-hover flex flex-col justify-between gap-2 p-3">
+        <div className="flex items-center justify-between text-sm font-semibold text-white">
+          <span className="flex items-center gap-2">
+            <span>🧾</span>
+            {quoteStatus}
+          </span>
+          <span className="text-xs text-[var(--muted)]">Quote status</span>
         </div>
-        <span className="text-2xl">🧾</span>
+        <p className="text-xs text-[var(--muted)]">Latest quote state</p>
       </div>
-      <div className="bb-kpi bb-surface-hover">
-        <div className="stack gap-1">
-          <p className="bb-kpi-label">Blockers</p>
-          <p className={`text-lg font-semibold ${toneClass(blockersTone)}`}>
-            {blockersCount}
-          </p>
+      <div className="bb-surface bb-surface-hover flex flex-col justify-between gap-2 p-3">
+        <div className="flex items-center justify-between text-sm font-semibold text-white">
+          <span className={`flex items-center gap-2 ${toneClass(blockersTone)}`}>
+            <span>🚧</span>
+            {blockersCount} blockers
+          </span>
+          <span className="text-xs text-[var(--muted)]">Blockers</span>
         </div>
-        <span className="text-2xl">🚧</span>
+        <p className="text-xs text-[var(--muted)]">Fix to quote</p>
       </div>
     </div>
   );
@@ -224,17 +244,26 @@ function JobNextActions({
   ready: boolean;
   chatHref: string;
 }) {
+  const summaryLabel = ready
+    ? "Ready to quote"
+    : `${items.length} blocker${items.length === 1 ? "" : "s"} — fix these to quote`;
+
   return (
-    <div className="bb-surface stack gap-4 p-5">
-      <div className="flex items-center justify-between">
+    <div className="bb-surface stack gap-4 p-5" id="whats-next">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="section-title text-lg">What&apos;s next</h2>
-        {ready ? <span className="bb-pill">Ready to quote</span> : null}
+        <span className={`bb-pill ${ready ? "" : "bg-white/5 text-white"}`}>
+          {summaryLabel}
+        </span>
       </div>
       {ready ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-[var(--muted)]">
-            All critical details are captured. You can move straight to quoting.
-          </p>
+        <div className="flex flex-col gap-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold text-white">Ready to quote</p>
+            <p className="text-xs text-emerald-100/80">
+              All critical details are captured. Send a quote now.
+            </p>
+          </div>
           <Link href={chatHref} className="bb-btn bb-btn-primary">
             Create quote
           </Link>
@@ -247,14 +276,16 @@ function JobNextActions({
               className="bb-next-item sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-2 text-sm text-white">
-                <span className="h-2 w-2 rounded-full bg-amber-300" aria-hidden="true" />
+                <span className="text-lg" aria-hidden="true">
+                  ☐
+                </span>
                 <span>{item.label}</span>
               </div>
               <div className="bb-next-actions">
-                <Link href={item.requestHref} className="bb-btn bb-btn-secondary">
-                  Request from customer
+                <Link href={item.requestHref} className="bb-btn bb-btn-primary">
+                  Request
                 </Link>
-                <Link href={item.addHref} className="bb-btn bb-btn-primary">
+                <Link href={item.addHref} className="bb-btn bb-btn-ghost">
                   Add now
                 </Link>
               </div>
@@ -266,7 +297,7 @@ function JobNextActions({
   );
 }
 
-function JobSummaryCard({
+function JobFacts({
   customerName,
   customerEmail,
   customerPhone,
@@ -286,28 +317,31 @@ function JobSummaryCard({
   return (
     <div className="bb-surface stack gap-4 p-5" id="job-summary">
       <h2 className="section-title text-lg">Job summary</h2>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="stack gap-2">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="bb-inset p-3">
           <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Customer</p>
-          <p className="text-sm font-semibold text-white">{customerName}</p>
-          <p className="text-xs text-[var(--muted)] break-anywhere">{customerEmail}</p>
-          <p className="text-xs text-[var(--muted)] break-anywhere">{customerPhone}</p>
+          <div className="mt-2 stack gap-1 text-sm text-white">
+            <span>👤 {customerName}</span>
+            <span className="text-xs text-[var(--muted)] break-anywhere">✉️ {customerEmail}</span>
+            <span className="text-xs text-[var(--muted)] break-anywhere">📞 {customerPhone}</span>
+          </div>
         </div>
-        <div className="stack gap-2">
+        <div className="bb-inset p-3">
           <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Site</p>
-          <p className="text-sm font-semibold text-white">{siteAddress}</p>
-          <p className="text-xs text-[var(--muted)]">{postcode}</p>
+          <div className="mt-2 stack gap-1 text-sm text-white">
+            <span>📍 {siteAddress}</span>
+            <span className="text-xs text-[var(--muted)]">🏷️ {postcode}</span>
+          </div>
+        </div>
+        <div className="bb-inset p-3 sm:col-span-2">
+          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Job type</p>
+          <p className="mt-2 text-sm font-semibold text-white">🧰 {jobType}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2 text-sm">
-        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs uppercase tracking-[0.2em] text-[var(--muted)]">
-          Job type
-        </span>
-        <span className="text-sm font-semibold text-white">{jobType}</span>
-      </div>
+      <p className="text-xs text-[var(--muted)] line-clamp-2">{jobNotes}</p>
       <details className="bb-inset p-4">
         <summary className="cursor-pointer text-sm font-semibold text-[var(--accent2)]">
-          Job notes
+          Show job notes
         </summary>
         <p className="mt-3 text-sm text-[var(--muted)] whitespace-pre-wrap break-anywhere">
           {jobNotes}
@@ -317,52 +351,7 @@ function JobSummaryCard({
   );
 }
 
-function JobAttachmentsGallery({
-  attachments,
-  requestHref,
-}: {
-  attachments: Attachment[];
-  requestHref: string;
-}) {
-  return (
-    <div className="bb-surface stack gap-4 p-5">
-      <div className="flex items-center justify-between">
-        <h2 className="section-title text-lg">Attachments</h2>
-        <Link href={requestHref} className="bb-btn bb-btn-secondary">
-          Request photos
-        </Link>
-      </div>
-      {attachments.length === 0 ? (
-        <div className="empty-state">
-          <p>No photos/docs yet.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {attachments.map((attachment) => (
-            <a
-              key={attachment.url}
-              href={attachment.url}
-              target="_blank"
-              rel="noreferrer"
-              className="bb-inset bb-surface-hover group relative overflow-hidden"
-            >
-              <img
-                src={attachment.url}
-                alt={attachment.name ?? "Attachment"}
-                className="h-28 w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-black/60 p-2 text-xs text-white">
-                {attachment.name ?? "Attachment"}
-              </div>
-            </a>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function JobPipelineStage({
+function JobPipelineStepper({
   stages,
   activeIndex,
 }: {
@@ -372,25 +361,31 @@ function JobPipelineStage({
   return (
     <div className="bb-surface stack gap-4 p-5">
       <h2 className="section-title text-lg">Pipeline stage</h2>
-      <div className="stack gap-3">
+      <div className="stack gap-4">
         {stages.map((stage, index) => {
           const active = index === activeIndex;
           const complete = index < activeIndex;
+          const isLast = index === stages.length - 1;
           return (
             <div key={stage} className="flex items-center gap-3">
-              <span
-                className={`h-3 w-3 rounded-full ${
-                  active
-                    ? "bg-emerald-400"
-                    : complete
-                      ? "bg-emerald-400/50"
-                      : "bg-white/10"
-                }`}
-                aria-hidden="true"
-              />
-              <span className={active ? "text-white font-semibold" : "text-[var(--muted)]"}>
-                {stage}
-              </span>
+              <div className="flex h-5 w-5 items-center justify-center">
+                <span
+                  className={`h-3 w-3 rounded-full ${
+                    active
+                      ? "bg-emerald-400"
+                      : complete
+                        ? "bg-emerald-400/50"
+                        : "bg-white/10"
+                  }`}
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="flex-1">
+                <span className={active ? "text-white font-semibold" : "text-[var(--muted)]"}>
+                  {stage}
+                </span>
+                {!isLast ? <div className="mt-2 h-px w-full bg-white/5" /> : null}
+              </div>
             </div>
           );
         })}
@@ -412,11 +407,11 @@ function JobRecentActivity({ items }: { items: ActivityItem[] }) {
         <div className="stack gap-3">
           {items.map((item) => (
             <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <span className="text-lg" aria-hidden="true">
                   {item.icon}
                 </span>
-                <span className="text-white">{item.label}</span>
+                <span className="text-white line-clamp-1">{item.label}</span>
               </div>
               <span className="text-xs text-[var(--muted)]">
                 {formatRelativeTime(item.timestamp)}
@@ -773,6 +768,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
   const latestEmail = emails.at(-1);
   const waitingOn =
     latestEmail?.direction === "outbound" ? "Customer" : latestEmail ? "You" : "Unknown";
+  const waitingLabel = waitingOn === "Unknown" ? undefined : `Waiting on: ${waitingOn}`;
   const responseRatio = `${outboundEmails.length}/${Math.max(1, inboundEmails.length)}`;
 
   const recentActivity: ActivityItem[] = [
@@ -829,6 +825,14 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
       : healthTone === "amber"
         ? "Needs attention"
         : "At risk";
+  const healthReason =
+    blockers.length > 0
+      ? `${blockers.length} blocker${blockers.length === 1 ? "" : "s"} to resolve`
+      : lastActivityTone === "red"
+        ? "No recent activity in the last 72h"
+        : lastActivityTone === "amber"
+          ? "Activity slowing down (48h+)"
+          : "On track";
 
   const primaryQuote = quotes[0];
   const primaryQuoteHref = primaryQuote?.pdf_url ?? `/quotes?job=${jobId}`;
@@ -840,7 +844,9 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
         subtitle={`${customerName} • ${postcode}`}
         statusLabel={statusLabel}
         healthTone={healthTone}
-        healthLabel={`Health: ${healthLabel}`}
+        healthLabel={healthLabel}
+        healthReason={healthReason}
+        waitingLabel={waitingLabel}
         primaryActions={
           <>
             {quotes.length === 0 ? (
@@ -855,6 +861,9 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
             <Link href={chatHref} className="bb-btn bb-btn-secondary">
               {jobData.conversation_id ? "View conversation" : "Message customer"}
             </Link>
+            <Link href="#whats-next" className="bb-btn bb-btn-ghost">
+              Request info
+            </Link>
           </>
         }
       />
@@ -864,52 +873,44 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
           ← Back to Jobs
         </Link>
 
-        <JobKpiStrip
-          inboundCount={inboundEmails.length}
-          outboundCount={outboundEmails.length}
-          sparkline={sparkline}
-          lastActivityLabel={lastActivityLabel}
-          lastActivityTone={lastActivityTone}
-          quoteStatus={quoteStatus}
-          blockersCount={blockers.length}
-        />
+        {debugEnabled ? (
+          <div className="card">
+            <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
+              {JSON.stringify(
+                {
+                  params,
+                  params_id: params?.id ?? null,
+                  header_id: headerId || null,
+                  jobId,
+                  isValidJobId,
+                  job_id: jobData.id ?? null,
+                  user_id: user.id,
+                  job_query_error: null,
+                  job_found: true,
+                  conversation_id: jobData.conversation_id ?? null,
+                  provider: jobData.provider ?? null,
+                  provider_thread_id: jobData.provider_thread_id ?? null,
+                  email_fallback: emailFallback,
+                  quote_fallback: quoteFallback,
+                },
+                null,
+                2
+              )}
+            </pre>
+          </div>
+        ) : null}
 
-        <JobNextActions
-          items={blockersWithActions}
-          ready={blockers.length === 0}
-          chatHref={chatHref}
-        />
-
-      {debugEnabled ? (
-        <div className="card">
-          <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
-            {JSON.stringify(
-              {
-                params,
-                params_id: params?.id ?? null,
-                header_id: headerId || null,
-                jobId,
-                isValidJobId,
-                job_id: jobData.id ?? null,
-                user_id: user.id,
-                job_query_error: null,
-                job_found: true,
-                conversation_id: jobData.conversation_id ?? null,
-                provider: jobData.provider ?? null,
-                provider_thread_id: jobData.provider_thread_id ?? null,
-                email_fallback: emailFallback,
-                quote_fallback: quoteFallback,
-              },
-              null,
-              2
-            )}
-          </pre>
-        </div>
-      ) : null}
-
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(340px,1fr)]">
           <div className="stack min-w-0 gap-6">
-            <JobSummaryCard
+            <JobNextActions
+              items={blockersWithActions}
+              ready={blockers.length === 0}
+              chatHref={chatHref}
+            />
+
+            <JobAttachmentsGalleryClient attachments={attachments} requestHref={chatHref} />
+
+            <JobFacts
               customerName={customerName}
               customerEmail={customerEmail}
               customerPhone={customerPhone}
@@ -918,9 +919,19 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
               jobType={jobType}
               jobNotes={jobDetails}
             />
+          </div>
 
-            <JobAttachmentsGallery attachments={attachments} requestHref={chatHref} />
-
+          <div className="stack min-w-0 gap-6 lg:sticky lg:top-28 lg:self-start">
+            <JobKpiGrid
+              inboundCount={inboundEmails.length}
+              outboundCount={outboundEmails.length}
+              sparkline={sparkline}
+              lastActivityLabel={lastActivityLabel}
+              lastActivityTone={lastActivityTone}
+              quoteStatus={quoteStatus}
+              blockersCount={blockers.length}
+            />
+            <JobPipelineStepper stages={statusStages} activeIndex={statusStageIndex} />
             <div className="bb-surface stack gap-4 p-5">
               <div className="flex items-center justify-between">
                 <h3 className="section-title text-lg">Linked quotes</h3>
@@ -965,10 +976,6 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="stack min-w-0 gap-6">
-            <JobPipelineStage stages={statusStages} activeIndex={statusStageIndex} />
             <JobRecentActivity items={recentActivity} />
             <JobCommsStats
               inbound={inboundEmails.length}
