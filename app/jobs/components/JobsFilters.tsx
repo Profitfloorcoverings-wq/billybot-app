@@ -13,6 +13,7 @@ type JobsFiltersProps = {
   initialStatus: string;
   debugEnabled?: boolean;
   statusOptions: StatusOption[];
+  onSearchChange?: (value: string) => void;
 };
 
 export default function JobsFilters({
@@ -20,6 +21,7 @@ export default function JobsFilters({
   initialStatus,
   debugEnabled = false,
   statusOptions,
+  onSearchChange,
 }: JobsFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -27,31 +29,23 @@ export default function JobsFilters({
   const [search, setSearch] = useState(initialSearch);
   const [status, setStatus] = useState(initialStatus);
 
-  const urlSearchValue = useMemo(() => searchParams.get("search") ?? "", [searchParams]);
   const urlStatusValue = useMemo(
     () => searchParams.get("status") ?? "all",
     [searchParams]
   );
 
   useEffect(() => {
-    setSearch(urlSearchValue);
-  }, [urlSearchValue]);
-
-  useEffect(() => {
     setStatus(urlStatusValue);
   }, [urlStatusValue]);
 
-  const updateQueryParams = useCallback(
-    (nextSearch?: string, nextStatus?: string) => {
-      const params = new URLSearchParams(searchParams.toString());
+  useEffect(() => {
+    setSearch(initialSearch);
+    onSearchChange?.(initialSearch);
+  }, [initialSearch, onSearchChange]);
 
-      if (typeof nextSearch === "string") {
-        if (nextSearch.trim()) {
-          params.set("search", nextSearch);
-        } else {
-          params.delete("search");
-        }
-      }
+  const updateQueryParams = useCallback(
+    (nextStatus?: string) => {
+      const params = new URLSearchParams(searchParams.toString());
 
       if (typeof nextStatus === "string") {
         if (nextStatus && nextStatus !== "all") {
@@ -78,18 +72,8 @@ export default function JobsFilters({
   );
 
   useEffect(() => {
-    const handle = setTimeout(() => {
-      if (search !== urlSearchValue) {
-        updateQueryParams(search, undefined);
-      }
-    }, 300);
-
-    return () => clearTimeout(handle);
-  }, [search, updateQueryParams, urlSearchValue]);
-
-  useEffect(() => {
     if (status !== urlStatusValue) {
-      updateQueryParams(undefined, status);
+      updateQueryParams(status);
     }
   }, [status, updateQueryParams, urlStatusValue]);
 
@@ -100,7 +84,11 @@ export default function JobsFilters({
         <input
           className="input-fluid"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) => {
+            const nextValue = event.target.value;
+            setSearch(nextValue);
+            onSearchChange?.(nextValue);
+          }}
           placeholder="Search by job title, customer name, or email"
         />
       </div>

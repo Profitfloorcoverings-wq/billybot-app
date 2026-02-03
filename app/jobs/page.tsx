@@ -1,12 +1,10 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { JOB_STATUS_FILTERS } from "@/app/jobs/constants";
-import JobStatusBadge from "@/app/jobs/components/JobStatusBadge";
-import JobsFilters from "@/app/jobs/components/JobsFilters";
-import { formatRelativeTime, formatTimestamp, normalizeStatus, JOB_SELECT } from "@/app/jobs/utils";
+import JobsList from "@/app/jobs/components/JobsList";
+import { normalizeStatus, JOB_SELECT } from "@/app/jobs/utils";
 import { createServerClient } from "@/utils/supabase/server";
 
 type Job = {
@@ -47,14 +45,6 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
       .eq("client_id", user.id)
       .order("last_activity_at", { ascending: false });
 
-    const trimmedSearch = searchValue.trim();
-    if (trimmedSearch) {
-      const escaped = trimmedSearch.replace(/,/g, "");
-      query = query.or(
-        `title.ilike.%${escaped}%,customer_name.ilike.%${escaped}%,customer_email.ilike.%${escaped}%`
-      );
-    }
-
     if (statusValue !== "all") {
       const normalized = normalizeStatus(statusValue);
       const pattern = normalized === "awaiting_info" ? "awaiting%info" : normalized;
@@ -69,10 +59,6 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     }
   }
 
-  const hasJobs = jobs.length > 0;
-  const showEmpty = !jobsError && !hasJobs;
-  const showError = !!jobsError;
-
   return (
     <div className="page-container">
       <div className="section-header">
@@ -85,86 +71,14 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
       </div>
 
       <div className="card stack gap-4">
-        <JobsFilters
+        <JobsList
+          jobs={jobs}
+          jobsError={jobsError?.message ?? null}
           initialSearch={searchValue}
           initialStatus={statusValue}
           debugEnabled={debugEnabled}
           statusOptions={JOB_STATUS_FILTERS}
         />
-
-        <div className="table-card scrollable-table">
-          <div className="relative w-full max-h-[70vh] overflow-y-auto">
-            {showError && <div className="empty-state">{jobsError?.message}</div>}
-
-            {showEmpty && (
-              <div className="empty-state stack items-center">
-                <h3 className="section-title">No jobs yet</h3>
-                <p className="section-subtitle">
-                  Jobs appear once a new request or email thread arrives.
-                </p>
-                <Link href="/requests" className="btn btn-primary">
-                  Submit a request
-                </Link>
-              </div>
-            )}
-
-            {!showError && hasJobs && (
-              <table className="data-table">
-                <thead className="sticky top-0 z-10 bg-[var(--card)]">
-                  <tr>
-                    <th>Title</th>
-                    <th>Customer</th>
-                    <th>Status</th>
-                    <th>Last activity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {jobs.map((job) => {
-                    const id = job.id;
-                    const title = job.title?.trim() || "Untitled job";
-                    const customer = job.customer_name?.trim() || "Unknown customer";
-                    const lastActivityLabel = formatRelativeTime(job.last_activity_at);
-                    const lastActivityExact = formatTimestamp(job.last_activity_at);
-
-                    return (
-                      <tr key={id}>
-                        <td>
-                          <Link
-                            href={`/jobs/${id}`}
-                            className="text-[15px] font-semibold text-white hover:underline"
-                          >
-                            {title}
-                          </Link>
-                        </td>
-                        <td>
-                          <div className="stack gap-1">
-                            <span className="text-sm text-[var(--muted)]">
-                              {customer}
-                            </span>
-                            <span
-                              className="text-xs text-[var(--muted)] truncate max-w-[220px]"
-                              title={job.customer_email || undefined}
-                            >
-                              {job.customer_email || "—"}
-                            </span>
-                          </div>
-                        </td>
-                        <td>
-                          <JobStatusBadge status={job.status} />
-                        </td>
-                        <td>
-                          <span className="text-xs text-[var(--muted)]" title={lastActivityExact}>
-                            {lastActivityLabel}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </div>
       </div>
 
       {debugEnabled ? (
