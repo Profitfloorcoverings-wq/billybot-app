@@ -105,16 +105,9 @@ function StatRow({
 }
 
 function HealthLight({ tone, label }: { tone: "green" | "amber" | "red"; label: string }) {
-  const toneClass =
-    tone === "green"
-      ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.6)]"
-      : tone === "amber"
-        ? "bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.6)]"
-        : "bg-rose-400 shadow-[0_0_12px_rgba(244,63,94,0.6)]";
-
   return (
-    <div className="flex items-center gap-2 text-xs text-[var(--muted)]" title={label}>
-      <span className={`h-2.5 w-2.5 rounded-full ${toneClass}`} aria-hidden="true" />
+    <div className={`bb-health bb-health-${tone}`} title={label}>
+      <span className="bb-health-dot" aria-hidden="true" />
       <span>{label}</span>
     </div>
   );
@@ -136,14 +129,14 @@ function JobCommandBar({
   primaryActions: React.ReactNode;
 }) {
   return (
-    <div className="sticky top-0 z-20 -mx-4 border-b border-white/5 bg-[var(--card)]/90 px-4 py-4 backdrop-blur">
+    <div className="bb-commandbar -mx-4 px-4 py-4">
       <div className="container flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="stack gap-1">
           <h1 className="section-title text-2xl sm:text-3xl">{title}</h1>
           <p className="text-sm text-[var(--muted)]">{subtitle}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-          <span className="status-pill">{statusLabel}</span>
+          <span className="bb-pill">{statusLabel}</span>
           <HealthLight tone={healthTone} label={healthLabel} />
           <div className="flex flex-wrap gap-2">{primaryActions}</div>
         </div>
@@ -174,11 +167,11 @@ function JobKpiStrip({
     tone === "green" ? "text-emerald-300" : tone === "amber" ? "text-amber-300" : "text-rose-300";
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <div className="card flex items-center justify-between gap-4 p-4">
+    <div className="bb-kpi-grid">
+      <div className="bb-kpi bb-surface-hover">
         <div className="stack gap-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Emails</p>
-          <p className="text-lg font-semibold text-white">
+          <p className="bb-kpi-label">Emails</p>
+          <p className="bb-kpi-value">
             {inboundCount} in / {outboundCount} out
           </p>
         </div>
@@ -193,25 +186,25 @@ function JobKpiStrip({
           ))}
         </div>
       </div>
-      <div className="card flex items-center justify-between gap-4 p-4">
+      <div className="bb-kpi bb-surface-hover">
         <div className="stack gap-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Last activity</p>
+          <p className="bb-kpi-label">Last activity</p>
           <p className={`text-lg font-semibold ${toneClass(lastActivityTone)}`}>
             {lastActivityLabel}
           </p>
         </div>
         <span className="text-2xl">⏱️</span>
       </div>
-      <div className="card flex items-center justify-between gap-4 p-4">
+      <div className="bb-kpi bb-surface-hover">
         <div className="stack gap-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Quote status</p>
-          <p className="text-lg font-semibold text-white">{quoteStatus}</p>
+          <p className="bb-kpi-label">Quote status</p>
+          <p className="bb-kpi-value">{quoteStatus}</p>
         </div>
         <span className="text-2xl">🧾</span>
       </div>
-      <div className="card flex items-center justify-between gap-4 p-4">
+      <div className="bb-kpi bb-surface-hover">
         <div className="stack gap-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--muted)]">Blockers</p>
+          <p className="bb-kpi-label">Blockers</p>
           <p className={`text-lg font-semibold ${toneClass(blockersTone)}`}>
             {blockersCount}
           </p>
@@ -232,17 +225,17 @@ function JobNextActions({
   chatHref: string;
 }) {
   return (
-    <div className="card stack gap-4">
+    <div className="bb-surface stack gap-4 p-5">
       <div className="flex items-center justify-between">
         <h2 className="section-title text-lg">What&apos;s next</h2>
-        {ready ? <span className="status-pill">Ready to quote</span> : null}
+        {ready ? <span className="bb-pill">Ready to quote</span> : null}
       </div>
       {ready ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-[var(--muted)]">
             All critical details are captured. You can move straight to quoting.
           </p>
-          <Link href={chatHref} className="btn btn-primary h-10 px-4">
+          <Link href={chatHref} className="bb-btn bb-btn-primary">
             Create quote
           </Link>
         </div>
@@ -251,17 +244,17 @@ function JobNextActions({
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex flex-col gap-3 rounded-xl border border-white/5 bg-white/5 p-3 sm:flex-row sm:items-center sm:justify-between"
+              className="bb-next-item sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex items-center gap-2 text-sm text-white">
                 <span className="h-2 w-2 rounded-full bg-amber-300" aria-hidden="true" />
                 <span>{item.label}</span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Link href={item.requestHref} className="btn btn-secondary h-9 px-3">
+              <div className="bb-next-actions">
+                <Link href={item.requestHref} className="bb-btn bb-btn-secondary">
                   Request from customer
                 </Link>
-                <Link href={item.addHref} className="btn btn-primary h-9 px-3">
+                <Link href={item.addHref} className="bb-btn bb-btn-primary">
                   Add now
                 </Link>
               </div>
@@ -291,7 +284,7 @@ function JobSummaryCard({
   jobNotes: string;
 }) {
   return (
-    <div className="card stack gap-4" id="job-summary">
+    <div className="bb-surface stack gap-4 p-5" id="job-summary">
       <h2 className="section-title text-lg">Job summary</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="stack gap-2">
@@ -312,7 +305,7 @@ function JobSummaryCard({
         </span>
         <span className="text-sm font-semibold text-white">{jobType}</span>
       </div>
-      <details className="rounded-xl border border-white/5 bg-white/5 p-4">
+      <details className="bb-inset p-4">
         <summary className="cursor-pointer text-sm font-semibold text-[var(--accent2)]">
           Job notes
         </summary>
@@ -332,10 +325,10 @@ function JobAttachmentsGallery({
   requestHref: string;
 }) {
   return (
-    <div className="card stack gap-4">
+    <div className="bb-surface stack gap-4 p-5">
       <div className="flex items-center justify-between">
         <h2 className="section-title text-lg">Attachments</h2>
-        <Link href={requestHref} className="btn btn-secondary h-9 px-3">
+        <Link href={requestHref} className="bb-btn bb-btn-secondary">
           Request photos
         </Link>
       </div>
@@ -351,7 +344,7 @@ function JobAttachmentsGallery({
               href={attachment.url}
               target="_blank"
               rel="noreferrer"
-              className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/5"
+              className="bb-inset bb-surface-hover group relative overflow-hidden"
             >
               <img
                 src={attachment.url}
@@ -377,7 +370,7 @@ function JobPipelineStage({
   activeIndex: number;
 }) {
   return (
-    <div className="card stack gap-4">
+    <div className="bb-surface stack gap-4 p-5">
       <h2 className="section-title text-lg">Pipeline stage</h2>
       <div className="stack gap-3">
         {stages.map((stage, index) => {
@@ -408,7 +401,7 @@ function JobPipelineStage({
 
 function JobRecentActivity({ items }: { items: ActivityItem[] }) {
   return (
-    <div className="card stack gap-4">
+    <div className="bb-surface stack gap-4 p-5">
       <div className="flex items-center justify-between">
         <h2 className="section-title text-lg">Recent activity</h2>
         <span className="text-xs text-[var(--muted)]">Last 5</span>
@@ -448,7 +441,7 @@ function JobCommsStats({
   responseRatio: string;
 }) {
   return (
-    <div className="card stack gap-4">
+    <div className="bb-surface stack gap-4 p-5">
       <div className="flex items-center justify-between">
         <h2 className="section-title text-lg">Comms & stats</h2>
         <span className="text-xs text-[var(--muted)]">Email activity</span>
@@ -851,15 +844,15 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
         primaryActions={
           <>
             {quotes.length === 0 ? (
-              <Link href={chatHref} className="btn btn-primary h-10 px-4">
+              <Link href={chatHref} className="bb-btn bb-btn-primary">
                 Create quote
               </Link>
             ) : (
-              <Link href={primaryQuoteHref} className="btn btn-primary h-10 px-4">
+              <Link href={primaryQuoteHref} className="bb-btn bb-btn-primary">
                 View quote
               </Link>
             )}
-            <Link href={chatHref} className="btn btn-secondary h-10 px-4">
+            <Link href={chatHref} className="bb-btn bb-btn-secondary">
               {jobData.conversation_id ? "View conversation" : "Message customer"}
             </Link>
           </>
@@ -928,7 +921,7 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
 
             <JobAttachmentsGallery attachments={attachments} requestHref={chatHref} />
 
-            <div className="card stack gap-4">
+            <div className="bb-surface stack gap-4 p-5">
               <div className="flex items-center justify-between">
                 <h3 className="section-title text-lg">Linked quotes</h3>
                 <span className="text-xs text-[var(--muted)]">{quotes.length} total</span>
