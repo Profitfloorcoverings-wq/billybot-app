@@ -11,6 +11,7 @@ const BASE_PRICE_COLUMNS = [
   "mat_ceramic_tiles_m2",
   "mat_domestic_carpet_m2",
   "mat_commercial_carpet_m2",
+  "mat_carpet_tiles_m2",
   "mat_safety_m2",
   "mat_domestic_vinyl_m2",
   "mat_commercial_vinyl_m2",
