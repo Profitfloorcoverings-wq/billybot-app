@@ -133,7 +133,7 @@ const serviceRegistry: Record<
   service_carpet_tiles: {
     markups: ["markup_carpet_tiles_value"],
     materials: [],
-    labour: [],
+    labour: ["lab_carpet_tiles_m2"],
   },
   service_lvt: {
     markups: ["markup_lvt_value"],
@@ -228,6 +228,7 @@ const materialPriceFields: NumericField[] = [
 const labourPriceFields: NumericField[] = [
   { label: "Domestic carpet labour per m²", column: "lab_domestic_carpet_m2" },
   { label: "Commercial carpet labour per m²", column: "lab_commercial_carpet_m2" },
+  { label: "Carpet tiles labour per m²", column: "lab_carpet_tiles_m2" },
   { label: "LVT labour per m²", column: "lab_lvt_m2" },
   { label: "Ceramic tile labour per m²", column: "lab_ceramic_tiles_m2" },
   { label: "Safety flooring labour per m²", column: "lab_safety_m2" },
