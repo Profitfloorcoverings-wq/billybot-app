@@ -1,5 +1,9 @@
+export type PricingSettings = Record<string, unknown> & {
+  lab_carpet_tiles_m2?: number | null;
+};
+
 export type BuildPricingProfileInput = {
-  settings?: Record<string, unknown> | null;
+  settings?: PricingSettings | null;
   vatRegistered?: boolean;
 };
 
