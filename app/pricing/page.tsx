@@ -132,7 +132,7 @@ const serviceRegistry: Record<
   },
   service_carpet_tiles: {
     markups: ["markup_carpet_tiles_value"],
-    materials: [],
+    materials: ["mat_carpet_tiles_m2"],
     labour: ["lab_carpet_tiles_m2"],
   },
   service_lvt: {
@@ -206,6 +206,7 @@ const materialPriceFields: NumericField[] = [
     label: "Commercial carpet material price per m²",
     column: "mat_commercial_carpet_m2",
   },
+  { label: "Carpet tiles material (£/m²)", column: "mat_carpet_tiles_m2" },
   { label: "Safety flooring material price per m²", column: "mat_safety_m2" },
   { label: "Domestic vinyl material price per m²", column: "mat_domestic_vinyl_m2" },
   { label: "Commercial vinyl material price per m²", column: "mat_commercial_vinyl_m2" },
