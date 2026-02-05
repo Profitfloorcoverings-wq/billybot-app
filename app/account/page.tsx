@@ -33,6 +33,19 @@ type EmailAccount = {
   updated_at: string;
 };
 
+type BillingCycle = "monthly" | "annual";
+type PlanKey = "starter" | "pro" | "team";
+
+type PlanConfig = {
+  key: PlanKey;
+  name: string;
+  monthlyLabel: string;
+  annualLabel: string;
+  monthlyEnvKey: string;
+  annualEnvKey: string;
+  bullets: string[];
+};
+
 const EMPTY_PROFILE: ClientProfile = {
   business_name: "",
   contact_name: "",
@@ -44,6 +57,44 @@ const EMPTY_PROFILE: ClientProfile = {
   country: "",
   is_onboarded: false,
 };
+
+const SUBSCRIBER_STATUSES = new Set(["active", "trialing", "past_due"]);
+
+const PLAN_CONFIGS: PlanConfig[] = [
+  {
+    key: "starter",
+    name: "Starter",
+    monthlyLabel: "£79/mo",
+    annualLabel: "£790/yr",
+    monthlyEnvKey: "STRIPE_PRICE_STARTER_MONTHLY",
+    annualEnvKey: "STRIPE_PRICE_STARTER_ANNUAL",
+    bullets: ["1 user", "Up to 20 quotes / month"],
+  },
+  {
+    key: "pro",
+    name: "Pro",
+    monthlyLabel: "£149/mo",
+    annualLabel: "£1490/yr",
+    monthlyEnvKey: "STRIPE_PRICE_PRO_MONTHLY",
+    annualEnvKey: "STRIPE_PRICE_PRO_ANNUAL",
+    bullets: ["2 users", "20–50 quotes / month", "Send quotes to customers"],
+  },
+  {
+    key: "team",
+    name: "Team",
+    monthlyLabel: "£249/mo",
+    annualLabel: "£2490/yr",
+    monthlyEnvKey: "STRIPE_PRICE_TEAM_MONTHLY",
+    annualEnvKey: "STRIPE_PRICE_TEAM_ANNUAL",
+    bullets: [
+      "Up to 5 users",
+      "Unlimited quotes / month",
+      "Send quotes to customers",
+      "Early access to new features",
+      "Built for teams & growing businesses",
+    ],
+  },
+];
 
 function isBusinessProfileComplete(profile: ClientProfile | null) {
   if (!profile) return false;
@@ -77,6 +128,10 @@ export default function AccountPage() {
   const [emailAccountsLoading, setEmailAccountsLoading] = useState(true);
   const [emailAccountsError, setEmailAccountsError] = useState<string | null>(null);
   const [emailActionTarget, setEmailActionTarget] = useState<string | null>(null);
+  const [stripeStatus, setStripeStatus] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
+  const [billingActionTarget, setBillingActionTarget] = useState<string | null>(null);
+  const [billingError, setBillingError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -94,22 +149,10 @@ export default function AccountPage() {
         setUserId(userData.user.id);
         setUserEmail(userData.user.email ?? "");
 
-        const { data: accountingData, error: accountingError } = await supabase
-          .from("clients")
-          .select("accounting_system")
-          .eq("id", userData.user.id)
-          .maybeSingle();
-
-        if (accountingError) {
-          throw accountingError;
-        }
-
-        setAccountingSystem(accountingData?.accounting_system ?? null);
-
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
           .select(
-            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
+            "accounting_system, stripe_status, business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
           )
           .eq("id", userData.user.id)
           .maybeSingle();
@@ -117,6 +160,9 @@ export default function AccountPage() {
         if (clientError) {
           throw clientError;
         }
+
+        setAccountingSystem(clientData?.accounting_system ?? null);
+        setStripeStatus(clientData?.stripe_status ?? null);
 
         if (!clientData || !isBusinessProfileComplete(clientData)) {
           router.push("/account/setup");
@@ -268,23 +314,86 @@ export default function AccountPage() {
   async function handleManageBilling() {
     try {
       setLoadingPortal(true);
+      setBillingError(null);
 
       const res = await fetch("/api/billing/manage", {
         method: "POST",
       });
 
-      const data = await res.json();
+      const data = (await res.json().catch(() => ({}))) as {
+        url?: string;
+        needs_plan?: boolean;
+        error?: string;
+      };
 
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        alert("Unable to open billing portal.");
+      if (res.status === 401) {
+        router.push("/auth/login");
+        return;
       }
+
+      if (res.status === 400 && data.needs_plan) {
+        setBillingError("Choose a plan to start your subscription.");
+        return;
+      }
+
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Unable to open billing portal.");
+      }
+
+      window.location.href = data.url;
     } catch (err) {
-      console.error("Billing portal error:", err);
-      alert("Error opening billing portal.");
+      setBillingError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Error opening billing portal."
+      );
     } finally {
       setLoadingPortal(false);
+    }
+  }
+
+  async function handleStartSubscription(plan: PlanConfig) {
+    const priceId =
+      billingCycle === "monthly"
+        ? process.env[plan.monthlyEnvKey]
+        : process.env[plan.annualEnvKey];
+
+    if (!priceId) {
+      setBillingError("This plan is not available right now. Please contact support.");
+      return;
+    }
+
+    const actionKey = `${plan.key}-${billingCycle}`;
+    setBillingActionTarget(actionKey);
+    setBillingError(null);
+
+    try {
+      const res = await fetch("/api/billing/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ price_id: priceId }),
+      });
+
+      const data = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+
+      if (res.status === 401) {
+        router.push("/auth/login");
+        return;
+      }
+
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || "Unable to start checkout.");
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      setBillingError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to start checkout."
+      );
+    } finally {
+      setBillingActionTarget(null);
     }
   }
 
@@ -307,6 +416,8 @@ export default function AccountPage() {
 
   const isConnected = (account: EmailAccount | null) =>
     !!account && account.status === "connected";
+
+  const isSubscriber = SUBSCRIBER_STATUSES.has(stripeStatus ?? "");
 
   return (
     <div className="page-container stack gap-6">
@@ -591,13 +702,78 @@ export default function AccountPage() {
 
       <div className="card stack gap-4">
         <div className="stack gap-1">
-          <h2 className="section-title">Subscription</h2>
-          <p className="section-subtitle">Manage your billing and plan details.</p>
+          <h2 className="section-title">Plan & Billing</h2>
+          <p className="section-subtitle">Choose your plan or manage your existing subscription.</p>
         </div>
 
-        <button onClick={handleManageBilling} disabled={loadingPortal} className="btn btn-primary w-full">
-          {loadingPortal ? "Loading…" : "Manage subscription"}
-        </button>
+        {isSubscriber ? (
+          <>
+            <div className="tag bg-emerald-500/15 text-emerald-200 w-fit">Subscription active</div>
+            <button
+              onClick={handleManageBilling}
+              disabled={loadingPortal}
+              className="btn btn-primary w-full"
+            >
+              {loadingPortal ? "Loading…" : "Manage subscription"}
+            </button>
+          </>
+        ) : (
+          <div className="stack gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                className={billingCycle === "monthly" ? "btn btn-primary" : "btn btn-secondary"}
+                onClick={() => setBillingCycle("monthly")}
+                disabled={!!billingActionTarget}
+              >
+                Monthly
+              </button>
+              <button
+                className={billingCycle === "annual" ? "btn btn-primary" : "btn btn-secondary"}
+                onClick={() => setBillingCycle("annual")}
+                disabled={!!billingActionTarget}
+              >
+                Annual
+              </button>
+              <span className="tag bg-emerald-500/15 text-emerald-200">Save 2 months</span>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              {PLAN_CONFIGS.map((plan) => {
+                const actionKey = `${plan.key}-${billingCycle}`;
+                const isWorking = billingActionTarget === actionKey;
+
+                return (
+                  <div key={plan.key} className="rounded-xl border border-white/10 bg-white/5 p-4 stack gap-4">
+                    <div className="stack gap-1">
+                      <h3 className="text-lg font-semibold">{plan.name}</h3>
+                      <p className="text-2xl font-semibold">
+                        {billingCycle === "monthly" ? plan.monthlyLabel : plan.annualLabel}
+                      </p>
+                    </div>
+
+                    <ul className="stack gap-2 text-sm text-white/80">
+                      {plan.bullets.map((bullet) => (
+                        <li key={bullet}>• {bullet}</li>
+                      ))}
+                    </ul>
+
+                    <button
+                      className="btn btn-primary"
+                      onClick={() => void handleStartSubscription(plan)}
+                      disabled={!!billingActionTarget}
+                    >
+                      {isWorking ? "Working..." : "Start subscription"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="section-subtitle">Cancel anytime | No contract</p>
+          </div>
+        )}
+
+        {billingError ? <p className="text-sm text-red-400">{billingError}</p> : null}
       </div>
 
       <div className="card stack gap-4">
