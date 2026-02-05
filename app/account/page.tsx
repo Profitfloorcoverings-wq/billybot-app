@@ -410,7 +410,12 @@ export default function AccountPage() {
         throw new Error(data?.error || "Unable to start checkout.");
       }
 
-      window.location.href = data.url;
+      if (!/^https?:\/\//i.test(data.url)) {
+        setBillingError("Invalid checkout URL received. Please try again.");
+        return;
+      }
+
+      window.location.assign(data.url);
     } catch (err) {
       setBillingError(
         err && typeof err === "object" && "message" in err
