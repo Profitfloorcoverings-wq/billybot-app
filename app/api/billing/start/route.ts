@@ -6,12 +6,12 @@ export const runtime = "nodejs";
 
 function getAllowedPriceIds() {
   return [
-    process.env.STRIPE_PRICE_STARTER_MONTHLY,
-    process.env.STRIPE_PRICE_PRO_MONTHLY,
-    process.env.STRIPE_PRICE_TEAM_MONTHLY,
-    process.env.STRIPE_PRICE_STARTER_ANNUAL,
-    process.env.STRIPE_PRICE_PRO_ANNUAL,
-    process.env.STRIPE_PRICE_TEAM_ANNUAL,
+    process.env.STRIPE_PRICE_STARTER_MONTHLY ?? process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER_MONTHLY,
+    process.env.STRIPE_PRICE_PRO_MONTHLY ?? process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_MONTHLY,
+    process.env.STRIPE_PRICE_TEAM_MONTHLY ?? process.env.NEXT_PUBLIC_STRIPE_PRICE_TEAM_MONTHLY,
+    process.env.STRIPE_PRICE_STARTER_ANNUAL ?? process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER_ANNUAL,
+    process.env.STRIPE_PRICE_PRO_ANNUAL ?? process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_ANNUAL,
+    process.env.STRIPE_PRICE_TEAM_ANNUAL ?? process.env.NEXT_PUBLIC_STRIPE_PRICE_TEAM_ANNUAL,
   ].filter((value): value is string => Boolean(value));
 }
 
