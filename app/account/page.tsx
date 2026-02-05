@@ -41,8 +41,6 @@ type PlanConfig = {
   name: string;
   monthlyLabel: string;
   annualLabel: string;
-  monthlyEnvKey: string;
-  annualEnvKey: string;
   bullets: string[];
 };
 
@@ -60,14 +58,42 @@ const EMPTY_PROFILE: ClientProfile = {
 
 const SUBSCRIBER_STATUSES = new Set(["active", "trialing", "past_due"]);
 
+const PRICE_MAP: Record<PlanKey, { monthly: string; annual: string }> = {
+  starter: {
+    monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER_MONTHLY ?? "",
+    annual: process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER_ANNUAL ?? "",
+  },
+  pro: {
+    monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_MONTHLY ?? "",
+    annual: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_ANNUAL ?? "",
+  },
+  team: {
+    monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_TEAM_MONTHLY ?? "",
+    annual: process.env.NEXT_PUBLIC_STRIPE_PRICE_TEAM_ANNUAL ?? "",
+  },
+};
+
+const MISSING_PRICE_LABELS: Record<PlanKey, { monthly: string; annual: string }> = {
+  starter: {
+    monthly: "NEXT_PUBLIC_STRIPE_PRICE_STARTER_MONTHLY",
+    annual: "NEXT_PUBLIC_STRIPE_PRICE_STARTER_ANNUAL",
+  },
+  pro: {
+    monthly: "NEXT_PUBLIC_STRIPE_PRICE_PRO_MONTHLY",
+    annual: "NEXT_PUBLIC_STRIPE_PRICE_PRO_ANNUAL",
+  },
+  team: {
+    monthly: "NEXT_PUBLIC_STRIPE_PRICE_TEAM_MONTHLY",
+    annual: "NEXT_PUBLIC_STRIPE_PRICE_TEAM_ANNUAL",
+  },
+};
 const PLAN_CONFIGS: PlanConfig[] = [
   {
     key: "starter",
     name: "Starter",
     monthlyLabel: "£79/mo",
     annualLabel: "£790/yr",
-    monthlyEnvKey: "STRIPE_PRICE_STARTER_MONTHLY",
-    annualEnvKey: "STRIPE_PRICE_STARTER_ANNUAL",
+
     bullets: ["1 user", "Up to 20 quotes / month"],
   },
   {
@@ -75,8 +101,7 @@ const PLAN_CONFIGS: PlanConfig[] = [
     name: "Pro",
     monthlyLabel: "£149/mo",
     annualLabel: "£1490/yr",
-    monthlyEnvKey: "STRIPE_PRICE_PRO_MONTHLY",
-    annualEnvKey: "STRIPE_PRICE_PRO_ANNUAL",
+
     bullets: ["2 users", "20–50 quotes / month", "Send quotes to customers"],
   },
   {
@@ -84,8 +109,7 @@ const PLAN_CONFIGS: PlanConfig[] = [
     name: "Team",
     monthlyLabel: "£249/mo",
     annualLabel: "£2490/yr",
-    monthlyEnvKey: "STRIPE_PRICE_TEAM_MONTHLY",
-    annualEnvKey: "STRIPE_PRICE_TEAM_ANNUAL",
+
     bullets: [
       "Up to 5 users",
       "Unlimited quotes / month",
@@ -418,37 +442,27 @@ export default function AccountPage() {
   const isConnected = (account: EmailAccount | null) =>
     !!account && account.status === "connected";
 
-  function getEnvPriceId(envKey: string) {
-    const publicKey = `NEXT_PUBLIC_${envKey}`;
-    return process.env[publicKey] ?? process.env[envKey] ?? "";
-  }
-
   function getCyclePriceIds(plan: PlanConfig) {
-    return {
-      monthly: getEnvPriceId(plan.monthlyEnvKey),
-      annual: getEnvPriceId(plan.annualEnvKey),
-    };
+    return PRICE_MAP[plan.key];
   }
 
   const normalizedStripeStatus = (stripeStatus ?? "").toLowerCase();
   const isSubscriber = SUBSCRIBER_STATUSES.has(normalizedStripeStatus);
 
-  const missingPriceIdsByPlan = PLAN_CONFIGS.map((plan) => {
+  const missingPriceIds = PLAN_CONFIGS.flatMap((plan) => {
     const ids = getCyclePriceIds(plan);
     const missing: string[] = [];
 
     if (!ids.monthly) {
-      missing.push(plan.monthlyEnvKey);
+      missing.push(MISSING_PRICE_LABELS[plan.key].monthly);
     }
 
     if (!ids.annual) {
-      missing.push(plan.annualEnvKey);
+      missing.push(MISSING_PRICE_LABELS[plan.key].annual);
     }
 
-    return { planKey: plan.key, missing };
+    return missing;
   });
-
-  const missingPriceIds = missingPriceIdsByPlan.flatMap((entry) => entry.missing);
 
   return (
     <div className="page-container stack gap-6">
