@@ -19,6 +19,9 @@ type ClientProfile = {
 };
 
 type EmailAccountStatus = "connected" | "needs_reauth" | "error" | "disconnected";
+type StripeStatus = "active" | "trialing" | "past_due" | "canceled" | "incomplete" | null;
+type BillingInterval = "monthly" | "annual";
+type PlanKey = "starter" | "pro" | "team";
 
 type EmailAccount = {
   id: string;
@@ -33,6 +36,8 @@ type EmailAccount = {
   updated_at: string;
 };
 
+type BillingPrices = Record<PlanKey, Record<BillingInterval, string | null>>;
+
 const EMPTY_PROFILE: ClientProfile = {
   business_name: "",
   contact_name: "",
@@ -44,6 +49,53 @@ const EMPTY_PROFILE: ClientProfile = {
   country: "",
   is_onboarded: false,
 };
+
+const EMPTY_PRICES: BillingPrices = {
+  starter: { monthly: null, annual: null },
+  pro: { monthly: null, annual: null },
+  team: { monthly: null, annual: null },
+};
+
+const SUBSCRIBER_STATUSES: StripeStatus[] = ["active", "trialing", "past_due"];
+
+const PLAN_CONTENT: {
+  key: PlanKey;
+  name: string;
+  monthlyPrice: string;
+  annualPrice: string;
+  users: string;
+  features: string[];
+}[] = [
+  {
+    key: "starter",
+    name: "Starter",
+    monthlyPrice: "£79/mo",
+    annualPrice: "£790/yr",
+    users: "1 user",
+    features: ["Up to 20 quotes / month"],
+  },
+  {
+    key: "pro",
+    name: "Pro",
+    monthlyPrice: "£149/mo",
+    annualPrice: "£1490/yr",
+    users: "2 users",
+    features: ["20–50 quotes / month", "Send quotes to customers"],
+  },
+  {
+    key: "team",
+    name: "Team",
+    monthlyPrice: "£249/mo",
+    annualPrice: "£2490/yr",
+    users: "Up to 5 users",
+    features: [
+      "Unlimited quotes / month",
+      "Send quotes to customers",
+      "Early access to new features",
+      "Built for teams & growing businesses",
+    ],
+  },
+];
 
 function isBusinessProfileComplete(profile: ClientProfile | null) {
   if (!profile) return false;
@@ -77,6 +129,11 @@ export default function AccountPage() {
   const [emailAccountsLoading, setEmailAccountsLoading] = useState(true);
   const [emailAccountsError, setEmailAccountsError] = useState<string | null>(null);
   const [emailActionTarget, setEmailActionTarget] = useState<string | null>(null);
+  const [stripeStatus, setStripeStatus] = useState<StripeStatus>(null);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>("monthly");
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingActionTarget, setBillingActionTarget] = useState<PlanKey | null>(null);
+  const [billingPrices, setBillingPrices] = useState<BillingPrices>(EMPTY_PRICES);
 
   useEffect(() => {
     async function loadProfile() {
@@ -94,22 +151,10 @@ export default function AccountPage() {
         setUserId(userData.user.id);
         setUserEmail(userData.user.email ?? "");
 
-        const { data: accountingData, error: accountingError } = await supabase
-          .from("clients")
-          .select("accounting_system")
-          .eq("id", userData.user.id)
-          .maybeSingle();
-
-        if (accountingError) {
-          throw accountingError;
-        }
-
-        setAccountingSystem(accountingData?.accounting_system ?? null);
-
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
           .select(
-            "business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
+            "accounting_system, stripe_status, business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
           )
           .eq("id", userData.user.id)
           .maybeSingle();
@@ -117,6 +162,9 @@ export default function AccountPage() {
         if (clientError) {
           throw clientError;
         }
+
+        setAccountingSystem(clientData?.accounting_system ?? null);
+        setStripeStatus((clientData?.stripe_status as StripeStatus) ?? null);
 
         if (!clientData || !isBusinessProfileComplete(clientData)) {
           router.push("/account/setup");
@@ -138,6 +186,23 @@ export default function AccountPage() {
 
     void loadProfile();
   }, [router, supabase]);
+
+  useEffect(() => {
+    async function loadBillingPrices() {
+      try {
+        const res = await fetch("/api/billing/start");
+        if (!res.ok) return;
+        const data = (await res.json()) as { prices?: BillingPrices };
+        if (data?.prices) {
+          setBillingPrices(data.prices);
+        }
+      } catch {
+        setBillingPrices(EMPTY_PRICES);
+      }
+    }
+
+    void loadBillingPrices();
+  }, []);
 
   async function loadEmailAccounts() {
     setEmailAccountsLoading(true);
@@ -266,6 +331,7 @@ export default function AccountPage() {
   }
 
   async function handleManageBilling() {
+    setBillingError(null);
     try {
       setLoadingPortal(true);
 
@@ -273,24 +339,81 @@ export default function AccountPage() {
         method: "POST",
       });
 
-      const data = await res.json();
+      if (res.status === 401) {
+        router.push("/auth/login");
+        return;
+      }
+
+      const data = (await res.json()) as { url?: string; needs_plan?: boolean; error?: string };
 
       if (data?.url) {
         window.location.href = data.url;
-      } else {
-        alert("Unable to open billing portal.");
+        return;
       }
+
+      if (data?.needs_plan) {
+        setBillingError("Choose a plan to start your subscription.");
+        return;
+      }
+
+      throw new Error(data?.error || "Unable to open billing portal.");
     } catch (err) {
-      console.error("Billing portal error:", err);
-      alert("Error opening billing portal.");
+      setBillingError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Error opening billing portal."
+      );
     } finally {
       setLoadingPortal(false);
+    }
+  }
+
+  async function handleStartSubscription(plan: PlanKey) {
+    const priceId = billingPrices[plan][billingInterval];
+
+    if (!priceId) {
+      setBillingError("This plan is not available right now. Please contact support.");
+      return;
+    }
+
+    setBillingError(null);
+    setBillingActionTarget(plan);
+
+    try {
+      const res = await fetch("/api/billing/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ price_id: priceId }),
+      });
+
+      if (res.status === 401) {
+        router.push("/auth/login");
+        return;
+      }
+
+      const data = (await res.json()) as { url?: string; error?: string };
+
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || "Unable to start checkout.");
+      }
+
+      window.location.href = data.url;
+    } catch (err) {
+      setBillingError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to start checkout."
+      );
+    } finally {
+      setBillingActionTarget(null);
     }
   }
 
   const isSageConnected = accountingSystem === "sage";
   const isXeroConnected = accountingSystem === "xero";
   const isQuickBooksConnected = accountingSystem === "quickbooks";
+  const isSubscriber = SUBSCRIBER_STATUSES.includes(stripeStatus);
+
   const providerConfigs: {
     key: "sage" | "xero" | "quickbooks";
     label: string;
@@ -432,7 +555,7 @@ export default function AccountPage() {
               <input
                 id="address_line2"
                 className="input-fluid"
-                value={profile.address_line2}
+                value={profile.address_line2 || ""}
                 onChange={(e) => updateField("address_line2", e.target.value)}
               />
             </div>
@@ -591,13 +714,80 @@ export default function AccountPage() {
 
       <div className="card stack gap-4">
         <div className="stack gap-1">
-          <h2 className="section-title">Subscription</h2>
-          <p className="section-subtitle">Manage your billing and plan details.</p>
+          <h2 className="section-title">Plan & Billing</h2>
+          <p className="section-subtitle">Choose your plan or manage your subscription.</p>
         </div>
 
-        <button onClick={handleManageBilling} disabled={loadingPortal} className="btn btn-primary w-full">
-          {loadingPortal ? "Loading…" : "Manage subscription"}
-        </button>
+        {isSubscriber ? (
+          <div className="stack gap-3">
+            <div className="tag bg-emerald-500/15 text-emerald-200 w-fit">Subscription active</div>
+            <button
+              onClick={handleManageBilling}
+              disabled={loadingPortal}
+              className="btn btn-primary w-full md:w-auto"
+            >
+              {loadingPortal ? "Loading…" : "Manage subscription"}
+            </button>
+          </div>
+        ) : (
+          <div className="stack gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className={`btn ${billingInterval === "monthly" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setBillingInterval("monthly")}
+                disabled={Boolean(billingActionTarget)}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                className={`btn ${billingInterval === "annual" ? "btn-primary" : "btn-secondary"}`}
+                onClick={() => setBillingInterval("annual")}
+                disabled={Boolean(billingActionTarget)}
+              >
+                Annual
+              </button>
+              <span className="tag bg-emerald-500/15 text-emerald-200">Save 2 months</span>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              {PLAN_CONTENT.map((plan) => {
+                const isWorking = billingActionTarget === plan.key;
+                const priceText = billingInterval === "monthly" ? plan.monthlyPrice : plan.annualPrice;
+
+                return (
+                  <div key={plan.key} className="card stack gap-3 border border-white/10">
+                    <div className="stack gap-1">
+                      <h3 className="text-lg font-semibold">{plan.name}</h3>
+                      <p className="text-2xl font-semibold">{priceText}</p>
+                      <p className="section-subtitle">{plan.users}</p>
+                    </div>
+
+                    <ul className="stack gap-1 text-sm text-white/80">
+                      {plan.features.map((feature) => (
+                        <li key={feature}>• {feature}</li>
+                      ))}
+                    </ul>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => handleStartSubscription(plan.key)}
+                      disabled={Boolean(billingActionTarget)}
+                    >
+                      {isWorking ? "Working..." : "Start subscription"}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <p className="section-subtitle">Cancel anytime | No contract</p>
+          </div>
+        )}
+
+        {billingError ? <p className="text-sm text-red-400">{billingError}</p> : null}
       </div>
 
       <div className="card stack gap-4">
