@@ -20,13 +20,18 @@
   --neutral-800: #1f2937;
   --neutral-900: #0f172a;
   --bg: #0b0f19;
+  --bg2: #0d1324;
   --panel: #0f172a;
+  --panel2: #111a33;
   --muted: #9ca3af;
   --text: #e6ecf9;
   --line: rgba(255, 255, 255, 0.08);
+  --line2: rgba(148, 163, 184, 0.24);
   --radius: 10px;
   --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.45);
   --shadow-strong: 0 24px 60px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 18px 40px rgba(5, 8, 20, 0.55);
+  --shadow-glow: 0 0 18px rgba(59, 130, 246, 0.25);
   --focus-ring: 0 0 0 2px rgba(59, 130, 246, 0.45);
 }
 
@@ -94,6 +99,176 @@ p {
   border-radius: 14px;
   padding: 20px;
   box-shadow: var(--shadow-soft);
+}
+
+.bb-surface {
+  background: linear-gradient(140deg, rgba(15, 23, 42, 0.92), rgba(10, 15, 28, 0.96));
+  border: 1px solid var(--line2);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.bb-surface-hover {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.bb-surface-hover:hover {
+  transform: translateY(-2px);
+  border-color: rgba(148, 163, 184, 0.45);
+  box-shadow: var(--shadow-card), var(--shadow-glow);
+}
+
+.bb-inset {
+  background: rgba(8, 12, 24, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.bb-commandbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: linear-gradient(135deg, rgba(11, 15, 25, 0.95), rgba(8, 12, 22, 0.9));
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  backdrop-filter: blur(16px);
+}
+
+.bb-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #bfdbfe;
+}
+
+.bb-health {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bb-health-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.bb-health-green .bb-health-dot {
+  background: #34d399;
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.6);
+}
+
+.bb-health-amber .bb-health-dot {
+  background: #fbbf24;
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.6);
+}
+
+.bb-health-red .bb-health-dot {
+  background: #fb7185;
+  box-shadow: 0 0 12px rgba(251, 113, 133, 0.6);
+}
+
+.bb-kpi-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.bb-kpi {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 16px;
+  background: rgba(12, 18, 32, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow: var(--shadow-card);
+}
+
+.bb-kpi-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+
+.bb-kpi-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.bb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid transparent;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.12s ease;
+}
+
+.bb-btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--accent1));
+  color: #0b0f1a;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.45);
+  border-color: rgba(59, 130, 246, 0.7);
+}
+
+.bb-btn-primary:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.bb-btn-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  border-color: var(--line2);
+}
+
+.bb-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bb-btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+.bb-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.bb-next-item {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(10, 15, 28, 0.75);
+}
+
+.bb-next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .surface {

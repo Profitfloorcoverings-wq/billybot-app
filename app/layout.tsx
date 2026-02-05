@@ -18,7 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={inter.className}>
         <ClientFlagsProvider>
-          <div className="flex min-h-screen bg-[var(--bg1)]">
+          <div className="flex min-h-screen bg-[var(--bg)]">
             <Sidebar />
             <main className="flex-1 p-10 relative overflow-y-auto">
               {children}
