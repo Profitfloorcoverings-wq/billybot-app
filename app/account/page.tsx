@@ -129,6 +129,7 @@ export default function AccountPage() {
   const [emailAccountsError, setEmailAccountsError] = useState<string | null>(null);
   const [emailActionTarget, setEmailActionTarget] = useState<string | null>(null);
   const [stripeStatus, setStripeStatus] = useState<string | null>(null);
+  const [stripeId, setStripeId] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [billingActionTarget, setBillingActionTarget] = useState<string | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
@@ -152,7 +153,7 @@ export default function AccountPage() {
         const { data: clientData, error: clientError } = await supabase
           .from("clients")
           .select(
-            "accounting_system, stripe_status, business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
+            "accounting_system, stripe_status, stripe_id, business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
           )
           .eq("id", userData.user.id)
           .maybeSingle();
@@ -163,6 +164,7 @@ export default function AccountPage() {
 
         setAccountingSystem(clientData?.accounting_system ?? null);
         setStripeStatus(clientData?.stripe_status ?? null);
+        setStripeId(clientData?.stripe_id ?? null);
 
         if (!clientData || !isBusinessProfileComplete(clientData)) {
           router.push("/account/setup");
@@ -332,6 +334,7 @@ export default function AccountPage() {
       }
 
       if (res.status === 400 && data.needs_plan) {
+        setStripeStatus("none");
         setBillingError("Choose a plan to start your subscription.");
         return;
       }
@@ -353,10 +356,8 @@ export default function AccountPage() {
   }
 
   async function handleStartSubscription(plan: PlanConfig) {
-    const priceId =
-      billingCycle === "monthly"
-        ? process.env[plan.monthlyEnvKey]
-        : process.env[plan.annualEnvKey];
+    const selectedCyclePriceIds = getCyclePriceIds(plan);
+    const priceId = billingCycle === "monthly" ? selectedCyclePriceIds.monthly : selectedCyclePriceIds.annual;
 
     if (!priceId) {
       setBillingError("This plan is not available right now. Please contact support.");
@@ -417,7 +418,37 @@ export default function AccountPage() {
   const isConnected = (account: EmailAccount | null) =>
     !!account && account.status === "connected";
 
-  const isSubscriber = SUBSCRIBER_STATUSES.has(stripeStatus ?? "");
+  function getEnvPriceId(envKey: string) {
+    const publicKey = `NEXT_PUBLIC_${envKey}`;
+    return process.env[publicKey] ?? process.env[envKey] ?? "";
+  }
+
+  function getCyclePriceIds(plan: PlanConfig) {
+    return {
+      monthly: getEnvPriceId(plan.monthlyEnvKey),
+      annual: getEnvPriceId(plan.annualEnvKey),
+    };
+  }
+
+  const normalizedStripeStatus = (stripeStatus ?? "").toLowerCase();
+  const isSubscriber = SUBSCRIBER_STATUSES.has(normalizedStripeStatus);
+
+  const missingPriceIdsByPlan = PLAN_CONFIGS.map((plan) => {
+    const ids = getCyclePriceIds(plan);
+    const missing: string[] = [];
+
+    if (!ids.monthly) {
+      missing.push(plan.monthlyEnvKey);
+    }
+
+    if (!ids.annual) {
+      missing.push(plan.annualEnvKey);
+    }
+
+    return { planKey: plan.key, missing };
+  });
+
+  const missingPriceIds = missingPriceIdsByPlan.flatMap((entry) => entry.missing);
 
   return (
     <div className="page-container stack gap-6">
@@ -741,6 +772,10 @@ export default function AccountPage() {
               {PLAN_CONFIGS.map((plan) => {
                 const actionKey = `${plan.key}-${billingCycle}`;
                 const isWorking = billingActionTarget === actionKey;
+                const cyclePriceIds = getCyclePriceIds(plan);
+                const activePriceId =
+                  billingCycle === "monthly" ? cyclePriceIds.monthly : cyclePriceIds.annual;
+                const isPlanAvailable = Boolean(activePriceId);
 
                 return (
                   <div key={plan.key} className="rounded-xl border border-white/10 bg-white/5 p-4 stack gap-4">
@@ -760,10 +795,13 @@ export default function AccountPage() {
                     <button
                       className="btn btn-primary"
                       onClick={() => void handleStartSubscription(plan)}
-                      disabled={!!billingActionTarget}
+                      disabled={!!billingActionTarget || !isPlanAvailable}
                     >
                       {isWorking ? "Working..." : "Start subscription"}
                     </button>
+                    {!isPlanAvailable ? (
+                      <p className="text-xs text-white/60">Plan unavailable (billing not configured)</p>
+                    ) : null}
                   </div>
                 );
               })}
@@ -772,6 +810,13 @@ export default function AccountPage() {
             <p className="section-subtitle">Cancel anytime | No contract</p>
           </div>
         )}
+
+        {process.env.NODE_ENV !== "production" ? (
+          <p className="text-xs text-white/60">
+            Debug — stripe_status: {stripeStatus ?? "null"}, stripe_id: {stripeId ?? "null"}, missing
+            price_ids: {missingPriceIds.length ? missingPriceIds.join(", ") : "none"}
+          </p>
+        ) : null}
 
         {billingError ? <p className="text-sm text-red-400">{billingError}</p> : null}
       </div>
