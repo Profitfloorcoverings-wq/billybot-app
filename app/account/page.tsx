@@ -120,6 +120,56 @@ const PLAN_CONFIGS: PlanConfig[] = [
   },
 ];
 
+const PLAN_LABELS: Record<PlanKey, string> = {
+  starter: "Starter",
+  pro: "Pro",
+  team: "Team",
+};
+
+const BILLING_LABELS: Record<BillingCycle, string> = {
+  monthly: "Monthly",
+  annual: "Annual",
+};
+
+type StatusBadge = {
+  label: string;
+  className: string;
+};
+
+function getPlanLabel(tier?: string | null) {
+  const normalized = (tier ?? "").toLowerCase();
+  if (normalized in PLAN_LABELS) {
+    return PLAN_LABELS[normalized as PlanKey];
+  }
+  return "—";
+}
+
+function getBillingLabel(billing?: string | null) {
+  const normalized = (billing ?? "").toLowerCase();
+  if (normalized === "month") return BILLING_LABELS.monthly;
+  if (normalized === "year") return BILLING_LABELS.annual;
+  if (normalized in BILLING_LABELS) {
+    return BILLING_LABELS[normalized as BillingCycle];
+  }
+  return "—";
+}
+
+function getStripeStatusBadge(status?: string | null): StatusBadge {
+  switch ((status ?? "").toLowerCase()) {
+    case "active":
+      return { label: "Active", className: "bg-emerald-500/15 text-emerald-200" };
+    case "trialing":
+      return { label: "Trialing", className: "bg-emerald-500/15 text-emerald-200" };
+    case "past_due":
+      return { label: "Past due", className: "bg-amber-500/15 text-amber-200" };
+    case "canceled":
+      return { label: "Canceled", className: "bg-red-500/15 text-red-200" };
+    case "none":
+    default:
+      return { label: "Not subscribed", className: "bg-white/5 text-white/70" };
+  }
+}
+
 function isBusinessProfileComplete(profile: ClientProfile | null) {
   if (!profile) return false;
   return Boolean(
@@ -161,6 +211,8 @@ export default function AccountPage() {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [billingActionTarget, setBillingActionTarget] = useState<string | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
+  const [billingSuccess, setBillingSuccess] = useState<string | null>(null);
+  const [showPlanOptions, setShowPlanOptions] = useState(false);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -225,6 +277,8 @@ export default function AccountPage() {
     const billingResult = url.searchParams.get("billing");
     if (billingResult === "success") {
       void loadProfile();
+      setBillingSuccess("Subscription updated successfully.");
+      setBillingError(null);
       url.searchParams.delete("billing");
       router.replace(url.pathname);
     }
@@ -475,48 +529,9 @@ export default function AccountPage() {
   const normalizedPlanTier = (stripePlanTier ?? "").toLowerCase();
   const normalizedPlanBilling = (stripePlanBilling ?? "").toLowerCase();
 
-  const normalizedBillingCycle =
-    normalizedPlanBilling === "month"
-      ? "monthly"
-      : normalizedPlanBilling === "year"
-      ? "annual"
-      : normalizedPlanBilling === "monthly" || normalizedPlanBilling === "annual"
-      ? normalizedPlanBilling
-      : null;
-
-  const planLabel =
-    normalizedPlanTier === "starter"
-      ? "Starter"
-      : normalizedPlanTier === "pro"
-      ? "Pro"
-      : normalizedPlanTier === "team"
-      ? "Team"
-      : "—";
-
-  const billingLabel =
-    normalizedBillingCycle === "monthly"
-      ? "Monthly"
-      : normalizedBillingCycle === "annual"
-      ? "Annual"
-      : "—";
-
-  const statusBadge = (() => {
-    switch (normalizedStripeStatus) {
-      case "active":
-        return {
-          label: "Subscription active",
-          className: "bg-emerald-500/15 text-emerald-200",
-        };
-      case "trialing":
-        return { label: "Trialing", className: "bg-emerald-500/15 text-emerald-200" };
-      case "past_due":
-        return { label: "Past due", className: "bg-amber-500/15 text-amber-200" };
-      case "canceled":
-        return { label: "Canceled", className: "bg-red-500/15 text-red-200" };
-      default:
-        return { label: "Not subscribed", className: "bg-white/5 text-white/70" };
-    }
-  })();
+  const planLabel = getPlanLabel(normalizedPlanTier);
+  const billingLabel = getBillingLabel(normalizedPlanBilling);
+  const statusBadge = getStripeStatusBadge(normalizedStripeStatus);
 
   const missingPriceIds = PLAN_CONFIGS.flatMap((plan) => {
     const ids = getCyclePriceIds(plan);
@@ -820,42 +835,65 @@ export default function AccountPage() {
           <p className="section-subtitle">Choose your plan or manage your existing subscription.</p>
         </div>
 
-        {isSubscriber ? (
-          <>
-            <div className={`tag ${statusBadge.className} w-fit`}>{statusBadge.label}</div>
-            <p className="section-subtitle">
-              Plan: {planLabel} ({billingLabel})
-            </p>
-            <button
-              onClick={handleManageBilling}
-              disabled={loadingPortal}
-              className="btn btn-primary w-full"
-            >
-              {loadingPortal ? "Loading…" : "Manage subscription"}
-            </button>
-          </>
-        ) : (
-          <div className="stack gap-4">
-            <div className={`tag ${statusBadge.className} w-fit`}>{statusBadge.label}</div>
+        {billingSuccess ? <p className="text-sm text-emerald-300">{billingSuccess}</p> : null}
+
+        {isSubscriber && !showPlanOptions ? (
+          <div className="subscription-summary stack gap-3">
+            <div className="row flex-wrap gap-2">
+              <div className={`tag ${statusBadge.className}`}>{statusBadge.label}</div>
+              <span className="text-sm text-white/70">
+                Plan: {planLabel} ({billingLabel})
+              </span>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
-                className={billingCycle === "monthly" ? "btn btn-primary" : "btn btn-secondary"}
+                onClick={handleManageBilling}
+                disabled={loadingPortal}
+                className="btn btn-primary"
+              >
+                {loadingPortal ? "Loading…" : "Manage subscription"}
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setShowPlanOptions(true)}
+                disabled={loadingPortal}
+              >
+                Change plan
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="stack gap-4">
+            <div className="row flex-wrap gap-2">
+              <div className={`tag ${statusBadge.className}`}>{statusBadge.label}</div>
+              {isSubscriber ? (
+                <span className="text-sm text-white/70">
+                  Current plan: {planLabel} ({billingLabel})
+                </span>
+              ) : null}
+            </div>
+
+            <div className="billing-toggle" role="group" aria-label="Billing cycle">
+              <button
+                className={`billing-toggle-btn ${billingCycle === "monthly" ? "is-active" : ""}`}
                 onClick={() => setBillingCycle("monthly")}
                 disabled={!!billingActionTarget}
+                type="button"
               >
                 Monthly
               </button>
               <button
-                className={billingCycle === "annual" ? "btn btn-primary" : "btn btn-secondary"}
+                className={`billing-toggle-btn ${billingCycle === "annual" ? "is-active" : ""}`}
                 onClick={() => setBillingCycle("annual")}
                 disabled={!!billingActionTarget}
+                type="button"
               >
-                Annual
+                <span>Annual</span>
+                <span className="billing-toggle-badge">Save 2 months</span>
               </button>
-              <span className="tag bg-emerald-500/15 text-emerald-200">Save 2 months</span>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-3">
+            <div className="pricing-grid">
               {PLAN_CONFIGS.map((plan) => {
                 const actionKey = `${plan.key}-${billingCycle}`;
                 const isWorking = billingActionTarget === actionKey;
@@ -863,43 +901,72 @@ export default function AccountPage() {
                 const activePriceId =
                   billingCycle === "monthly" ? cyclePriceIds.monthly : cyclePriceIds.annual;
                 const isPlanAvailable = Boolean(activePriceId);
+                const isPopular = plan.key === "pro";
 
                 return (
-                  <div key={plan.key} className="rounded-xl border border-white/10 bg-white/5 p-4 stack gap-4">
-                    <div className="stack gap-1">
-                      <h3 className="text-lg font-semibold">{plan.name}</h3>
-                      <p className="text-2xl font-semibold">
-                        {billingCycle === "monthly" ? plan.monthlyLabel : plan.annualLabel}
-                      </p>
+                  <div
+                    key={plan.key}
+                    className={`pricing-card ${isPopular ? "is-popular" : ""}`}
+                  >
+                    <div className="pricing-card-header stack gap-2">
+                      <div className="row justify-between flex-wrap gap-2">
+                        <h3 className="text-lg font-semibold">{plan.name}</h3>
+                        {isPopular ? (
+                          <span className="tag bg-white/10 text-white/80">Most popular</span>
+                        ) : null}
+                      </div>
+                      <div className="stack gap-1">
+                        <p className="pricing-card-price">
+                          {billingCycle === "monthly" ? plan.monthlyLabel : plan.annualLabel}
+                        </p>
+                        <p className="text-xs text-white/60">
+                          {billingCycle === "monthly" ? "Billed monthly" : "Billed annually"}
+                        </p>
+                      </div>
                     </div>
 
-                    <ul className="stack gap-2 text-sm text-white/80">
+                    <ul className="pricing-card-list">
                       {plan.bullets.map((bullet) => (
-                        <li key={bullet}>• {bullet}</li>
+                        <li key={bullet}>{bullet}</li>
                       ))}
                     </ul>
 
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => void handleStartSubscription(plan)}
-                      disabled={!!billingActionTarget || !isPlanAvailable}
-                    >
-                      {isWorking ? "Working..." : "Start subscription"}
-                    </button>
-                    {!isPlanAvailable ? (
-                      <p className="text-xs text-white/60">Plan unavailable (billing not configured)</p>
-                    ) : null}
+                    <div className="pricing-card-cta stack gap-2">
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => void handleStartSubscription(plan)}
+                        disabled={!!billingActionTarget || !isPlanAvailable}
+                      >
+                        {isWorking ? "Working..." : "Start subscription"}
+                      </button>
+                      {!isPlanAvailable ? (
+                        <p className="text-xs text-white/60">
+                          Plan unavailable (billing not configured)
+                        </p>
+                      ) : null}
+                    </div>
                   </div>
                 );
               })}
             </div>
 
-            <p className="section-subtitle">Cancel anytime | No contract</p>
+            <div className="row flex-wrap items-center justify-between gap-2">
+              <p className="section-subtitle">Cancel anytime | No contract</p>
+              {isSubscriber ? (
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowPlanOptions(false)}
+                  type="button"
+                >
+                  Hide plans
+                </button>
+              ) : null}
+            </div>
           </div>
         )}
 
         {process.env.NODE_ENV !== "production" ? (
-          <p className="text-xs text-white/60">
+          <p className="billing-debug text-xs text-white/50">
             Debug — stripe_status: {stripeStatus ?? "null"}, stripe_plan_tier:{" "}
             {stripePlanTier ?? "null"}, stripe_plan_billing: {stripePlanBilling ?? "null"},
             stripe_subscription_id: {stripeSubscriptionId ?? "null"}, stripe_price_id:{" "}
