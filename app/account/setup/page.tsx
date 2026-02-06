@@ -114,7 +114,7 @@ export default function AccountSetupPage() {
         throw upsertError;
       }
 
-      router.replace("/account/accept-terms");
+      router.replace("/post-onboard");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err

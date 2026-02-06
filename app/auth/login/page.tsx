@@ -1,13 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { type FormEvent, useMemo, useState } from "react";
 
 import { createClient } from "@/utils/supabase/client";
 
 export default function LoginPage() {
-  const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
   const [email, setEmail] = useState("");
@@ -29,7 +27,7 @@ export default function LoginPage() {
       if (signInError) throw signInError;
 
       // Redirect user
-      router.replace("/post-onboard");
+      window.location.assign("/post-onboard");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
