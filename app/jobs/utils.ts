@@ -54,4 +54,4 @@ export function stripHtml(value?: string | null) {
 }
 
 export const JOB_SELECT =
-  "id, created_at, customer_name, customer_email, customer_phone, title, status, last_activity_at, provider, provider_thread_id, provider_message_id, site_address, postcode, job_details, conversation_id, client_id, profile_id, metadata, job_thread_id";
+  "id, created_at, customer_name, customer_email, customer_phone, title, status, last_activity_at, provider, provider_thread_id, provider_message_id, site_address, postcode, job_details, conversation_id, client_id, profile_id, metadata, job_thread_id, outbound_email_subject, outbound_email_body, email_event_id";
