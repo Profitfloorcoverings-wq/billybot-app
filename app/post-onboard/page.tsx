@@ -1,8 +1,10 @@
+import { unstable_noStore } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createServerClient } from "@/utils/supabase/server";
 
 export default async function PostOnboardPage() {
+  unstable_noStore();
   const supabase = await createServerClient();
   const {
     data: { user },
