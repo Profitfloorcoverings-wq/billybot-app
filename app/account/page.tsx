@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -153,63 +153,82 @@ export default function AccountPage() {
   const [emailAccountsError, setEmailAccountsError] = useState<string | null>(null);
   const [emailActionTarget, setEmailActionTarget] = useState<string | null>(null);
   const [stripeStatus, setStripeStatus] = useState<string | null>(null);
+  const [stripePlanTier, setStripePlanTier] = useState<string | null>(null);
+  const [stripePlanBilling, setStripePlanBilling] = useState<string | null>(null);
+  const [stripeSubscriptionId, setStripeSubscriptionId] = useState<string | null>(null);
+  const [stripePriceId, setStripePriceId] = useState<string | null>(null);
   const [stripeId, setStripeId] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [billingActionTarget, setBillingActionTarget] = useState<string | null>(null);
   const [billingError, setBillingError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadProfile() {
-      setLoading(true);
-      setError(null);
+  const loadProfile = useCallback(async () => {
+    setLoading(true);
+    setError(null);
 
-      try {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
 
-        if (userError || !userData?.user) {
-          router.push("/auth/login");
-          return;
-        }
-
-        setUserId(userData.user.id);
-        setUserEmail(userData.user.email ?? "");
-
-        const { data: clientData, error: clientError } = await supabase
-          .from("clients")
-          .select(
-            "accounting_system, stripe_status, stripe_id, business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
-          )
-          .eq("id", userData.user.id)
-          .maybeSingle();
-
-        if (clientError) {
-          throw clientError;
-        }
-
-        setAccountingSystem(clientData?.accounting_system ?? null);
-        setStripeStatus(clientData?.stripe_status ?? null);
-        setStripeId(clientData?.stripe_id ?? null);
-
-        if (!clientData || !isBusinessProfileComplete(clientData)) {
-          router.push("/account/setup");
-          return;
-        }
-
-        setProfile({ ...EMPTY_PROFILE, ...clientData, is_onboarded: true });
-      } catch (err) {
-        setError(
-          err && typeof err === "object" && "message" in err
-            ? String((err as { message?: string }).message)
-            : "Unable to load account"
-        );
-      } finally {
-        setLoading(false);
-        setAccountingStatusLoaded(true);
+      if (userError || !userData?.user) {
+        router.push("/auth/login");
+        return;
       }
-    }
 
-    void loadProfile();
+      setUserId(userData.user.id);
+      setUserEmail(userData.user.email ?? "");
+
+      const { data: clientData, error: clientError } = await supabase
+        .from("clients")
+        .select(
+          "accounting_system, stripe_status, stripe_plan_tier, stripe_plan_billing, stripe_subscription_id, stripe_price_id, stripe_id, business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
+        )
+        .eq("id", userData.user.id)
+        .maybeSingle();
+
+      if (clientError) {
+        throw clientError;
+      }
+
+      setAccountingSystem(clientData?.accounting_system ?? null);
+      setStripeStatus(clientData?.stripe_status ?? null);
+      setStripePlanTier(clientData?.stripe_plan_tier ?? null);
+      setStripePlanBilling(clientData?.stripe_plan_billing ?? null);
+      setStripeSubscriptionId(clientData?.stripe_subscription_id ?? null);
+      setStripePriceId(clientData?.stripe_price_id ?? null);
+      setStripeId(clientData?.stripe_id ?? null);
+
+      if (!clientData || !isBusinessProfileComplete(clientData)) {
+        router.push("/account/setup");
+        return;
+      }
+
+      setProfile({ ...EMPTY_PROFILE, ...clientData, is_onboarded: true });
+    } catch (err) {
+      setError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to load account"
+      );
+    } finally {
+      setLoading(false);
+      setAccountingStatusLoaded(true);
+    }
   }, [router, supabase]);
+
+  useEffect(() => {
+    void loadProfile();
+  }, [loadProfile]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const billingResult = url.searchParams.get("billing");
+    if (billingResult === "success") {
+      void loadProfile();
+      url.searchParams.delete("billing");
+      router.replace(url.pathname);
+    }
+  }, [loadProfile, router]);
 
   async function loadEmailAccounts() {
     setEmailAccountsLoading(true);
@@ -453,6 +472,51 @@ export default function AccountPage() {
 
   const normalizedStripeStatus = (stripeStatus ?? "").toLowerCase();
   const isSubscriber = SUBSCRIBER_STATUSES.has(normalizedStripeStatus);
+  const normalizedPlanTier = (stripePlanTier ?? "").toLowerCase();
+  const normalizedPlanBilling = (stripePlanBilling ?? "").toLowerCase();
+
+  const normalizedBillingCycle =
+    normalizedPlanBilling === "month"
+      ? "monthly"
+      : normalizedPlanBilling === "year"
+      ? "annual"
+      : normalizedPlanBilling === "monthly" || normalizedPlanBilling === "annual"
+      ? normalizedPlanBilling
+      : null;
+
+  const planLabel =
+    normalizedPlanTier === "starter"
+      ? "Starter"
+      : normalizedPlanTier === "pro"
+      ? "Pro"
+      : normalizedPlanTier === "team"
+      ? "Team"
+      : "—";
+
+  const billingLabel =
+    normalizedBillingCycle === "monthly"
+      ? "Monthly"
+      : normalizedBillingCycle === "annual"
+      ? "Annual"
+      : "—";
+
+  const statusBadge = (() => {
+    switch (normalizedStripeStatus) {
+      case "active":
+        return {
+          label: "Subscription active",
+          className: "bg-emerald-500/15 text-emerald-200",
+        };
+      case "trialing":
+        return { label: "Trialing", className: "bg-emerald-500/15 text-emerald-200" };
+      case "past_due":
+        return { label: "Past due", className: "bg-amber-500/15 text-amber-200" };
+      case "canceled":
+        return { label: "Canceled", className: "bg-red-500/15 text-red-200" };
+      default:
+        return { label: "Not subscribed", className: "bg-white/5 text-white/70" };
+    }
+  })();
 
   const missingPriceIds = PLAN_CONFIGS.flatMap((plan) => {
     const ids = getCyclePriceIds(plan);
@@ -758,7 +822,10 @@ export default function AccountPage() {
 
         {isSubscriber ? (
           <>
-            <div className="tag bg-emerald-500/15 text-emerald-200 w-fit">Subscription active</div>
+            <div className={`tag ${statusBadge.className} w-fit`}>{statusBadge.label}</div>
+            <p className="section-subtitle">
+              Plan: {planLabel} ({billingLabel})
+            </p>
             <button
               onClick={handleManageBilling}
               disabled={loadingPortal}
@@ -769,6 +836,7 @@ export default function AccountPage() {
           </>
         ) : (
           <div className="stack gap-4">
+            <div className={`tag ${statusBadge.className} w-fit`}>{statusBadge.label}</div>
             <div className="flex flex-wrap items-center gap-2">
               <button
                 className={billingCycle === "monthly" ? "btn btn-primary" : "btn btn-secondary"}
@@ -832,8 +900,11 @@ export default function AccountPage() {
 
         {process.env.NODE_ENV !== "production" ? (
           <p className="text-xs text-white/60">
-            Debug — stripe_status: {stripeStatus ?? "null"}, stripe_id: {stripeId ?? "null"}, missing
-            price_ids: {missingPriceIds.length ? missingPriceIds.join(", ") : "none"}
+            Debug — stripe_status: {stripeStatus ?? "null"}, stripe_plan_tier:{" "}
+            {stripePlanTier ?? "null"}, stripe_plan_billing: {stripePlanBilling ?? "null"},
+            stripe_subscription_id: {stripeSubscriptionId ?? "null"}, stripe_price_id:{" "}
+            {stripePriceId ?? "null"}, stripe_id: {stripeId ?? "null"}, missing price_ids:{" "}
+            {missingPriceIds.length ? missingPriceIds.join(", ") : "none"}
           </p>
         ) : null}
 
