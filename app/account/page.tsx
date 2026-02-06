@@ -2,7 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/client";
 
@@ -136,7 +136,6 @@ function isBusinessProfileComplete(profile: ClientProfile | null) {
 
 export default function AccountPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
 
   const [profile, setProfile] = useState<ClientProfile>(EMPTY_PROFILE);
@@ -221,13 +220,15 @@ export default function AccountPage() {
   }, [loadProfile]);
 
   useEffect(() => {
-    if (!searchParams) return;
-    const billingResult = searchParams.get("billing");
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const billingResult = url.searchParams.get("billing");
     if (billingResult === "success") {
       void loadProfile();
-      router.replace("/account");
+      url.searchParams.delete("billing");
+      router.replace(url.pathname);
     }
-  }, [loadProfile, router, searchParams]);
+  }, [loadProfile, router]);
 
   async function loadEmailAccounts() {
     setEmailAccountsLoading(true);
