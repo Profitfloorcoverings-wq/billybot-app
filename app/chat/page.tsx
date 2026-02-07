@@ -1,326 +1,667 @@
 "use client";
 
-import { useState, useEffect, useRef, KeyboardEvent, useCallback } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  KeyboardEvent,
+  ChangeEvent,
+} from "react";
 import ReactMarkdown from "react-markdown";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import type { Session, SupabaseClient } from "@supabase/supabase-js";
+import Link from "next/link";
 
-// ---------- Browser Supabase Client ----------
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+import { createClient as createSupabaseClient } from "@/utils/supabase/client";
+import { getSession } from "@/utils/supabase/session";
+import { useClientFlags } from "@/components/client-flags/ClientFlagsProvider";
+import LoginPage from "../auth/login/page";
 
-function createBrowserSupabaseClient(): SupabaseClient | null {
-  if (typeof window === "undefined") return null;
-<<<<<<< HEAD
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Supabase env vars are missing in the browser.");
-    return null;
-  }
-=======
->>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
-  return createClient(supabaseUrl, supabaseAnonKey);
-}
-
-type DbMessage = {
-  id: string;
+type Message = {
+  id: number | string;
   role: "user" | "assistant";
   content: string;
-  type?: "quote" | null;
+  type?: string | null;
+  conversation_id?: string;
   quote_reference?: string | null;
-  conversation_id: string;
-  created_at: string;
+  created_at?: string;
 };
 
-type UiMessage = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  type?: "quote" | null;
-  quote_reference?: string | null;
+type HistoryResponse = {
+  conversation_id: string;
+  messages: Message[];
+};
+
+type SendResponse = {
+  reply: string;
+  conversation_id: string;
+  userMessage?: Message;
+  assistantMessage?: Message;
+};
+type BannerState = {
+  showBanner: boolean;
+  showPricingBtn: boolean;
+  showUploadBtn: boolean;
 };
 
 export default function ChatPage() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<UiMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [isSending, setIsSending] = useState(false);
-  const [supabaseClient, setSupabaseClient] = useState<SupabaseClient | null>(null);
-<<<<<<< HEAD
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [bannerState, setBannerState] = useState<BannerState | null>(null);
+  const [taskState, setTaskState] = useState<
+    "idle" | "building_quote" | "updating_quote" | string
+  >("idle");
+  const [taskHint, setTaskHint] = useState<string | null>(null);
+
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  const initialLoadRef = useRef(true);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const taskHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { flags } = useClientFlags();
+
+  const supabase: SupabaseClient | null = useMemo(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      return null;
+    }
+
+    return createSupabaseClient();
+  }, []);
+
+  const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
+  const isLocked =
+    taskState === "building_quote" || taskState === "updating_quote";
+
+  const taskBannerContent = useMemo(() => {
+    if (taskState === "building_quote") {
+      return {
+        title: "Building quote…",
+        subtext: "Please wait for it to finish generating before requesting changes.",
+      };
+    }
+
+    if (taskState === "updating_quote") {
+      return {
+        title: "Updating quote…",
+        subtext: "Please wait — I’m applying your changes.",
+      };
+    }
+
+    return null;
+  }, [taskState]);
+
+  const triggerTaskHint = () => {
+    if (!isLocked) return;
+
+    const hint =
+      taskState === "updating_quote"
+        ? "Quote is updating. Wait a moment."
+        : "Quote is still being built. Wait a moment.";
+
+    setTaskHint(hint);
+
+    if (taskHintTimeoutRef.current) {
+      clearTimeout(taskHintTimeoutRef.current);
+    }
+
+    taskHintTimeoutRef.current = setTimeout(() => {
+      setTaskHint(null);
+    }, 2000);
+  };
 
   useEffect(() => {
-    setSupabaseClient(createBrowserSupabaseClient());
+    let isMounted = true;
+
+    async function loadSession() {
+      const currentSession = await getSession();
+
+      if (!isMounted) return;
+
+      setSession(currentSession);
+      setAuthLoading(false);
+    }
+
+    void loadSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
-=======
->>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
 
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-
-  // Init browser client
   useEffect(() => {
-    setSupabaseClient(createBrowserSupabaseClient());
-  }, []);
+    if (!session) return;
 
-  // ---------- Load chat history ----------
-  const loadMessagesFromSupabase = useCallback(
-    async (conversation_id: string) => {
-      if (!supabaseClient) return;
+    async function loadHistory() {
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
+        });
 
-      const { data, error } = await supabaseClient
-        .from("messages")
-<<<<<<< HEAD
-        .select("id, role, content, type, quote_reference, conversation_id, created_at")
-=======
-        .select("id, role, content, type, quote_reference, created_at")
->>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
-        .eq("conversation_id", conversation_id)
-        .order("created_at", { ascending: true });
+        const data = (await res.json()) as HistoryResponse;
+
+        if (data?.conversation_id) {
+          setConversationId(data.conversation_id);
+        }
+
+        if (Array.isArray(data?.messages)) {
+          setMessages(data.messages);
+
+          const nextSeen = new Set<string>();
+          data.messages.forEach((m) => {
+            nextSeen.add(String(m.id));
+          });
+          seenIdsRef.current = nextSeen;
+        }
+      } catch (err) {
+        console.error("Error loading history:", err);
+      } finally {
+        setLoading(false);
+        scrollToBottom("auto");
+      }
+    }
+
+    loadHistory();
+  }, [session]);
+
+  const computedBanner = useMemo(() => {
+    if (flags.loading) {
+      return null;
+    }
+
+    const showBanner = !(flags.hasEdited && flags.hasUploaded);
+    const showPricingBtn = !flags.hasEdited;
+    const showUploadBtn = !flags.hasUploaded;
+
+    return { showBanner, showPricingBtn, showUploadBtn };
+  }, [flags.hasEdited, flags.hasUploaded, flags.loading]);
+
+  useEffect(() => {
+    if (!computedBanner) return;
+    setBannerState(computedBanner);
+  }, [computedBanner]);
+
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      initialLoadRef.current = false;
+      return;
+    }
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    if (!supabase || !conversationId) return;
+
+    let isMounted = true;
+
+    async function fetchTaskState() {
+      const client = supabase;
+      if (!client) return;
+
+      const { data, error } = await client
+        .from("conversations")
+        .select("task_state")
+        .eq("id", conversationId)
+        .maybeSingle();
+
+      if (!isMounted) return;
 
       if (error) {
-        console.error("Supabase history error:", error);
+        console.warn("Failed to fetch task state:", error.message);
         return;
       }
 
-      const formatted: UiMessage[] = (data ?? []).map((m) => ({
-        id: m.id,
-        role: m.role,
-        content: m.content ?? "",
-        type: m.type ?? undefined,
-        quote_reference: m.quote_reference ?? undefined,
-      }));
-
-      setMessages(formatted);
-    },
-    [supabaseClient]
-  );
-
-<<<<<<< HEAD
-=======
-  // ---------- Load or create conversation ----------
->>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
-  const initializeConversation = useCallback(async () => {
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "__LOAD_HISTORY__" }),
-      });
-
-      if (!res.ok) return;
-
-      const data = await res.json();
-      const rows = (data?.messages ?? []) as DbMessage[];
-
-<<<<<<< HEAD
-      const convIdFromRows = rows.length ? rows[0].conversation_id : null;
-      const convIdFromPayload =
-        typeof data?.conversation_id === "string" ? data.conversation_id : null;
-
-      const resolvedConversationId = convIdFromRows ?? convIdFromPayload;
-
-      if (resolvedConversationId) {
-        setConversationId((prev) => prev ?? resolvedConversationId);
-=======
-      const existingConvIdFromRows =
-        rows.length > 0 ? rows[0].conversation_id : null;
-
-      const existingConvIdFromPayload =
-        typeof data?.conversation_id === "string" ? data.conversation_id : null;
-
-      const resolvedConversationId =
-        existingConvIdFromRows ?? existingConvIdFromPayload;
-
-      if (resolvedConversationId) {
-        setConversationId(resolvedConversationId);
->>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
-        await loadMessagesFromSupabase(resolvedConversationId);
-      }
-    } catch (err) {
-      console.error("History load error:", err);
+      setTaskState(data?.task_state ?? "idle");
     }
-  }, [loadMessagesFromSupabase]);
+
+    void fetchTaskState();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [supabase, conversationId]);
 
   useEffect(() => {
-<<<<<<< HEAD
-    if (!supabaseClient) return;
-    initializeConversation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabaseClient]);
+    if (!supabase || !conversationId) return;
 
-  useEffect(() => {
-    if (!supabaseClient || !conversationId) return;
-    loadMessagesFromSupabase(conversationId);
-  }, [conversationId, loadMessagesFromSupabase, supabaseClient]);
-=======
-    if (supabaseClient) {
-      initializeConversation();
-    }
-  }, [supabaseClient, initializeConversation]);
->>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
-
-  // ---------- Realtime subscription ----------
-  useEffect(() => {
-    if (!conversationId || !supabaseClient) return;
-
-    const channel = supabaseClient
-      .channel(`chat-${conversationId}`)
+    const channel = supabase
+      .channel(`messages-conversation-${conversationId}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "messages",
-          filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          const row = payload.new as DbMessage;
+          const newMessage = payload.new as Message & { conversation_id?: string };
 
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === row.id)) return prev;
+          const eventConversationId = newMessage.conversation_id
+            ? String(newMessage.conversation_id)
+            : null;
 
-            return [
-              ...prev,
-              {
-                id: row.id,
-                role: row.role,
-<<<<<<< HEAD
-                content: row.content ?? "",
-=======
-                content: row.content,
->>>>>>> 04f910e468cd1d4d13177ff5923eee52a1347223
-                type: row.type ?? undefined,
-                quote_reference: row.quote_reference ?? undefined,
-              },
-            ];
-          });
+          if (!eventConversationId || eventConversationId !== String(conversationId)) return;
+
+          const idKey = String(newMessage.id);
+          if (seenIdsRef.current.has(idKey)) return;
+
+          seenIdsRef.current.add(idKey);
+
+          setMessages((prev) => [...prev, { ...newMessage, conversation_id: eventConversationId }]);
+          scrollToBottom();
         }
       )
       .subscribe();
 
     return () => {
-      supabaseClient.removeChannel(channel);
+      supabase.removeChannel(channel);
     };
-  }, [conversationId, supabaseClient]);
+  }, [supabase, conversationId]);
 
-  // ---------- Auto-scroll ----------
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+    if (!supabase || !conversationId) return;
 
-  // ---------- Send Message ----------
+    const channel = supabase
+      .channel(`conversation-task-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "conversations",
+          filter: `id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const nextState = (payload.new as { task_state?: string }).task_state ?? "idle";
+          setTaskState(nextState);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, conversationId]);
+
+  useEffect(() => {
+    if (!isLocked) {
+      setTaskHint(null);
+    }
+  }, [isLocked]);
+
+  useEffect(() => {
+    return () => {
+      if (taskHintTimeoutRef.current) {
+        clearTimeout(taskHintTimeoutRef.current);
+      }
+    };
+  }, []);
+
   async function sendMessage() {
-    const text = input.trim();
-    if (!text || isSending) return;
+    if (isLocked) return;
+
+    const userText = input.trim();
+    const filesToSend = attachedFiles;
+    const hasAttachments = filesToSend.length > 0;
+    const hasContent = !!userText || hasAttachments;
+
+    if (!hasContent || sending) return;
+
+    setSending(true);
+
+    if (hasAttachments) {
+      const attachmentMessage: Message = {
+        id: `attachment-${Date.now()}`,
+        role: "user",
+        type: "file",
+        content:
+          filesToSend.length === 1
+            ? "\ud83d\udcce 1 attachment sent"
+            : `\ud83d\udcce ${filesToSend.length} attachments sent`,
+      };
+
+      setMessages((prev) => [...prev, attachmentMessage]);
+    }
 
     setInput("");
-    setIsSending(true);
-
-    // optimistic UI
-    const localId = `local-${Date.now()}`;
-    setMessages((prev) => [...prev, { id: localId, role: "user", content: text }]);
+    clearAllFiles();
 
     try {
+      const filesPayload = await Promise.all(
+        filesToSend.map(
+          (file) =>
+            new Promise<{ name: string; type: string; size: number; base64: string }>((resolve, reject) => {
+              const reader = new FileReader();
+
+              reader.onload = () => {
+                const result = typeof reader.result === "string" ? reader.result : "";
+                const base64 = result.includes(",") ? result.split(",", 2)[1] ?? "" : result;
+                resolve({
+                  name: file.name,
+                  type: file.type,
+                  size: file.size,
+                  base64,
+                });
+              };
+
+              reader.onerror = () => {
+                reject(reader.error ?? new Error("Failed to read file"));
+              };
+
+              reader.readAsDataURL(file);
+            })
+        )
+      );
+
+      const history = messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role, content: m.content }));
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({
+          message: userText,
+          conversation_id: conversationId,
+          files: filesPayload,
+          history,
+        }),
       });
 
       if (!res.ok) {
-        console.error("Send failed", await res.text());
+        throw new Error(`Request failed: ${res.status}`);
       }
 
-      if (!conversationId) {
-        await initializeConversation();
+      const data = (await res.json()) as SendResponse;
+
+      if (data?.conversation_id && !conversationId) {
+        setConversationId(data.conversation_id);
       }
-    } catch (err) {
-      console.error("Chat error:", err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `error-${Date.now()}`,
+
+      const incoming: Message[] = [];
+
+      if (data?.userMessage) {
+        incoming.push(data.userMessage);
+        seenIdsRef.current.add(String(data.userMessage.id));
+      }
+
+      if (data?.assistantMessage) {
+        incoming.push(data.assistantMessage);
+        seenIdsRef.current.add(String(data.assistantMessage.id));
+      } else if (data?.reply) {
+        incoming.push({
+          id: Date.now(),
           role: "assistant",
-          content: "Error: Could not reach BillyBot.",
-        },
-      ]);
+          content: data.reply,
+          type: "text",
+        });
+      }
+
+      if (incoming.length) {
+        setMessages((prev) => [...prev, ...incoming]);
+        scrollToBottom();
+      }
+
+      setInput("");
+      clearAllFiles();
+    } catch (err) {
+      console.warn("Chat request failed or delayed. Awaiting realtime reply.", err);
     } finally {
-      setIsSending(false);
+      setSending(false);
     }
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (isLocked) return;
+    if (e.key !== "Enter" || e.shiftKey) return;
+
+    if ((input.trim() || attachedFiles.length > 0) && !sending) {
       e.preventDefault();
       sendMessage();
     }
   }
 
-  // ---------- UI ----------
-  return (
-    <div className="flex h-full flex-col gap-4 p-5">
-      <h1 className="text-3xl font-semibold tracking-tight text-[var(--text)]">
-        Chat
-      </h1>
+  const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setAttachedFiles(files);
+  };
 
-      <div className="flex-1 space-y-2 overflow-y-auto rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.85)] p-4">
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${
-              m.role === "user" ? "justify-end" : "justify-start"
-            }`}
+  const removeFile = (index: number) => {
+    if (isLocked) return;
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const clearAllFiles = () => {
+    setAttachedFiles([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const openFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const renderMessage = (m: Message) => {
+    if (m.type === "quote") {
+      const label = m.quote_reference ? `QUOTE ${m.quote_reference}` : "QUOTE";
+
+      return (
+        <div className="space-y-2">
+          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+            {label}
+          </div>
+
+          <a
+            href={m.content}
+            target="_blank"
+            rel="noreferrer"
+            aria-label={`Open ${label}`}
+            className="block w-[min(360px,100%)]"
           >
-            <div
-              className={`max-w-[75%] px-3 py-2 rounded-2xl text-sm shadow-sm whitespace-pre-wrap leading-relaxed
-                ${
-                  m.role === "user"
-                    ? "bg-[var(--brand1)] text-white rounded-br-none"
-                    : "bg-[#1f2937] text-[var(--text)] border border-[var(--line)] rounded-bl-none"
-                }`}
-            >
-              {m.type === "quote" ? (
-                <a
-                  href={m.content}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex flex-col gap-1 rounded-lg bg-[rgba(255,255,255,0.05)] px-3 py-2 text-left text-[var(--text)] hover:bg-[rgba(255,255,255,0.08)]"
-                >
-                  <span className="text-sm font-semibold">
-                    {m.quote_reference
-                      ? `Quote ${m.quote_reference} is ready`
-                      : "Quote is ready"}
-                  </span>
-                  <span className="text-xs text-[var(--muted)]">Tap to open</span>
-                </a>
-              ) : (
-                <div className="prose prose-invert max-w-none whitespace-pre-wrap">
-                  <ReactMarkdown>{m.content}</ReactMarkdown>
-                </div>
-              )}
+            <div className="rounded-2xl border border-[rgba(249,115,22,0.55)] bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-5 py-4 text-center text-sm font-extrabold text-white shadow-[0_0_18px_var(--orange-glow)] transition hover:brightness-105">
+              Open
+            </div>
+          </a>
+        </div>
+      );
+    }
+
+    return (
+      <div className="prose prose-invert max-w-none text-sm leading-normal [&_p]:my-1 [&_li]:my-0 [&_ul]:my-1">
+        <ReactMarkdown>{m.content}</ReactMarkdown>
+      </div>
+    );
+  };
+
+  if (authLoading) return null;
+  if (!session || !session.user) return <LoginPage />;
+
+  const effectiveBanner = computedBanner ?? bannerState;
+  let bannerTitle = "Starter prices enabled";
+  let bannerMessage = "update pricing settings or upload supplier price lists";
+
+  if (flags.hasEdited && !flags.hasUploaded) {
+    bannerTitle = "Pricing saved";
+    bannerMessage = "upload a supplier price list to unlock full quoting";
+  } else if (!flags.hasEdited && flags.hasUploaded) {
+    bannerTitle = "Supplier prices added";
+    bannerMessage = "review pricing settings to finish setup";
+  }
+
+  return (
+    <div className="chat-page h-[calc(100vh-120px)] overflow-hidden">
+      {effectiveBanner?.showBanner ? (
+        <div className="starter-banner-wrap">
+          <div className="starter-banner">
+            <div className="starter-banner-left">
+              <span className="starter-banner-dot" aria-hidden="true" />
+              <span className="starter-banner-text">
+                <strong>{bannerTitle}</strong>
+                <span className="starter-banner-sep">—</span>
+                <span className="starter-banner-msg">{bannerMessage}</span>
+              </span>
+            </div>
+
+            <div className="starter-banner-actions">
+              {effectiveBanner.showPricingBtn ? (
+                <Link href="/pricing" className="starter-banner-btn starter-banner-btn-primary">
+                  Pricing Settings
+                </Link>
+              ) : null}
+              {effectiveBanner.showUploadBtn ? (
+                <Link href="/suppliers" className="starter-banner-btn starter-banner-btn-ghost">
+                  Upload Price Lists
+                </Link>
+              ) : null}
             </div>
           </div>
-        ))}
-
-        <div ref={bottomRef}></div>
-      </div>
-
-      <div className="rounded-2xl border border-[var(--line)] bg-[rgba(15,23,42,0.9)] px-3 py-2">
-        <div className="flex items-end gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            rows={1}
-            placeholder="Message BillyBot…"
-            className="flex-1 resize-none bg-transparent text-sm text-[var(--text)] placeholder:text-[var(--muted)] focus:outline-none"
-          />
-
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || isSending}
-            className="inline-flex items-center justify-center rounded-full bg-[var(--brand1)] px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-[var(--brand2)] disabled:opacity-40"
-          >
-            {isSending ? "Sending…" : "Send"}
-          </button>
         </div>
+      ) : null}
+
+      <header className="chat-header">
+        <h1 className="section-title">Chat with BillyBot</h1>
+      </header>
+
+      <div className="chat-panel min-h-0">
+        <div className="flex items-center justify-between rounded-2xl bg-[rgba(255,255,255,0.04)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
+          <span>Conversation</span>
+          <span>{loading ? "Syncing…" : "Live"}</span>
+        </div>
+
+        <div className="chat-messages flex flex-col gap-2 rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] p-4 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={`chat-bubble ${m.role === "user" ? "chat-bubble-user" : "chat-bubble-bot"}`}
+            >
+              <div className={`chat-badge ${m.role === "user" ? "chat-badge-user" : ""}`}>
+                {m.role === "user" ? "You" : "BillyBot"}
+              </div>
+
+              {renderMessage(m)}
+            </div>
+          ))}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        <div className="chat-composer">
+          {taskBannerContent ? (
+            <div className="chat-task-banner">
+              <div className="chat-task-loader" aria-hidden="true">
+                <span className="chat-task-dots" />
+                <span className="chat-task-dots" />
+                <span className="chat-task-dots" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-white">{taskBannerContent.title}</div>
+                <div className="text-xs text-[var(--muted)]">{taskBannerContent.subtext}</div>
+              </div>
+            </div>
+          ) : null}
+          {taskHint ? <div className="chat-task-hint">{taskHint}</div> : null}
+
+          <div className={`chat-attachment-row ${attachedFiles.length ? "is-visible" : ""}`}>
+            <span className="chat-attachment-label">Attachments</span>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {attachedFiles.map((file, index) => (
+                <div key={`${file.name}-${index}`} className="chat-attachment-pill">
+                  <span className="chat-attachment-name">{file.name}</span>
+                  <button
+                    type="button"
+                    className="chat-attachment-remove"
+                    aria-label={`Remove ${file.name}`}
+                    onClick={() => removeFile(index)}
+                    disabled={isLocked}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="chat-input-row"
+            onMouseDownCapture={(event) => {
+              if (!isLocked) return;
+              const target = event.target as HTMLElement;
+              if (target.closest(".chat-input") || target.closest(".chat-upload-btn")) {
+                triggerTaskHint();
+              }
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                if (isLocked) {
+                  triggerTaskHint();
+                  return;
+                }
+                openFilePicker();
+              }}
+              className="chat-upload-btn"
+              aria-label="Upload files"
+              disabled={isLocked}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                focusable="false"
+                className="chat-upload-icon"
+              >
+                <path d="M12 5v14m-7-7h14" strokeWidth={1.8} strokeLinecap="round" />
+              </svg>
+            </button>
+
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              rows={1}
+              placeholder="Tell BillyBot what you need."
+              className="chat-input resize-none"
+              disabled={isLocked}
+            />
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,application/pdf"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            <button
+              onClick={sendMessage}
+              disabled={(!input.trim() && attachedFiles.length === 0) || sending || isLocked}
+              className="chat-send-btn flex items-center justify-center gap-2"
+            >
+              {sending ? (
+                <span className="flex items-center gap-2">
+                  <span className="chat-send-loader" aria-hidden />
+                  <span className="text-sm font-semibold">Working…</span>
+                </span>
+              ) : (
+                "Send"
+              )}
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );
