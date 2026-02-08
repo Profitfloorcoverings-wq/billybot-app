@@ -84,8 +84,8 @@ type StatusProgress = {
 };
 
 type JobDetailPageProps = {
-  params: { id?: string | string[] };
-  searchParams?: Record<string, string | string[] | undefined>;
+  params: Promise<{ id?: string | string[] }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 const UUID_RE =
@@ -257,9 +257,11 @@ async function getJobIdFromHeaders() {
 
 export default async function JobDetailPage({ params, searchParams }: JobDetailPageProps) {
   const supabase = await createServerClient();
+  const resolvedParams = await params;
+  const resolvedSearchParams = await searchParams;
   const debugEnabled =
-    searchParams?.debug === "1" || (await getDebugFlagFromHeaders());
-  const paramsId = normalizeParamId(params?.id);
+    resolvedSearchParams?.debug === "1" || (await getDebugFlagFromHeaders());
+  const paramsId = normalizeParamId(resolvedParams?.id);
   const headerId = paramsId ? "" : await getJobIdFromHeaders();
   const jobId = String(paramsId || headerId);
   const isValidJobId = UUID_RE.test(jobId);
@@ -281,8 +283,8 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
             <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
               {JSON.stringify(
                 {
-                  params,
-                  params_id: params?.id ?? null,
+                  params: resolvedParams,
+                  params_id: resolvedParams?.id ?? null,
                   header_id: headerId || null,
                   jobId,
                   isValidJobId,
@@ -572,8 +574,8 @@ export default async function JobDetailPage({ params, searchParams }: JobDetailP
           <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
             {JSON.stringify(
               {
-                params,
-                params_id: params?.id ?? null,
+                params: resolvedParams,
+                params_id: resolvedParams?.id ?? null,
                 header_id: headerId || null,
                 jobId,
                 isValidJobId,
