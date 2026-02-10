@@ -94,7 +94,10 @@ export async function middleware(req: NextRequest) {
   const isFullyOnboarded = businessComplete && hasAcceptedTerms;
 
   if (isFullyOnboarded) {
-    if (AUTH_ROUTES.some((route) => pathname.startsWith(route))) {
+    if (
+      AUTH_ROUTES.some((route) => pathname.startsWith(route)) ||
+      ONBOARDING_ROUTES.some((route) => pathname.startsWith(route))
+    ) {
       return redirectWithCookies(req, res, "/chat");
     }
 
