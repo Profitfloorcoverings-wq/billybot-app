@@ -75,6 +75,12 @@ export default function LoginPage() {
               />
             </div>
 
+            <p className="text-right text-sm text-[var(--muted)]">
+              <Link href="/auth/forgot-password" className="text-[var(--brand1)] hover:underline">
+                Forgot password?
+              </Link>
+            </p>
+
             {error && (
               <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
                 {error}
