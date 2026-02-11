@@ -42,62 +42,71 @@ export default function LoginPage() {
   return (
     <div className="page-container min-h-screen">
       <div className="flex flex-1 items-center justify-center">
-        <div className="card stack gap-6 w-full max-w-md mx-auto">
-          <div className="stack gap-1">
-            <h1 className="section-title">Welcome back</h1>
-            <p className="section-subtitle">Log in to continue chatting</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="stack gap-4">
-            <div className="field-group">
-              <label className="field-label" htmlFor="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                className="input-fluid"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                required
-              />
+        <div className="card stack gap-6 w-full max-w-md mx-auto relative">
+          <div className="relative z-10 pointer-events-auto stack gap-6">
+            <div className="stack gap-1">
+              <h1 className="section-title">Welcome back</h1>
+              <p className="section-subtitle">Log in to continue chatting</p>
             </div>
 
-            <div className="field-group">
-              <label className="field-label" htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                className="input-fluid"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
+            <form onSubmit={handleSubmit} className="stack gap-4">
+              <div className="field-group">
+                <label className="field-label" htmlFor="email">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  className="input-fluid"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
 
-            <p className="text-right text-sm text-[var(--muted)]">
-              <Link href="/auth/forgot-password" className="text-[var(--brand1)] hover:underline">
-                Forgot password?
+              <div className="field-group">
+                <label className="field-label" htmlFor="password">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  className="input-fluid"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+
+              <p className="text-right text-sm text-[var(--muted)]">
+                <Link
+                  href="/auth/forgot-password"
+                  className="relative z-20 inline-block cursor-pointer pointer-events-auto text-[var(--brand1)] hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </p>
+
+              {error && (
+                <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
+                  {error}
+                </div>
+              )}
+
+              <button type="submit" className="btn btn-primary" disabled={loading}>
+                {loading ? "Logging in…" : "Log in"}
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-[var(--muted)]">
+              Don’t have an account?{" "}
+              <Link href="/auth/signup" className="text-[var(--brand1)] hover:underline">
+                Create one
               </Link>
             </p>
-
-            {error && (
-              <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
-                {error}
-              </div>
-            )}
-
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? "Logging in…" : "Log in"}
-            </button>
-          </form>
-
-          <p className="text-center text-sm text-[var(--muted)]">
-            Don’t have an account?{" "}
-            <Link href="/auth/signup" className="text-[var(--brand1)] hover:underline">
-              Create one
-            </Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>
