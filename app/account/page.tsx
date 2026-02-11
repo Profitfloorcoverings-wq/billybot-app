@@ -190,6 +190,7 @@ export default function AccountPage() {
 
   const [profile, setProfile] = useState<ClientProfile>(EMPTY_PROFILE);
   const [userEmail, setUserEmail] = useState<string>("");
+  const [authProvider, setAuthProvider] = useState<string | null>(null);
   const [userId, setUserId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -213,6 +214,12 @@ export default function AccountPage() {
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingSuccess, setBillingSuccess] = useState<string | null>(null);
   const [showPlanOptions, setShowPlanOptions] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -226,8 +233,18 @@ export default function AccountPage() {
         return;
       }
 
+      const providerFromMetadata =
+        userData.user.app_metadata && typeof userData.user.app_metadata.provider === "string"
+          ? userData.user.app_metadata.provider
+          : null;
+      const providerFromIdentity =
+        userData.user.identities && userData.user.identities.length > 0
+          ? userData.user.identities[0]?.provider ?? null
+          : null;
+
       setUserId(userData.user.id);
       setUserEmail(userData.user.email ?? "");
+      setAuthProvider(providerFromMetadata ?? providerFromIdentity);
 
       const { data: clientData, error: clientError } = await supabase
         .from("clients")
@@ -497,6 +514,66 @@ export default function AccountPage() {
       );
     } finally {
       setBillingActionTarget(null);
+    }
+  }
+
+  async function handleChangePassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    const isEmailProvider = authProvider === "email";
+
+    if (isEmailProvider && !userEmail) {
+      setPasswordError("Can’t load your email — refresh and try again.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setPasswordError("New password and confirmation do not match.");
+      return;
+    }
+
+    setPasswordSaving(true);
+
+    try {
+      if (isEmailProvider && currentPassword) {
+        const { error: reauthError } = await supabase.auth.signInWithPassword({
+          email: userEmail,
+          password: currentPassword,
+        });
+
+        if (reauthError) {
+          throw new Error("Current password is incorrect.");
+        }
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setPasswordSuccess("Password updated successfully.");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmNewPassword("");
+    } catch (err) {
+      setPasswordError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to update password."
+      );
+      setCurrentPassword("");
+    } finally {
+      setPasswordSaving(false);
     }
   }
 
@@ -976,6 +1053,89 @@ export default function AccountPage() {
         ) : null}
 
         {billingError ? <p className="text-sm text-red-400">{billingError}</p> : null}
+      </div>
+
+      <div className="card stack gap-4">
+        <div className="stack gap-1">
+          <h2 className="section-title">Password &amp; Security</h2>
+          <p className="section-subtitle">Change your password to keep your account secure.</p>
+        </div>
+
+        <form onSubmit={handleChangePassword} className="stack gap-4">
+          {authProvider === "email" ? (
+            <div className="field-group">
+              <label className="field-label" htmlFor="current_password">
+                Current password (optional)
+              </label>
+              <input
+                id="current_password"
+                type="password"
+                className="input-fluid"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+              <p className="text-xs text-white/60">
+                For extra security, enter your current password to confirm.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-white/60">
+              You signed in with Google/Microsoft. Set a password to enable email + password
+              login too.
+            </p>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="field-group">
+              <label className="field-label" htmlFor="new_password">
+                New password
+              </label>
+              <input
+                id="new_password"
+                type="password"
+                className="input-fluid"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+                minLength={8}
+              />
+            </div>
+
+            <div className="field-group">
+              <label className="field-label" htmlFor="confirm_new_password">
+                Confirm new password
+              </label>
+              <input
+                id="confirm_new_password"
+                type="password"
+                className="input-fluid"
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+                minLength={8}
+              />
+            </div>
+          </div>
+
+          {authProvider === "email" && !userEmail ? (
+            <p className="text-xs text-red-400">Can’t load your email — refresh and try again.</p>
+          ) : null}
+          {passwordError ? <p className="text-sm text-red-400">{passwordError}</p> : null}
+          {passwordSuccess ? <p className="text-sm text-emerald-300">{passwordSuccess}</p> : null}
+
+          <div>
+            <button
+              className="btn btn-primary"
+              type="submit"
+              disabled={passwordSaving || (authProvider === "email" && !userEmail)}
+            >
+              {passwordSaving ? "Updating..." : "Change password"}
+            </button>
+          </div>
+        </form>
       </div>
 
       <div className="card stack gap-4">
