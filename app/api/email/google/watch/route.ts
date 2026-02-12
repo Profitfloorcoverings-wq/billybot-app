@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   const { data: accounts, error } = await serviceClient
     .from("email_accounts")
     .select(
-      "id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, gmail_history_id"
+      "id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, gmail_history_id, gmail_watch_expires_at, gmail_last_push_at, last_success_at"
     )
     .eq("client_id", user.id)
     .eq("provider", "google")
@@ -55,7 +55,8 @@ export async function POST(request: NextRequest) {
 
   const updated = await Promise.all(
     accounts.map(async (account) => {
-      const historyId = await startGmailWatch(account);
+      const watch = await startGmailWatch(account);
+      const historyId = watch.historyId;
       const { data: refreshed } = await serviceClient
         .from("email_accounts")
         .select("id, email_address, gmail_history_id")

@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
       { onConflict: "client_id,provider,email_address" }
     )
     .select(
-      "id, client_id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, ms_subscription_id, ms_subscription_expires_at"
+      "id, client_id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, status, last_error, ms_subscription_id, ms_subscription_expires_at, ms_last_push_at, last_success_at"
     )
     .maybeSingle<MicrosoftAccount>();
 

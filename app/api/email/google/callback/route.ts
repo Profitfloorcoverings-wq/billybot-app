@@ -161,7 +161,7 @@ export async function GET(request: NextRequest) {
       { onConflict: "client_id,provider,email_address" }
     )
     .select(
-      "id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, gmail_history_id"
+      "id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, gmail_history_id, gmail_watch_expires_at, gmail_last_push_at, last_success_at"
     )
     .maybeSingle<GmailAccount>();
 
@@ -170,7 +170,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await startGmailWatch(account);
+    await startGmailWatch(account, { force: true });
   } catch (watchError) {
     console.error("Failed to start Gmail watch", watchError);
   }

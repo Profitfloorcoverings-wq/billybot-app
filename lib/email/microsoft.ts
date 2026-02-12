@@ -1,10 +1,12 @@
 import "server-only";
 
+import { computeEmailConnectionStatus, markAccountStatus } from "@/lib/email/accountState";
 import { createEmailServiceClient } from "@/lib/email/serviceClient";
 import { getValidAccessToken } from "@/lib/email/tokens";
 
 const GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0";
 const SUBSCRIPTION_TTL_MS = 2 * 24 * 60 * 60 * 1000;
+const SUBSCRIPTION_RENEW_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 export type MicrosoftAccount = {
   id: string;
@@ -15,8 +17,12 @@ export type MicrosoftAccount = {
   refresh_token_enc: string | null;
   expires_at: string | null;
   scopes: string[] | null;
+  status?: string | null;
+  last_error?: string | null;
   ms_subscription_id: string | null;
   ms_subscription_expires_at: string | null;
+  ms_last_push_at?: string | null;
+  last_success_at?: string | null;
 };
 
 export type MicrosoftMessagePayload = {
@@ -75,8 +81,9 @@ async function graphRequest(
   });
 
   if (!response.ok) {
+    const body = await response.text();
     const error = new Error(
-      `Microsoft Graph request failed (${response.status})`
+      `Microsoft Graph request failed (${response.status}): ${body || "unknown error"}`
     ) as GraphError;
     error.status = response.status;
     throw error;
@@ -88,11 +95,12 @@ async function graphRequest(
 async function markMicrosoftAccountError(accountId: string, error: unknown) {
   const message =
     error instanceof Error ? error.message : "Microsoft subscription error";
-  const serviceClient = createEmailServiceClient();
-  await serviceClient
-    .from("email_accounts")
-    .update({ status: "error", last_error: message })
-    .eq("id", accountId);
+  const computed = computeEmailConnectionStatus({
+    provider: "microsoft",
+    status: "error",
+    last_error: message,
+  });
+  await markAccountStatus(accountId, "error", message, computed);
 }
 
 function getMicrosoftClientState() {
@@ -103,7 +111,8 @@ function getMicrosoftClientState() {
 }
 
 export async function ensureMicrosoftSubscription(
-  account: MicrosoftAccount
+  account: MicrosoftAccount,
+  options?: { force?: boolean }
 ): Promise<{ id: string; expiresAt: string }> {
   const clientState = getMicrosoftClientState();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -116,12 +125,15 @@ export async function ensureMicrosoftSubscription(
     ? new Date(account.ms_subscription_expires_at).getTime()
     : 0;
   const shouldRenew =
-    !account.ms_subscription_id || expiresAt <= Date.now();
+    options?.force ||
+    !account.ms_subscription_id ||
+    expiresAt - Date.now() <= SUBSCRIPTION_RENEW_WINDOW_MS;
 
   if (!shouldRenew) {
     return {
       id: account.ms_subscription_id!,
-      expiresAt: account.ms_subscription_expires_at ?? new Date(expiresAt).toISOString(),
+      expiresAt:
+        account.ms_subscription_expires_at ?? new Date(expiresAt).toISOString(),
     };
   }
 
@@ -154,14 +166,16 @@ export async function ensureMicrosoftSubscription(
     }
 
     const serviceClient = createEmailServiceClient();
-    const expiresAt = data.expirationDateTime ?? expirationDateTime;
+    const nextExpiresAt = data.expirationDateTime ?? expirationDateTime;
     await serviceClient
       .from("email_accounts")
       .update({
         ms_subscription_id: data.id,
-        ms_subscription_expires_at: expiresAt,
+        ms_subscription_expires_at: nextExpiresAt,
         status: "connected",
         last_error: null,
+        last_error_at: null,
+        email_connection_status: "ok",
       })
       .eq("id", account.id);
 
@@ -170,7 +184,7 @@ export async function ensureMicrosoftSubscription(
       subscriptionId: data.id,
     });
 
-    return { id: data.id, expiresAt };
+    return { id: data.id, expiresAt: nextExpiresAt };
   } catch (error) {
     await markMicrosoftAccountError(account.id, error);
     throw error;
@@ -181,7 +195,7 @@ export async function renewMicrosoftSubscription(
   account: MicrosoftAccount
 ): Promise<{ id: string; expiresAt: string }> {
   if (!account.ms_subscription_id) {
-    return ensureMicrosoftSubscription(account);
+    return ensureMicrosoftSubscription(account, { force: true });
   }
 
   const accessToken = await getValidAccessToken(account);
@@ -206,6 +220,8 @@ export async function renewMicrosoftSubscription(
         ms_subscription_expires_at: expiresAt,
         status: "connected",
         last_error: null,
+        last_error_at: null,
+        email_connection_status: "ok",
       })
       .eq("id", account.id);
 
@@ -228,14 +244,18 @@ export async function renewMicrosoftSubscription(
         .update({
           ms_subscription_id: null,
           ms_subscription_expires_at: null,
+          email_connection_status: "subscription_expired",
         })
         .eq("id", account.id);
 
-      return ensureMicrosoftSubscription({
-        ...account,
-        ms_subscription_id: null,
-        ms_subscription_expires_at: null,
-      });
+      return ensureMicrosoftSubscription(
+        {
+          ...account,
+          ms_subscription_id: null,
+          ms_subscription_expires_at: null,
+        },
+        { force: true }
+      );
     }
 
     await markMicrosoftAccountError(account.id, error);
