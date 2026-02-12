@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
   const { data: account, error } = await serviceClient
     .from("email_accounts")
     .select(
-      "id, client_id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, gmail_history_id"
+      "id, client_id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, gmail_history_id, gmail_watch_expires_at, gmail_last_push_at, last_success_at"
     )
     .eq("provider", "google")
     .eq("email_address", emailAddress)
@@ -85,7 +85,13 @@ export async function POST(request: NextRequest) {
   if (!account.gmail_history_id) {
     await serviceClient
       .from("email_accounts")
-      .update({ gmail_history_id: historyId })
+      .update({
+        gmail_history_id: historyId,
+        gmail_last_push_at: new Date().toISOString(),
+        email_connection_status: "ok",
+        last_error: null,
+        last_error_at: null,
+      })
       .eq("id", account.id);
     return NextResponse.json({ ok: true });
   }
@@ -94,7 +100,7 @@ export async function POST(request: NextRequest) {
     const history = await listGmailHistory(account, account.gmail_history_id);
     await serviceClient
       .from("email_accounts")
-      .update({ gmail_history_id: history.historyId })
+      .update({ gmail_history_id: history.historyId, gmail_last_push_at: new Date().toISOString(), last_success_at: new Date().toISOString(), email_connection_status: "ok", last_error: null, last_error_at: null })
       .eq("id", account.id);
 
     for (const messageId of history.messageIds) {
@@ -166,7 +172,13 @@ export async function POST(request: NextRequest) {
     console.error("Failed to process Gmail history", historyError);
     await serviceClient
       .from("email_accounts")
-      .update({ gmail_history_id: historyId })
+      .update({
+        gmail_history_id: historyId,
+        gmail_last_push_at: new Date().toISOString(),
+        email_connection_status: "watch_expired",
+        last_error: "Gmail history sync failed",
+        last_error_at: new Date().toISOString(),
+      })
       .eq("id", account.id);
   }
 

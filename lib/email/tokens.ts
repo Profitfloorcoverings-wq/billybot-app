@@ -2,6 +2,7 @@ import "server-only";
 
 import { decryptToken, encryptToken } from "@/lib/email/crypto";
 import { createEmailServiceClient } from "@/lib/email/serviceClient";
+import { computeEmailConnectionStatus, markAccountStatus } from "@/lib/email/accountState";
 
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const REFRESH_BUFFER_MS = 60 * 1000;
@@ -70,7 +71,8 @@ async function refreshGoogleToken(
   });
 
   if (!response.ok) {
-    throw new Error("Google token refresh failed");
+    const errorText = await response.text();
+    throw new Error(`Google token refresh failed: ${errorText || "unknown"}`);
   }
 
   const data = (await response.json()) as GoogleRefreshResponse;
@@ -131,7 +133,8 @@ async function refreshMicrosoftToken(
   });
 
   if (!response.ok) {
-    throw new Error("Microsoft token refresh failed");
+    const errorText = await response.text();
+    throw new Error(`Microsoft token refresh failed: ${errorText || "unknown"}`);
   }
 
   const data = (await response.json()) as MicrosoftRefreshResponse;
@@ -152,6 +155,7 @@ async function refreshMicrosoftToken(
 
 export async function getValidAccessToken(account: EmailAccount) {
   if (!account.access_token_enc) {
+    await markAccountStatus(account.id, "error", "Missing access token", "needs_reconnect");
     throw new Error("Missing access token");
   }
 
@@ -161,30 +165,51 @@ export async function getValidAccessToken(account: EmailAccount) {
   }
 
   if (!account.refresh_token_enc) {
+    await markAccountStatus(account.id, "error", "Missing refresh token", "needs_reconnect");
     throw new Error("Missing refresh token");
   }
 
-  const refreshToken = decryptToken(account.refresh_token_enc);
-  const refreshed =
-    account.provider === "google"
-      ? await refreshGoogleToken(account, refreshToken)
-      : await refreshMicrosoftToken(account, refreshToken);
+  try {
+    const refreshToken = decryptToken(account.refresh_token_enc);
+    const refreshed =
+      account.provider === "google"
+        ? await refreshGoogleToken(account, refreshToken)
+        : await refreshMicrosoftToken(account, refreshToken);
 
-  const serviceClient = createEmailServiceClient();
-  const { error } = await serviceClient
-    .from("email_accounts")
-    .update({
-      access_token_enc: encryptToken(refreshed.accessToken),
-      expires_at: refreshed.expiresAt,
-      ...(refreshed.refreshToken
-        ? { refresh_token_enc: encryptToken(refreshed.refreshToken) }
-        : {}),
-    })
-    .eq("id", account.id);
+    const serviceClient = createEmailServiceClient();
+    const { error } = await serviceClient
+      .from("email_accounts")
+      .update({
+        access_token_enc: encryptToken(refreshed.accessToken),
+        expires_at: refreshed.expiresAt,
+        ...(refreshed.refreshToken
+          ? { refresh_token_enc: encryptToken(refreshed.refreshToken) }
+          : {}),
+        status: "connected",
+        last_error: null,
+        last_error_at: null,
+        email_connection_status: computeEmailConnectionStatus({
+          ...account,
+          status: "connected",
+          last_error: null,
+          refresh_token_enc: refreshed.refreshToken
+            ? encryptToken(refreshed.refreshToken)
+            : account.refresh_token_enc,
+        }),
+      })
+      .eq("id", account.id);
 
-  if (error) {
-    throw new Error("Failed to persist refreshed access token");
+    if (error) {
+      throw new Error("Failed to persist refreshed access token");
+    }
+
+    return refreshed.accessToken;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Token refresh failed";
+    const status = /invalid_grant|revoked|interaction_required|consent_required/i.test(message)
+      ? "provider_revoked"
+      : "refresh_failed";
+    await markAccountStatus(account.id, "error", message, status);
+    throw error;
   }
-
-  return refreshed.accessToken;
 }

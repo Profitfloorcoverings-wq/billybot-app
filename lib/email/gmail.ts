@@ -15,6 +15,9 @@ export type GmailAccount = {
   expires_at: string | null;
   scopes: string[] | null;
   gmail_history_id: string | null;
+  gmail_watch_expires_at?: string | null;
+  gmail_last_push_at?: string | null;
+  last_success_at?: string | null;
 };
 
 export type GmailMessagePayload = {
@@ -53,7 +56,11 @@ type GmailHistoryResponse = {
 
 type GmailWatchResponse = {
   historyId?: string;
+  expiration?: string;
 };
+
+const WATCH_RENEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+const WATCH_STALE_PUSH_MS = 6 * 60 * 60 * 1000;
 
 function decodeBase64Url(data?: string): string {
   if (!data) {
@@ -102,9 +109,27 @@ async function getGmailAccessToken(account: GmailAccount) {
   return getValidAccessToken(account);
 }
 
-export async function startGmailWatch(account: GmailAccount) {
-  if (account.gmail_history_id) {
-    return account.gmail_history_id;
+export async function startGmailWatch(
+  account: GmailAccount,
+  options?: { force?: boolean }
+) {
+  const expiresAtMs = account.gmail_watch_expires_at
+    ? new Date(account.gmail_watch_expires_at).getTime()
+    : 0;
+  const lastPushAtMs = account.gmail_last_push_at
+    ? new Date(account.gmail_last_push_at).getTime()
+    : 0;
+  const shouldReuse =
+    !options?.force &&
+    Boolean(account.gmail_history_id) &&
+    expiresAtMs - Date.now() > WATCH_RENEW_WINDOW_MS &&
+    (!lastPushAtMs || Date.now() - lastPushAtMs <= WATCH_STALE_PUSH_MS);
+
+  if (shouldReuse) {
+    return {
+      historyId: account.gmail_history_id,
+      expiresAt: account.gmail_watch_expires_at ?? null,
+    };
   }
 
   const topicName = process.env.GOOGLE_PUBSUB_TOPIC;
@@ -131,16 +156,23 @@ export async function startGmailWatch(account: GmailAccount) {
 
   const data = (await response.json()) as GmailWatchResponse;
   const historyId = data.historyId ?? null;
+  const expiresAt = data.expiration
+    ? new Date(Number(data.expiration)).toISOString()
+    : null;
 
   if (historyId) {
     const serviceClient = createEmailServiceClient();
     await serviceClient
       .from("email_accounts")
-      .update({ gmail_history_id: historyId })
+      .update({
+        gmail_history_id: historyId,
+        gmail_watch_expires_at: expiresAt,
+        last_error: null,
+      })
       .eq("id", account.id);
   }
 
-  return historyId;
+  return { historyId, expiresAt };
 }
 
 export async function listGmailHistory(

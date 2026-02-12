@@ -39,6 +39,12 @@ export async function POST(request: NextRequest) {
     gmail_history_id: null,
     ms_subscription_id: null,
     ms_subscription_expires_at: null,
+    gmail_watch_expires_at: null,
+    gmail_last_push_at: null,
+    ms_last_push_at: null,
+    last_success_at: null,
+    last_error_at: null,
+    email_connection_status: "inactive",
   };
 
   let query = serviceClient.from("email_accounts").update(updatePayload).eq("client_id", user.id);

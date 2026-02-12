@@ -19,6 +19,14 @@ type ClientProfile = {
 };
 
 type EmailAccountStatus = "connected" | "needs_reauth" | "error" | "disconnected";
+type EmailConnectionStatus =
+  | "ok"
+  | "needs_reconnect"
+  | "watch_expired"
+  | "subscription_expired"
+  | "refresh_failed"
+  | "provider_revoked"
+  | "inactive";
 
 type EmailAccount = {
   id: string;
@@ -29,6 +37,12 @@ type EmailAccount = {
   gmail_history_id: string | null;
   ms_subscription_id: string | null;
   ms_subscription_expires_at: string | null;
+  gmail_watch_expires_at?: string | null;
+  gmail_last_push_at?: string | null;
+  ms_last_push_at?: string | null;
+  last_success_at?: string | null;
+  last_error_at?: string | null;
+  email_connection_status?: EmailConnectionStatus | null;
   created_at: string;
   updated_at: string;
 };
@@ -410,6 +424,24 @@ export default function AccountPage() {
       );
     } finally {
       setEmailActionTarget(null);
+    }
+  }
+
+  function getConnectionStatusLabel(status?: EmailConnectionStatus | null) {
+    switch (status) {
+      case "ok":
+        return { label: "Connected", className: "bg-emerald-500/15 text-emerald-300" };
+      case "watch_expired":
+        return { label: "Watch expired", className: "bg-amber-500/15 text-amber-300" };
+      case "subscription_expired":
+        return { label: "Subscription expired", className: "bg-amber-500/15 text-amber-300" };
+      case "refresh_failed":
+        return { label: "Token refresh failed", className: "bg-red-500/15 text-red-300" };
+      case "provider_revoked":
+      case "needs_reconnect":
+        return { label: "Reconnect required", className: "bg-red-500/15 text-red-300" };
+      default:
+        return { label: "Not connected", className: "bg-white/5 text-white/70" };
     }
   }
 
@@ -852,9 +884,7 @@ export default function AccountPage() {
             },
           ].map(({ key, label, account }) => {
             const connected = isConnected(account);
-            const statusConfig = connected
-              ? getStatusConfig("connected")
-              : getStatusConfig("disconnected");
+            const statusConfig = getConnectionStatusLabel(account?.email_connection_status);
             const isActionLoading = emailActionTarget === key || emailAccountsLoading;
 
             return (
@@ -877,7 +907,7 @@ export default function AccountPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  {!connected ? (
+                  {!connected || account?.email_connection_status === "needs_reconnect" || account?.email_connection_status === "refresh_failed" || account?.email_connection_status === "provider_revoked" || account?.email_connection_status === "watch_expired" || account?.email_connection_status === "subscription_expired" ? (
                     <button
                       className="btn btn-primary"
                       onClick={() => handleEmailConnect(key)}
@@ -886,7 +916,11 @@ export default function AccountPage() {
                       {isActionLoading
                         ? "Working..."
                         : key === "google"
-                        ? "Connect Gmail"
+                        ? connected
+                          ? "Reconnect Gmail"
+                          : "Connect Gmail"
+                        : connected
+                        ? "Reconnect Outlook"
                         : "Connect Outlook"}
                     </button>
                   ) : null}

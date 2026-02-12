@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
     const { data: account, error } = await serviceClient
       .from("email_accounts")
       .select(
-        "id, client_id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, ms_subscription_id, ms_subscription_expires_at"
+        "id, client_id, provider, email_address, access_token_enc, refresh_token_enc, expires_at, scopes, status, last_error, ms_subscription_id, ms_subscription_expires_at, ms_last_push_at, last_success_at"
       )
       .eq("provider", "microsoft")
       .eq("ms_subscription_id", subscriptionId)
@@ -148,6 +148,17 @@ export async function POST(request: NextRequest) {
         bodyHtml: message.bodyHtml,
         attachments: message.attachments,
       });
+    await serviceClient
+      .from("email_accounts")
+      .update({
+        ms_last_push_at: new Date().toISOString(),
+        last_success_at: new Date().toISOString(),
+        email_connection_status: "ok",
+        last_error: null,
+        last_error_at: null,
+      })
+      .eq("id", account.id);
+
     } catch (messageError) {
       hadFailure = true;
       const errorMessage =
@@ -164,6 +175,16 @@ export async function POST(request: NextRequest) {
       if (existing?.id) {
         await markEmailEventError(existing.id, errorMessage);
       }
+
+      await serviceClient
+        .from("email_accounts")
+        .update({
+          status: "error",
+          last_error: errorMessage,
+          last_error_at: new Date().toISOString(),
+          email_connection_status: "needs_reconnect",
+        })
+        .eq("id", account.id);
     }
   }
 
