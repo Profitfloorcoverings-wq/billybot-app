@@ -9,6 +9,27 @@ import {
 } from "@/lib/email/microsoft";
 import { createEmailServiceClient } from "@/lib/email/serviceClient";
 
+type WatchdogAccount = {
+  id: string;
+  client_id: string;
+  provider: "google" | "microsoft";
+  email_address: string;
+  access_token_enc: string | null;
+  refresh_token_enc: string | null;
+  expires_at: string | null;
+  scopes: string[] | null;
+  status: string | null;
+  last_error: string | null;
+  last_error_at: string | null;
+  gmail_history_id: string | null;
+  gmail_watch_expires_at: string | null;
+  gmail_last_push_at: string | null;
+  ms_subscription_id: string | null;
+  ms_subscription_expires_at: string | null;
+  ms_last_push_at: string | null;
+  last_success_at: string | null;
+};
+
 const STALE_WINDOW_MS = 6 * 60 * 60 * 1000;
 const RENEW_WINDOW_MS = 24 * 60 * 60 * 1000;
 const RECOVERY_BACKOFF_MS = 30 * 60 * 1000;
@@ -86,7 +107,7 @@ export async function POST(request: NextRequest) {
   const results: Array<{ accountId: string; provider: string; action: string; status: string }> = [];
 
   for (const raw of accounts ?? []) {
-    const account = raw as GmailAccount & MicrosoftAccount & { last_error_at?: string | null };
+    const account = raw as WatchdogAccount;
 
     const inBackoff =
       account.last_error_at &&
@@ -131,7 +152,7 @@ export async function POST(request: NextRequest) {
     try {
       if (gmailNeedsRenew || gmailStaleFailure) {
         const healthyStatus = getHealthyConnectionStatus(account.refresh_token_enc);
-        await startGmailWatch(account, { force: true });
+        await startGmailWatch(account as GmailAccount, { force: true });
         await serviceClient
           .from("email_accounts")
           .update({
@@ -152,7 +173,7 @@ export async function POST(request: NextRequest) {
 
       if (microsoftNeedsRenew || microsoftStaleFailure) {
         const healthyStatus = getHealthyConnectionStatus(account.refresh_token_enc);
-        await ensureMicrosoftSubscription(account, { force: true });
+        await ensureMicrosoftSubscription(account as MicrosoftAccount, { force: true });
         await serviceClient
           .from("email_accounts")
           .update({
