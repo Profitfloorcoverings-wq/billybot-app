@@ -1,4 +1,5 @@
 import { createServerClient } from "@/utils/supabase/server";
+import type { TenantJob } from "@/lib/jobs/jobQueries";
 
 export type JobRecord = {
   id: string;
@@ -99,7 +100,7 @@ export type JobBundle = {
 };
 
 type GetJobBundleParams = {
-  jobId: string;
+  job: TenantJob;
   currentClientId: string;
 };
 
@@ -175,19 +176,12 @@ function normalizeAttachment(
   };
 }
 
-export async function getJobBundle({ jobId, currentClientId }: GetJobBundleParams): Promise<JobBundle | null> {
+export async function getJobBundle({ job, currentClientId }: GetJobBundleParams): Promise<JobBundle | null> {
   const supabase = await createServerClient();
 
-  const { data: job, error: jobError } = await supabase
-    .from("jobs")
-    .select(
-      "id, created_at, last_activity_at, customer_name, customer_email, customer_phone, title, job_details, outbound_email_subject, outbound_email_body, status, provider, provider_thread_id, provider_message_id, site_address, postcode, metadata, email_event_id, customer_reply, profile_id, client_id, conversation_id, job_thread_id"
-    )
-    .eq("id", jobId)
-    .eq("client_id", currentClientId)
-    .maybeSingle<JobRecord>();
-
-  if (jobError || !job) return null;
+  if (!job || (job.client_id && job.client_id !== currentClientId)) {
+    return null;
+  }
 
   const clientScope = job.client_id || currentClientId;
 

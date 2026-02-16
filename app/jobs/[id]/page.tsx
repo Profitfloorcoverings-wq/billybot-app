@@ -6,8 +6,8 @@ import { redirect } from "next/navigation";
 import JobHeader from "./components/JobHeader";
 import JobTabs from "./components/JobTabs";
 import SidebarCards from "./components/SidebarCards";
+import { getJobByIdForCurrentTenant } from "@/lib/jobs/jobQueries";
 import { getJobBundle } from "@/lib/jobs/getJobBundle";
-import { createServerClient } from "@/utils/supabase/server";
 
 type JobDetailPageProps = {
   params: Promise<{ id: string }>;
@@ -30,20 +30,39 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     );
   }
 
-  const supabase = await createServerClient();
-  const { data } = await supabase.auth.getUser();
-  const user = data.user;
+  const { user, job, currentClientId } = await getJobByIdForCurrentTenant(id);
 
   if (!user) {
     redirect("/auth/login");
   }
 
-  const currentClientId = user.id;
-  const bundle = await getJobBundle({ jobId: id, currentClientId });
+  if (!job || !currentClientId) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[jobs/[id]] job not accessible", {
+        jobId: id,
+        currentClientId,
+      });
+    }
+
+    return (
+      <div className="page-container">
+        <div className="empty-state stack items-center">
+          <h2 className="section-title">Job not found</h2>
+          <p className="section-subtitle">The job was not found, or you no longer have access to it.</p>
+          <Link href="/jobs" className="btn btn-primary">Back to Jobs</Link>
+        </div>
+      </div>
+    );
+  }
+
+  const bundle = await getJobBundle({ job, currentClientId });
 
   if (!bundle) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn("[jobs/[id]] job not accessible", { jobId: id, currentClientId });
+      console.warn("[jobs/[id]] bundle lookup failed", {
+        jobId: id,
+        currentClientId,
+      });
     }
 
     return (
