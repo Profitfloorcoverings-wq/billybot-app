@@ -20,7 +20,7 @@ export default function AttachmentsGallery({ attachments }: { attachments: JobPa
   return (
     <div className="stack gap-4">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {attachments.map((file, index) => {
+        {attachments.map((file) => {
           const isImage = looksLikeImage(file.mimeType, file.name);
           return (
             <article key={file.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
@@ -45,7 +45,7 @@ export default function AttachmentsGallery({ attachments }: { attachments: JobPa
                     Open / Download
                   </a>
                 ) : (
-                  <span className="text-xs text-[var(--muted)]">No file URL available</span>
+                  <span className="text-xs text-[var(--muted)]">Attachment detected but no link available</span>
                 )}
               </div>
             </article>

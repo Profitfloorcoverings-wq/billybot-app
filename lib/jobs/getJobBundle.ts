@@ -103,37 +103,65 @@ type GetJobBundleParams = {
   profileId: string;
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
 function parseAttachmentList(value: unknown): Record<string, unknown>[] {
   if (!value) return [];
-  if (Array.isArray(value)) return value.filter((item) => item && typeof item === "object") as Record<string, unknown>[];
+
+  if (Array.isArray(value)) {
+    return value.filter((item) => !!asRecord(item)) as Record<string, unknown>[];
+  }
+
+  const root = asRecord(value);
+  if (!root) return [];
+
+  const nestedFiles = root.files;
+  if (Array.isArray(nestedFiles)) {
+    return nestedFiles.filter((item) => !!asRecord(item)) as Record<string, unknown>[];
+  }
+
   return [];
 }
 
-function normalizeAttachment(raw: Record<string, unknown>, sourceEmailId: string, receivedAt: string | null, index: number): NormalizedAttachment {
+function pickString(raw: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function pickNumber(raw: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string") {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+  }
+  return null;
+}
+
+function normalizeAttachment(
+  raw: Record<string, unknown>,
+  sourceEmailId: string,
+  receivedAt: string | null,
+  index: number
+): NormalizedAttachment {
   const name =
-    (typeof raw.filename === "string" && raw.filename) ||
-    (typeof raw.name === "string" && raw.name) ||
-    `Attachment ${index + 1}`;
-
-  const mimeType =
-    (typeof raw.mime_type === "string" && raw.mime_type) ||
-    (typeof raw.content_type === "string" && raw.content_type) ||
-    (typeof raw.type === "string" && raw.type) ||
-    null;
-
-  const sizeRaw = raw.size;
-  const size = typeof sizeRaw === "number" ? sizeRaw : null;
-
-  const url =
-    (typeof raw.url === "string" && raw.url) ||
-    (typeof raw.download_url === "string" && raw.download_url) ||
-    (typeof raw.web_url === "string" && raw.web_url) ||
-    null;
-
-  const path =
-    (typeof raw.path === "string" && raw.path) ||
-    (typeof raw.storage_path === "string" && raw.storage_path) ||
-    null;
+    pickString(raw, ["filename", "name", "fileName"]) || `Attachment ${index + 1}`;
+  const mimeType = pickString(raw, ["mimeType", "mime_type", "contentType", "content_type", "type"]);
+  const size = pickNumber(raw, ["size", "fileSize", "content_length"]);
+  const url = pickString(raw, ["url", "link", "download_url", "web_url"]);
+  const path = pickString(raw, ["path", "storage_path", "storagePath"]);
 
   return {
     id: `${sourceEmailId}-${index}-${name}`,
@@ -156,44 +184,17 @@ export async function getJobBundle({ jobId, profileId }: GetJobBundleParams): Pr
       "id, created_at, last_activity_at, customer_name, customer_email, customer_phone, title, job_details, outbound_email_subject, outbound_email_body, status, provider, provider_thread_id, provider_message_id, site_address, postcode, metadata, email_event_id, customer_reply, profile_id, client_id, conversation_id, job_thread_id"
     )
     .eq("id", jobId)
-    .or(`profile_id.eq.${profileId},client_id.eq.${profileId}`)
+    .eq("profile_id", profileId)
     .maybeSingle<JobRecord>();
 
   if (jobError || !job) return null;
 
-  const threadQuery = supabase
-    .from("email_events")
-    .select(
-      "id, account_id, client_id, provider, provider_message_id, provider_thread_id, from_email, subject, received_at, to_emails, cc_emails, body_text, body_html, attachments, status, queue_status, attempts, processed_at, last_error, error, direction, meta"
-    )
-    .eq("client_id", job.client_id ?? profileId)
-    .order("received_at", { ascending: true, nullsFirst: false });
-
-  const threadScoped = job.provider_thread_id
-    ? threadQuery.eq("provider_thread_id", job.provider_thread_id)
-    : threadQuery.eq("id", job.email_event_id ?? "");
-
-  const threadFiltered = job.provider ? threadScoped.eq("provider", job.provider) : threadScoped;
-
-  const latestQuery = supabase
-    .from("email_events")
-    .select(
-      "id, account_id, client_id, provider, provider_message_id, provider_thread_id, from_email, subject, received_at, to_emails, cc_emails, body_text, body_html, attachments, status, queue_status, attempts, processed_at, last_error, error, direction, meta"
-    )
-    .eq("client_id", job.client_id ?? profileId)
-    .order("received_at", { ascending: false, nullsFirst: false })
-    .limit(1);
-
-  const latestScoped = job.provider_thread_id
-    ? latestQuery.eq("provider_thread_id", job.provider_thread_id)
-    : latestQuery.eq("id", job.email_event_id ?? "");
-
-  const latestFiltered = job.provider ? latestScoped.eq("provider", job.provider) : latestScoped;
+  const clientScope = job.client_id || profileId;
 
   const customerByEmailQuery = supabase
     .from("customers")
     .select("id, profile_id, customer_name, contact_name, address, phone, mobile, email, updated_at")
-    .eq("profile_id", profileId)
+    .eq("profile_id", job.profile_id ?? profileId)
     .eq("email", job.customer_email ?? "")
     .limit(1)
     .maybeSingle<CustomerRecord>();
@@ -201,38 +202,84 @@ export async function getJobBundle({ jobId, profileId }: GetJobBundleParams): Pr
   const customerByNameQuery = supabase
     .from("customers")
     .select("id, profile_id, customer_name, contact_name, address, phone, mobile, email, updated_at")
-    .eq("profile_id", profileId)
+    .eq("profile_id", job.profile_id ?? profileId)
     .ilike("customer_name", job.customer_name ?? "")
     .limit(1)
     .maybeSingle<CustomerRecord>();
 
-  const directQuotesQuery = supabase
-    .from("quotes")
+  const quoteRefs = [job.id, job.job_thread_id].filter((value): value is string => Boolean(value));
+  const directQuotesQuery = quoteRefs.length
+    ? supabase
+        .from("quotes")
+        .select(
+          "id, created_at, customer_name, quote_reference, pdf_url, job_details, quote, version, job_ref, quote_status, follow_up_status"
+        )
+        .eq("client_id", clientScope)
+        .in("job_ref", quoteRefs)
+        .order("created_at", { ascending: false })
+    : Promise.resolve({ data: [] as QuoteRecord[] });
+
+  const threadBase = supabase
+    .from("email_events")
     .select(
-      "id, created_at, customer_name, quote_reference, pdf_url, job_details, quote, version, job_ref, quote_status, follow_up_status"
+      "id, account_id, client_id, provider, provider_message_id, provider_thread_id, from_email, subject, received_at, to_emails, cc_emails, body_text, body_html, attachments, status, queue_status, attempts, processed_at, last_error, error, direction, meta"
     )
-    .eq("client_id", job.client_id ?? profileId)
-    .or(`job_ref.eq.${job.id},job_ref.eq.${job.job_thread_id ?? ""}`)
-    .order("created_at", { ascending: false });
+    .eq("client_id", clientScope);
+
+  const emailThreadQuery = job.provider_thread_id
+    ? (() => {
+        let query = threadBase.eq("provider_thread_id", job.provider_thread_id).order("received_at", {
+          ascending: true,
+          nullsFirst: false,
+        });
+        if (job.provider) query = query.eq("provider", job.provider);
+        return query;
+      })()
+    : (() => {
+        let query = threadBase.eq("id", job.email_event_id ?? "").order("received_at", {
+          ascending: true,
+          nullsFirst: false,
+        });
+        if (job.provider) query = query.eq("provider", job.provider);
+        return query;
+      })();
+
+  const latestEmailQuery = job.provider_thread_id
+    ? (() => {
+        let query = threadBase.eq("provider_thread_id", job.provider_thread_id).order("received_at", {
+          ascending: false,
+          nullsFirst: false,
+        });
+        if (job.provider) query = query.eq("provider", job.provider);
+        return query.limit(1);
+      })()
+    : (() => {
+        let query = threadBase.eq("id", job.email_event_id ?? "").order("received_at", {
+          ascending: false,
+          nullsFirst: false,
+        });
+        if (job.provider) query = query.eq("provider", job.provider);
+        return query.limit(1);
+      })();
 
   const [
     { data: customerByEmail },
     { data: customerByName },
-    { data: directQuotes },
+    directQuotesResult,
     { data: emailThread },
     { data: latestEmailList },
   ] = await Promise.all([
     customerByEmailQuery,
     customerByNameQuery,
     directQuotesQuery,
-    threadFiltered,
-    latestFiltered,
+    emailThreadQuery,
+    latestEmailQuery,
   ]);
 
   const latestEmail = latestEmailList?.[0] ?? null;
   const thread = emailThread ?? [];
 
-  let quotes = directQuotes ?? [];
+  let quotes = directQuotesResult.data ?? [];
   if (!quotes.length && job.customer_name && job.created_at) {
     const windowStart = new Date(job.created_at);
     windowStart.setDate(windowStart.getDate() - 14);
@@ -244,7 +291,7 @@ export async function getJobBundle({ jobId, profileId }: GetJobBundleParams): Pr
       .select(
         "id, created_at, customer_name, quote_reference, pdf_url, job_details, quote, version, job_ref, quote_status, follow_up_status"
       )
-      .eq("client_id", job.client_id ?? profileId)
+      .eq("client_id", clientScope)
       .ilike("customer_name", job.customer_name)
       .gte("created_at", windowStart.toISOString())
       .lte("created_at", windowEnd.toISOString())
