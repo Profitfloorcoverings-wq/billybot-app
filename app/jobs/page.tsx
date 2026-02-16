@@ -4,59 +4,23 @@ import { redirect } from "next/navigation";
 
 import { JOB_STATUS_FILTERS } from "@/app/jobs/constants";
 import JobsList from "@/app/jobs/components/JobsList";
-import { normalizeStatus, JOB_SELECT } from "@/app/jobs/utils";
-import { createServerClient } from "@/utils/supabase/server";
-
-type Job = {
-  id: string;
-  title?: string | null;
-  customer_name?: string | null;
-  customer_email?: string | null;
-  status?: string | null;
-  last_activity_at?: string | null;
-};
+import { getJobsForCurrentTenant } from "@/lib/jobs/jobQueries";
 
 type JobsPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
 export default async function JobsPage({ searchParams }: JobsPageProps) {
-  const supabase = await createServerClient();
   const debugEnabled = searchParams?.debug === "1";
   const searchValue =
     typeof searchParams?.search === "string" ? searchParams.search : "";
   const statusValue =
     typeof searchParams?.status === "string" ? searchParams.status : "all";
 
-  const { data: userData, error: userError } = await supabase.auth.getUser();
-  const user = userData?.user ?? null;
+  const { user, userError, jobs, jobsError } = await getJobsForCurrentTenant(statusValue);
 
   if (!user && !debugEnabled) {
     redirect("/auth/login");
-  }
-
-  let jobsError: { message?: string } | null = null;
-  let jobs: Job[] = [];
-
-  if (user) {
-    let query = supabase
-      .from("jobs")
-      .select(JOB_SELECT)
-      .eq("client_id", user.id)
-      .order("last_activity_at", { ascending: false });
-
-    if (statusValue !== "all") {
-      const normalized = normalizeStatus(statusValue);
-      const pattern = normalized === "awaiting_info" ? "awaiting%info" : normalized;
-      query = query.ilike("status", pattern);
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      jobsError = { message: error.message };
-    } else {
-      jobs = data ?? [];
-    }
   }
 
   return (
