@@ -38,9 +38,14 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     redirect("/auth/login");
   }
 
-  const bundle = await getJobBundle({ jobId: id, profileId: user.id });
+  const currentClientId = user.id;
+  const bundle = await getJobBundle({ jobId: id, currentClientId });
 
   if (!bundle) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[jobs/[id]] job not accessible", { jobId: id, currentClientId });
+    }
+
     return (
       <div className="page-container">
         <div className="empty-state stack items-center">

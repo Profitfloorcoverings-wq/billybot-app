@@ -43,6 +43,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   const { id } = await params;
+  const currentClientId = user.id;
   const body = (await request.json()) as PatchBody;
 
   const bodyKeys = Object.keys(body as Record<string, unknown>);
@@ -106,7 +107,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .from("jobs")
     .select("id")
     .eq("id", id)
-    .or(`profile_id.eq.${user.id},client_id.eq.${user.id}`)
+    .eq("client_id", currentClientId)
     .maybeSingle();
 
   if (ownershipError || !ownedJob) {
@@ -117,7 +118,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .from("jobs")
     .update(patch)
     .eq("id", id)
-    .or(`profile_id.eq.${user.id},client_id.eq.${user.id}`)
+    .eq("client_id", currentClientId)
     .select(
       "id, status, customer_reply, site_address, postcode, customer_phone, last_activity_at"
     )

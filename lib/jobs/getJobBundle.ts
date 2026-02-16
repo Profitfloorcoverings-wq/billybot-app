@@ -100,7 +100,7 @@ export type JobBundle = {
 
 type GetJobBundleParams = {
   jobId: string;
-  profileId: string;
+  currentClientId: string;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -175,7 +175,7 @@ function normalizeAttachment(
   };
 }
 
-export async function getJobBundle({ jobId, profileId }: GetJobBundleParams): Promise<JobBundle | null> {
+export async function getJobBundle({ jobId, currentClientId }: GetJobBundleParams): Promise<JobBundle | null> {
   const supabase = await createServerClient();
 
   const { data: job, error: jobError } = await supabase
@@ -184,17 +184,17 @@ export async function getJobBundle({ jobId, profileId }: GetJobBundleParams): Pr
       "id, created_at, last_activity_at, customer_name, customer_email, customer_phone, title, job_details, outbound_email_subject, outbound_email_body, status, provider, provider_thread_id, provider_message_id, site_address, postcode, metadata, email_event_id, customer_reply, profile_id, client_id, conversation_id, job_thread_id"
     )
     .eq("id", jobId)
-    .eq("profile_id", profileId)
+    .eq("client_id", currentClientId)
     .maybeSingle<JobRecord>();
 
   if (jobError || !job) return null;
 
-  const clientScope = job.client_id || profileId;
+  const clientScope = job.client_id || currentClientId;
 
   const customerByEmailQuery = supabase
     .from("customers")
     .select("id, profile_id, customer_name, contact_name, address, phone, mobile, email, updated_at")
-    .eq("profile_id", job.profile_id ?? profileId)
+    .eq("profile_id", job.client_id ?? currentClientId)
     .eq("email", job.customer_email ?? "")
     .limit(1)
     .maybeSingle<CustomerRecord>();
@@ -202,7 +202,7 @@ export async function getJobBundle({ jobId, profileId }: GetJobBundleParams): Pr
   const customerByNameQuery = supabase
     .from("customers")
     .select("id, profile_id, customer_name, contact_name, address, phone, mobile, email, updated_at")
-    .eq("profile_id", job.profile_id ?? profileId)
+    .eq("profile_id", job.client_id ?? currentClientId)
     .ilike("customer_name", job.customer_name ?? "")
     .limit(1)
     .maybeSingle<CustomerRecord>();
