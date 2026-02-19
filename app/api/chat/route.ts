@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 
       const { data: historyMessages, error: historyError } = await supabase
         .from("messages")
-        .select("id, role, content, type, conversation_id, quote_reference, created_at")
+        .select("id, role, content, type, conversation_id, quote_reference, job_sheet_reference, file_url, created_at")
         .eq("conversation_id", conversationId)
         .eq("profile_id", userId)
         .order("created_at", { ascending: true });

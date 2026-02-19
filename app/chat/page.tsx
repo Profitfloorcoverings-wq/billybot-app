@@ -23,11 +23,43 @@ type Message = {
   id: number | string;
   role: "user" | "assistant";
   content: string;
-  type?: string | null;
+  type?: "text" | "file" | "quote" | "job_sheet" | string | null;
   conversation_id?: string;
   quote_reference?: string | null;
+  job_sheet_reference?: string | null;
+  file_url?: string | null;
   created_at?: string;
 };
+
+type LinkCardProps = {
+  label: "QUOTE" | "JOB SHEET";
+  reference?: string | null;
+  url: string;
+};
+
+function LinkCard({ label, reference, url }: LinkCardProps) {
+  const title = reference ? `${label} ${reference}` : label;
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+        {title}
+      </div>
+
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`Open ${title}`}
+        className="block w-[min(360px,100%)]"
+      >
+        <div className="rounded-2xl border border-[rgba(249,115,22,0.55)] bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-5 py-4 text-center text-sm font-extrabold text-white shadow-[0_0_18px_var(--orange-glow)] transition hover:brightness-105">
+          Open
+        </div>
+      </a>
+    </div>
+  );
+}
 
 type HistoryResponse = {
   conversation_id: string;
@@ -461,28 +493,50 @@ function ChatPageContent() {
   };
 
   const renderMessage = (m: Message) => {
+    const resolveQuoteUrl = (message: Message) => {
+      if (message.file_url) return message.file_url;
+      return message.content?.trim() || null;
+    };
+
+    const resolveJobSheetUrl = (message: Message) => {
+      if (message.file_url) return message.file_url;
+      return message.content?.trim() || null;
+    };
+
     if (m.type === "quote") {
-      const label = m.quote_reference ? `QUOTE ${m.quote_reference}` : "QUOTE";
+      const quoteUrl = resolveQuoteUrl(m);
 
-      return (
-        <div className="space-y-2">
-          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-            {label}
+      if (!quoteUrl) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("Quote message missing URL. Falling back to plain text.", m);
+        }
+
+        return (
+          <div className="prose prose-invert max-w-none text-sm leading-normal [&_p]:my-1 [&_li]:my-0 [&_ul]:my-1">
+            <ReactMarkdown>{m.content}</ReactMarkdown>
           </div>
+        );
+      }
 
-          <a
-            href={m.content}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`Open ${label}`}
-            className="block w-[min(360px,100%)]"
-          >
-            <div className="rounded-2xl border border-[rgba(249,115,22,0.55)] bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-5 py-4 text-center text-sm font-extrabold text-white shadow-[0_0_18px_var(--orange-glow)] transition hover:brightness-105">
-              Open
-            </div>
-          </a>
-        </div>
-      );
+      return <LinkCard label="QUOTE" reference={m.quote_reference} url={quoteUrl} />;
+    }
+
+    if (m.type === "job_sheet") {
+      const jobSheetUrl = resolveJobSheetUrl(m);
+
+      if (!jobSheetUrl) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("Job sheet message missing URL. Falling back to plain text.", m);
+        }
+
+        return (
+          <div className="prose prose-invert max-w-none text-sm leading-normal [&_p]:my-1 [&_li]:my-0 [&_ul]:my-1">
+            <ReactMarkdown>{m.content}</ReactMarkdown>
+          </div>
+        );
+      }
+
+      return <LinkCard label="JOB SHEET" reference={m.job_sheet_reference} url={jobSheetUrl} />;
     }
 
     return (
