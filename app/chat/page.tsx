@@ -26,8 +26,42 @@ type Message = {
   type?: string | null;
   conversation_id?: string;
   quote_reference?: string | null;
+  job_sheet_reference?: string | null;
+  file_url?: string | null;
   created_at?: string;
 };
+
+type LinkCardProps = {
+  label: "QUOTE" | "JOB SHEET";
+  reference?: string | null;
+  url: string;
+};
+
+function LinkCard({ label, reference, url }: LinkCardProps) {
+  const title = reference ? `${label} ${reference}` : label;
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+        {title}
+      </div>
+
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`Open ${title}`}
+        className="block w-[min(360px,100%)]"
+      >
+        <div className="rounded-2xl border border-[rgba(249,115,22,0.55)] bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-5 py-4 text-center text-sm font-extrabold text-white shadow-[0_0_18px_var(--orange-glow)] transition hover:brightness-105">
+          Open
+        </div>
+      </a>
+    </div>
+  );
+}
+
+const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
 
 type HistoryResponse = {
   conversation_id: string;
@@ -462,27 +496,15 @@ function ChatPageContent() {
 
   const renderMessage = (m: Message) => {
     if (m.type === "quote") {
-      const label = m.quote_reference ? `QUOTE ${m.quote_reference}` : "QUOTE";
+      return <LinkCard label="QUOTE" reference={m.quote_reference} url={m.content} />;
+    }
 
-      return (
-        <div className="space-y-2">
-          <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
-            {label}
-          </div>
+    if (m.type === "job_sheet") {
+      const url = m.file_url || (isHttpUrl(m.content.trim()) ? m.content.trim() : null);
 
-          <a
-            href={m.content}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`Open ${label}`}
-            className="block w-[min(360px,100%)]"
-          >
-            <div className="rounded-2xl border border-[rgba(249,115,22,0.55)] bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-5 py-4 text-center text-sm font-extrabold text-white shadow-[0_0_18px_var(--orange-glow)] transition hover:brightness-105">
-              Open
-            </div>
-          </a>
-        </div>
-      );
+      if (url) {
+        return <LinkCard label="JOB SHEET" reference={m.job_sheet_reference} url={url} />;
+      }
     }
 
     return (
