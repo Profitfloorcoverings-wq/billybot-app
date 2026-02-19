@@ -74,15 +74,30 @@ export async function POST(req: Request) {
     if (message === "__LOAD_HISTORY__") {
       const conversationId = await resolveConversationId();
 
-      const { data: historyMessages, error: historyError } = await supabase
+      let historyMessages: unknown[] | null = null;
+
+      const { data: historyWithExtendedFields, error: historyWithExtendedFieldsError } = await supabase
         .from("messages")
         .select("id, role, content, type, conversation_id, quote_reference, job_sheet_reference, file_url, created_at")
         .eq("conversation_id", conversationId)
         .eq("profile_id", userId)
         .order("created_at", { ascending: true });
 
-      if (historyError) {
-        throw historyError;
+      if (!historyWithExtendedFieldsError) {
+        historyMessages = historyWithExtendedFields;
+      } else {
+        const { data: historyWithOriginalFields, error: historyWithOriginalFieldsError } = await supabase
+          .from("messages")
+          .select("id, role, content, type, conversation_id, quote_reference, created_at")
+          .eq("conversation_id", conversationId)
+          .eq("profile_id", userId)
+          .order("created_at", { ascending: true });
+
+        if (historyWithOriginalFieldsError) {
+          throw historyWithOriginalFieldsError;
+        }
+
+        historyMessages = historyWithOriginalFields;
       }
 
       return new Response(

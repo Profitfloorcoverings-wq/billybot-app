@@ -23,7 +23,7 @@ type Message = {
   id: number | string;
   role: "user" | "assistant";
   content: string;
-  type?: "text" | "file" | "quote" | "job_sheet" | string | null;
+  type?: string | null;
   conversation_id?: string;
   quote_reference?: string | null;
   job_sheet_reference?: string | null;
@@ -60,6 +60,8 @@ function LinkCard({ label, reference, url }: LinkCardProps) {
     </div>
   );
 }
+
+const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
 
 type HistoryResponse = {
   conversation_id: string;
@@ -493,50 +495,16 @@ function ChatPageContent() {
   };
 
   const renderMessage = (m: Message) => {
-    const resolveQuoteUrl = (message: Message) => {
-      if (message.file_url) return message.file_url;
-      return message.content?.trim() || null;
-    };
-
-    const resolveJobSheetUrl = (message: Message) => {
-      if (message.file_url) return message.file_url;
-      return message.content?.trim() || null;
-    };
-
     if (m.type === "quote") {
-      const quoteUrl = resolveQuoteUrl(m);
-
-      if (!quoteUrl) {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn("Quote message missing URL. Falling back to plain text.", m);
-        }
-
-        return (
-          <div className="prose prose-invert max-w-none text-sm leading-normal [&_p]:my-1 [&_li]:my-0 [&_ul]:my-1">
-            <ReactMarkdown>{m.content}</ReactMarkdown>
-          </div>
-        );
-      }
-
-      return <LinkCard label="QUOTE" reference={m.quote_reference} url={quoteUrl} />;
+      return <LinkCard label="QUOTE" reference={m.quote_reference} url={m.content} />;
     }
 
     if (m.type === "job_sheet") {
-      const jobSheetUrl = resolveJobSheetUrl(m);
+      const url = m.file_url || (isHttpUrl(m.content.trim()) ? m.content.trim() : null);
 
-      if (!jobSheetUrl) {
-        if (process.env.NODE_ENV !== "production") {
-          console.warn("Job sheet message missing URL. Falling back to plain text.", m);
-        }
-
-        return (
-          <div className="prose prose-invert max-w-none text-sm leading-normal [&_p]:my-1 [&_li]:my-0 [&_ul]:my-1">
-            <ReactMarkdown>{m.content}</ReactMarkdown>
-          </div>
-        );
+      if (url) {
+        return <LinkCard label="JOB SHEET" reference={m.job_sheet_reference} url={url} />;
       }
-
-      return <LinkCard label="JOB SHEET" reference={m.job_sheet_reference} url={jobSheetUrl} />;
     }
 
     return (
