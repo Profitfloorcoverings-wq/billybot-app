@@ -47,39 +47,35 @@ export default function InviteForm() {
   }
 
   return (
-    <div className="card p-6 max-w-lg">
+    <div className="card" style={{ maxWidth: "540px", padding: "28px 32px" }}>
       {success ? (
-        <div className="text-sm text-green-400 bg-green-400/10 rounded-lg px-4 py-3 mb-4">
-          Invite sent! They&apos;ll receive an email with a link to join.
+        <div style={{ fontSize: "13px", color: "#4ade80", background: "rgba(74,222,128,0.08)", border: "1px solid rgba(74,222,128,0.2)", borderRadius: "10px", padding: "12px 16px", marginBottom: "20px" }}>
+          ✓ Invite sent — they&apos;ll receive an email with a link to join.
         </div>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
-          <div className="field-group">
-            <label className="field-label" htmlFor="invite-name">
-              Name
-            </label>
+      <form onSubmit={handleSubmit} className="form-stack">
+        <div className="form-row">
+          <div className="form-field">
+            <label className="form-label" htmlFor="invite-name">Full name</label>
             <input
               id="invite-name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ben Smith"
-              className="chat-input w-full"
+              className="chat-input"
               required
             />
           </div>
 
-          <div className="field-group">
-            <label className="field-label" htmlFor="invite-role">
-              Role
-            </label>
+          <div className="form-field">
+            <label className="form-label" htmlFor="invite-role">Role</label>
             <select
               id="invite-role"
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="chat-input w-full"
+              className="chat-input"
             >
               <option value="fitter">Fitter</option>
               <option value="estimator">Estimator</option>
@@ -88,28 +84,28 @@ export default function InviteForm() {
           </div>
         </div>
 
-        <div className="field-group">
-          <label className="field-label" htmlFor="invite-email">
-            Email address
-          </label>
+        <div className="form-field">
+          <label className="form-label" htmlFor="invite-email">Email address</label>
           <input
             id="invite-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="ben@example.com"
-            className="chat-input w-full"
+            className="chat-input"
             required
           />
         </div>
 
         {error ? (
-          <p className="text-sm text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>
+          <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", borderRadius: "8px", padding: "10px 14px", margin: 0 }}>{error}</p>
         ) : null}
 
-        <button type="submit" disabled={submitting} className="btn btn-primary">
-          {submitting ? "Sending…" : "Send invite"}
-        </button>
+        <div>
+          <button type="submit" disabled={submitting} className="btn btn-primary">
+            {submitting ? "Sending…" : "Send invite"}
+          </button>
+        </div>
       </form>
     </div>
   );

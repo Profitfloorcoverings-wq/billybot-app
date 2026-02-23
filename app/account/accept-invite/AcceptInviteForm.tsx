@@ -55,24 +55,20 @@ export default function AcceptInviteForm({ inviteToken, email, name }: Props) {
 
   if (done) {
     return (
-      <div className="space-y-6 text-center">
-        <div className="text-4xl">🎉</div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "20px", textAlign: "center", padding: "8px 0" }}>
+        <div style={{ fontSize: "48px", lineHeight: 1 }}>🎉</div>
         <div>
-          <p className="font-semibold text-[var(--text)] text-lg">You&apos;re all set, {name}!</p>
-          <p className="text-[var(--muted)] text-sm mt-1">
-            Your account has been created. Download the BillyBot app to get started.
+          <p style={{ fontWeight: 700, color: "#f1f5f9", fontSize: "18px", marginBottom: "6px" }}>
+            You&apos;re all set, {name}!
+          </p>
+          <p style={{ color: "#64748b", fontSize: "14px" }}>
+            Your account is ready. Download the BillyBot app to get started.
           </p>
         </div>
-        <a
-          href={IOS_APP_URL}
-          className="btn btn-primary w-full inline-block text-center"
-        >
+        <a href={IOS_APP_URL} className="btn btn-primary" style={{ width: "100%", textAlign: "center", display: "block" }}>
           Download BillyBot for iPhone
         </a>
-        <a
-          href="/chat"
-          className="block text-sm text-[var(--muted)] hover:text-[var(--text)] transition"
-        >
+        <a href="/chat" style={{ fontSize: "13px", color: "#64748b", textDecoration: "none" }}>
           Or continue in browser →
         </a>
       </div>
@@ -80,75 +76,65 @@ export default function AcceptInviteForm({ inviteToken, email, name }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="field-group">
-        <label className="field-label" htmlFor="invite-name">
-          Name
-        </label>
+    <form onSubmit={handleSubmit} className="form-stack">
+      <div className="form-field">
+        <label className="form-label" htmlFor="invite-name">Your name</label>
         <input
           id="invite-name"
           type="text"
           value={name}
           disabled
-          className="chat-input w-full opacity-60 cursor-not-allowed"
+          className="chat-input"
         />
       </div>
 
-      <div className="field-group">
-        <label className="field-label" htmlFor="invite-email">
-          Email
-        </label>
+      <div className="form-field">
+        <label className="form-label" htmlFor="invite-email">Email address</label>
         <input
           id="invite-email"
           type="email"
           value={email}
           disabled
-          className="chat-input w-full opacity-60 cursor-not-allowed"
+          className="chat-input"
         />
       </div>
 
-      <div className="field-group">
-        <label className="field-label" htmlFor="invite-password">
-          Password
-        </label>
+      <div className="form-divider" />
+
+      <div className="form-field">
+        <label className="form-label" htmlFor="invite-password">Choose a password</label>
         <input
           id="invite-password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="At least 8 characters"
-          className="chat-input w-full"
+          className="chat-input"
           required
           minLength={8}
           autoComplete="new-password"
         />
       </div>
 
-      <div className="field-group">
-        <label className="field-label" htmlFor="invite-confirm">
-          Confirm password
-        </label>
+      <div className="form-field">
+        <label className="form-label" htmlFor="invite-confirm">Confirm password</label>
         <input
           id="invite-confirm"
           type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           placeholder="Repeat your password"
-          className="chat-input w-full"
+          className="chat-input"
           required
           autoComplete="new-password"
         />
       </div>
 
       {error ? (
-        <p className="text-sm text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>
+        <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", borderRadius: "8px", padding: "10px 14px", margin: 0 }}>{error}</p>
       ) : null}
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="btn btn-primary w-full"
-      >
+      <button type="submit" disabled={submitting} className="btn btn-primary" style={{ width: "100%" }}>
         {submitting ? "Creating account…" : "Create account & join"}
       </button>
     </form>
