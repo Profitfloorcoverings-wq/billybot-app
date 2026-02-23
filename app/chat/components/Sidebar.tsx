@@ -34,6 +34,7 @@ export default function Sidebar() {
   const [hasNewQuote, setHasNewQuote] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [hasApp, setHasApp] = useState(false);
   const qrValue = "https://apps.apple.com/gb/app/billybot/id6758058400";
 
   const checkLatestQuote = useCallback(async () => {
@@ -91,13 +92,13 @@ export default function Sidebar() {
       setIsAuthenticated(!!session?.user);
 
       if (session?.user) {
-        const { data: profile } = await supabase
-          .from("clients")
-          .select("user_role")
-          .eq("id", session.user.id)
-          .maybeSingle();
+        const [{ data: profile }, { data: pushToken }] = await Promise.all([
+          supabase.from("clients").select("user_role").eq("id", session.user.id).maybeSingle(),
+          supabase.from("push_tokens").select("profile_id").eq("profile_id", session.user.id).maybeSingle(),
+        ]);
         if (isMounted) {
           setUserRole(profile?.user_role ?? "owner");
+          setHasApp(!!pushToken);
         }
       }
     }
@@ -116,7 +117,7 @@ export default function Sidebar() {
   }, []);
 
   const showNav = !!isAuthenticated;
-  const showAppBlock = true;
+  const showAppBlock = !hasApp;
 
   return (
     <aside className="sidebar">
