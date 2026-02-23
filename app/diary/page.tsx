@@ -1,9 +1,18 @@
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { redirect } from "next/navigation";
+import dynamic from "next/dynamic";
 
-import DiaryCalendar from "./components/DiaryCalendar";
 import { getDiaryEntriesForBusiness } from "@/lib/diary/diaryQueries";
+
+const DiaryCalendar = dynamic(() => import("./components/DiaryCalendar"), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center justify-center h-[680px] text-[var(--muted)] text-sm">
+      Loading calendar…
+    </div>
+  ),
+});
 
 export const dynamic = "force-dynamic";
 
