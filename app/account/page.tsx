@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/client";
+import InviteForm from "@/app/team/components/InviteForm";
+import TeamMemberList from "@/app/team/components/TeamMemberList";
+import type { TeamInvite, TeamMember } from "@/types/team";
 
 type ClientProfile = {
   business_name: string;
@@ -247,6 +250,11 @@ export default function AccountPage() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamInvites, setTeamInvites] = useState<TeamInvite[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamError, setTeamError] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -276,7 +284,7 @@ export default function AccountPage() {
       const { data: clientData, error: clientError } = await supabase
         .from("clients")
         .select(
-          "accounting_system, stripe_status, stripe_plan_tier, stripe_plan_billing, stripe_subscription_id, stripe_price_id, stripe_id, business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded"
+          "accounting_system, stripe_status, stripe_plan_tier, stripe_plan_billing, stripe_subscription_id, stripe_price_id, stripe_id, business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded, user_role"
         )
         .eq("id", userData.user.id)
         .maybeSingle();
@@ -290,6 +298,7 @@ export default function AccountPage() {
       setStripeSubscriptionId(clientData?.stripe_subscription_id ?? null);
       setStripePriceId(clientData?.stripe_price_id ?? null);
       setStripeId(clientData?.stripe_id ?? null);
+      setUserRole((clientData as { user_role?: string } | null)?.user_role ?? "owner");
 
       if (!clientData || !isBusinessProfileComplete(clientData)) {
         router.push("/account/setup");
@@ -349,6 +358,29 @@ export default function AccountPage() {
   useEffect(() => {
     void loadEmailAccounts();
   }, []);
+
+  const loadTeamData = useCallback(async () => {
+    setTeamLoading(true);
+    setTeamError(null);
+    try {
+      const res = await fetch("/api/team/members");
+      if (res.status === 403) { setTeamLoading(false); return; }
+      if (!res.ok) throw new Error("Unable to load team data");
+      const data = (await res.json()) as { members?: TeamMember[]; invites?: TeamInvite[] };
+      setTeamMembers(data.members ?? []);
+      setTeamInvites(data.invites ?? []);
+    } catch (err) {
+      setTeamError(err && typeof err === "object" && "message" in err ? String((err as { message?: string }).message) : "Unable to load team");
+    } finally {
+      setTeamLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (userRole === "owner" || userRole === "manager") {
+      void loadTeamData();
+    }
+  }, [userRole, loadTeamData]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -1160,6 +1192,57 @@ export default function AccountPage() {
           </div>
         </form>
       </div>
+
+      {/* ── Team ────────────────────────────────────────────────────── */}
+      {(userRole === "owner" || userRole === "manager") ? (
+        <div className="card" style={{ padding: "24px 28px" }}>
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Team</h2>
+            <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
+              Invite fitters, managers, and estimators to your BillyBot account.
+            </p>
+          </div>
+
+          {teamLoading && <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "16px" }}>Loading team…</p>}
+          {teamError && (
+            <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px" }}>
+              {teamError}
+            </p>
+          )}
+
+          {!teamLoading && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+              <div>
+                <p style={{ fontSize: "13px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "12px" }}>
+                  Invite a team member
+                </p>
+                <InviteForm />
+              </div>
+
+              {(teamMembers.length > 0 || teamInvites.length > 0) ? (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+                    <p style={{ fontSize: "13px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>
+                      Team members
+                    </p>
+                    {teamMembers.filter(m => m.invite_status !== "revoked").length > 0 && (
+                      <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "999px", background: "rgba(56,189,248,0.1)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.2)" }}>
+                        {teamMembers.filter(m => m.invite_status !== "revoked").length}
+                      </span>
+                    )}
+                    {teamInvites.length > 0 && (
+                      <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "999px", background: "rgba(245,158,11,0.1)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}>
+                        {teamInvites.length} pending
+                      </span>
+                    )}
+                  </div>
+                  <TeamMemberList members={teamMembers} pendingInvites={teamInvites} />
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+      ) : null}
 
       {/* ── Legal ───────────────────────────────────────────────────── */}
       <div className="card" style={{ padding: "24px 28px" }}>

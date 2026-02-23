@@ -23,7 +23,6 @@ const navItems: NavItem[] = [
   { label: "Suppliers", href: "/suppliers" },
   { label: "Customers", href: "/customers" },
   { label: "Pricing", href: "/pricing" },
-  { label: "Team", href: "/team", ownerManagerOnly: true },
   { label: "Requests", href: "/requests" },
   { label: "Account", href: "/account" },
 ];
