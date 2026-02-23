@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { DiaryEntry, EntryType } from "@/types/diary";
 
 type TeamMemberOption = {
@@ -138,9 +139,9 @@ export default function DiaryEntryModal({ entry, onClose, onSaved }: Props) {
     }
   }
 
-  return (
+  const modal = (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -318,4 +319,6 @@ export default function DiaryEntryModal({ entry, onClose, onSaved }: Props) {
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
