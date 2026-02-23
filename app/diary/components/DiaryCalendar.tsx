@@ -13,6 +13,7 @@ import {
 import { enGB } from "date-fns/locale";
 
 import DiaryEntryModal from "./DiaryEntryModal";
+import DiaryEntryDetailModal from "./DiaryEntryDetailModal";
 import type { DiaryEntry } from "@/types/diary";
 
 const locales = { "en-GB": enGB };
@@ -58,6 +59,7 @@ export default function DiaryCalendar({ initialEntries }: Props) {
   const [entries, setEntries] = useState<DiaryEntry[]>(initialEntries);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<DiaryEntry | null>(null);
+  const [detailEntry, setDetailEntry] = useState<DiaryEntry | null>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week" | "day">("month");
 
@@ -80,8 +82,7 @@ export default function DiaryCalendar({ initialEntries }: Props) {
   );
 
   const handleSelectEvent = useCallback((event: CalendarEvent) => {
-    setEditingEntry(event.resource);
-    setModalOpen(true);
+    setDetailEntry(event.resource);
   }, []);
 
   const handleAddEntry = useCallback(() => {
@@ -93,6 +94,18 @@ export default function DiaryCalendar({ initialEntries }: Props) {
     setModalOpen(false);
     setEditingEntry(null);
   }, []);
+
+  const handleDetailClose = useCallback(() => {
+    setDetailEntry(null);
+  }, []);
+
+  const handleDetailEdit = useCallback(() => {
+    if (detailEntry) {
+      setEditingEntry(detailEntry);
+      setDetailEntry(null);
+      setModalOpen(true);
+    }
+  }, [detailEntry]);
 
   const handleEntrySaved = useCallback(
     async (saved: DiaryEntry) => {
@@ -219,6 +232,14 @@ export default function DiaryCalendar({ initialEntries }: Props) {
           </div>
         ))}
       </div>
+
+      {detailEntry ? (
+        <DiaryEntryDetailModal
+          entry={detailEntry}
+          onClose={handleDetailClose}
+          onEdit={handleDetailEdit}
+        />
+      ) : null}
 
       {modalOpen ? (
         <DiaryEntryModal
