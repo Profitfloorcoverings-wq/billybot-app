@@ -40,22 +40,42 @@ type LinkCardProps = {
 
 function LinkCard({ label, reference, url }: LinkCardProps) {
   const title = reference ? `${label} ${reference}` : label;
+  const isJobSheet = label === "JOB SHEET";
 
   return (
-    <div className="space-y-2">
-      <div className="text-xs uppercase tracking-[0.18em] text-[var(--muted)]">
+    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+      <p style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase" as const, color: "#64748b", margin: 0 }}>
         {title}
-      </div>
-
+      </p>
       <a
         href={url}
         target="_blank"
         rel="noreferrer"
         aria-label={`Open ${title}`}
-        className="block w-[min(360px,100%)]"
+        style={{ display: "block", width: "min(340px, 100%)", textDecoration: "none" }}
       >
-        <div className="rounded-2xl border border-[rgba(249,115,22,0.55)] bg-[linear-gradient(135deg,var(--orange-1),var(--orange-2))] px-5 py-4 text-center text-sm font-extrabold text-white shadow-[0_0_18px_var(--orange-glow)] transition hover:brightness-105">
-          Open
+        <div style={{
+          borderRadius: "14px",
+          border: `1px solid ${isJobSheet ? "rgba(56,189,248,0.4)" : "rgba(249,115,22,0.5)"}`,
+          background: isJobSheet
+            ? "linear-gradient(135deg, #0369a1, #0ea5e9)"
+            : "linear-gradient(135deg, #f97316, #fb923c)",
+          padding: "14px 20px",
+          textAlign: "center" as const,
+          fontSize: "14px",
+          fontWeight: 800,
+          color: "#fff",
+          boxShadow: isJobSheet
+            ? "0 0 18px rgba(56,189,248,0.4)"
+            : "0 0 18px rgba(249,115,22,0.5)",
+          transition: "filter 0.12s ease, transform 0.12s ease",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+        }}>
+          <span style={{ fontSize: "16px" }}>{isJobSheet ? "📋" : "📄"}</span>
+          Open {label === "QUOTE" ? "Quote" : "Job Sheet"}
         </div>
       </a>
     </div>
@@ -522,7 +542,7 @@ function ChatPageContent() {
     }
 
     return (
-      <div className="prose prose-invert max-w-none text-sm leading-normal [&_p]:my-1 [&_li]:my-0 [&_ul]:my-1">
+      <div className="chat-md">
         <ReactMarkdown>{m.content}</ReactMarkdown>
       </div>
     );
@@ -573,17 +593,38 @@ function ChatPageContent() {
         </div>
       ) : null}
 
-      <header className="chat-header">
-        <h1 className="section-title">Chat with BillyBot</h1>
+      <header style={{ marginBottom: "0" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+          <div>
+            <h1 className="section-title">Chat with BillyBot</h1>
+            <p style={{ color: "#475569", fontSize: "13px", marginTop: "4px" }}>
+              Your AI flooring operator — quote, schedule, and manage jobs by chat.
+            </p>
+          </div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "7px 12px", borderRadius: "999px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)", flexShrink: 0 }}>
+            <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.7)", flexShrink: 0 }} />
+            <span style={{ fontSize: "12px", fontWeight: 600, color: "#4ade80", letterSpacing: "0.04em" }}>BillyBot online</span>
+          </div>
+        </div>
       </header>
 
       <div className="chat-panel min-h-0">
-        <div className="flex items-center justify-between rounded-2xl bg-[rgba(255,255,255,0.04)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted)]">
-          <span>Conversation</span>
-          <span>{loading ? "Syncing…" : "Live"}</span>
+        {/* Conversation bar */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: "12px", background: "rgba(255,255,255,0.03)", padding: "7px 14px", marginBottom: "10px" }}>
+          <span style={{ fontSize: "11px", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.18em", color: "#475569" }}>Conversation</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            {loading ? (
+              <span style={{ fontSize: "11px", fontWeight: 600, color: "#64748b", letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Syncing…</span>
+            ) : (
+              <>
+                <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 5px rgba(34,197,94,0.6)" }} />
+                <span style={{ fontSize: "11px", fontWeight: 600, color: "#4ade80", letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Live</span>
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="chat-messages flex flex-col gap-2 rounded-2xl border border-[var(--line)] bg-[rgba(6,10,20,0.8)] p-4 shadow-[0_14px_38px_rgba(0,0,0,0.35)]">
+        <div className="chat-messages">
           {messages.map((m) => (
             <div
               key={m.id}
@@ -609,8 +650,8 @@ function ChatPageContent() {
                 <span className="chat-task-dots" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-white">{taskBannerContent.title}</div>
-                <div className="text-xs text-[var(--muted)]">{taskBannerContent.subtext}</div>
+                <div style={{ fontSize: "14px", fontWeight: 600, color: "#fff" }}>{taskBannerContent.title}</div>
+                <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>{taskBannerContent.subtext}</div>
               </div>
             </div>
           ) : null}
@@ -618,7 +659,7 @@ function ChatPageContent() {
 
           <div className={`chat-attachment-row ${attachedFiles.length ? "is-visible" : ""}`}>
             <span className="chat-attachment-label">Attachments</span>
-            <div className="flex flex-1 flex-wrap gap-2">
+            <div style={{ display: "flex", flex: 1, flexWrap: "wrap", gap: "8px" }}>
               {attachedFiles.map((file, index) => (
                 <div key={`${file.name}-${index}`} className="chat-attachment-pill">
                   <span className="chat-attachment-name">{file.name}</span>
@@ -691,12 +732,12 @@ function ChatPageContent() {
             <button
               onClick={sendMessage}
               disabled={(!input.trim() && attachedFiles.length === 0) || sending || isLocked}
-              className="chat-send-btn flex items-center justify-center gap-2"
+              className="chat-send-btn"
             >
               {sending ? (
-                <span className="flex items-center gap-2">
+                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <span className="chat-send-loader" aria-hidden />
-                  <span className="text-sm font-semibold">Working…</span>
+                  <span style={{ fontSize: "14px", fontWeight: 600 }}>Working…</span>
                 </span>
               ) : (
                 "Send"
