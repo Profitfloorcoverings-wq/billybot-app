@@ -8,12 +8,21 @@ import BillyBotLogo from "./BillyBotLogo";
 import { createClient } from "@/utils/supabase/client";
 import { getSession } from "@/utils/supabase/session";
 
-const navItems = [
+type NavItem = {
+  label: string;
+  href: string;
+  watchQuotes?: boolean;
+  ownerManagerOnly?: boolean;
+};
+
+const navItems: NavItem[] = [
   { label: "Chat", href: "/chat" },
+  { label: "Diary", href: "/diary" },
   { label: "Quotes", href: "/quotes", watchQuotes: true },
   { label: "Suppliers", href: "/suppliers" },
   { label: "Customers", href: "/customers" },
   { label: "Pricing", href: "/pricing" },
+  { label: "Team", href: "/team", ownerManagerOnly: true },
   { label: "Requests", href: "/requests" },
   { label: "Account", href: "/account" },
 ];
@@ -24,6 +33,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [hasNewQuote, setHasNewQuote] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const qrValue = "https://apps.apple.com/gb/app/billybot/id6758058400";
 
   const checkLatestQuote = useCallback(async () => {
@@ -79,12 +89,24 @@ export default function Sidebar() {
       if (!isMounted) return;
 
       setIsAuthenticated(!!session?.user);
+
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from("clients")
+          .select("user_role")
+          .eq("id", session.user.id)
+          .maybeSingle();
+        if (isMounted) {
+          setUserRole(profile?.user_role ?? "owner");
+        }
+      }
     }
 
     void syncSession();
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
       setIsAuthenticated(!!session?.user);
+      if (!session?.user) setUserRole(null);
     });
 
     return () => {
@@ -108,6 +130,10 @@ export default function Sidebar() {
       {showNav ? (
         <nav className="sidebar-nav">
           {navItems.map((item) => {
+            // Hide Team link for non-owner/manager roles
+            if (item.ownerManagerOnly && userRole !== "owner" && userRole !== "manager") {
+              return null;
+            }
             const active = pathname === item.href;
             const showNew = item.watchQuotes && hasNewQuote && pathname !== item.href;
             return (

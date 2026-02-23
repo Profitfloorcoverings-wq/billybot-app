@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import 'react-big-calendar/lib/css/react-big-calendar.css';
+
 :root {
   --brand1: #2563eb;
   --brand2: #3b82f6;
@@ -1568,4 +1570,115 @@ input[type=number].supplierPriceInput {
 .starter-banner-btn-ghost:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(148, 163, 184, 0.55);
+}
+
+/* ─── react-big-calendar dark theme overrides ─────────────────────── */
+.rbc-calendar {
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+}
+.rbc-header,
+.rbc-month-view .rbc-header {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--line);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 6px 4px;
+}
+.rbc-month-view,
+.rbc-time-view,
+.rbc-agenda-view {
+  border-color: var(--line);
+}
+.rbc-month-row,
+.rbc-day-bg,
+.rbc-time-slot,
+.rbc-timeslot-group,
+.rbc-time-content,
+.rbc-time-header-content,
+.rbc-time-header {
+  border-color: var(--line);
+}
+.rbc-off-range-bg {
+  background: rgba(0,0,0,0.15);
+}
+.rbc-today {
+  background: rgba(37,99,235,0.08);
+}
+.rbc-date-cell {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.rbc-date-cell.rbc-now {
+  color: var(--brand1);
+  font-weight: 700;
+}
+.rbc-event {
+  border-radius: 6px;
+  padding: 2px 5px;
+  font-size: 0.72rem;
+}
+.rbc-event:focus {
+  outline: 2px solid var(--brand1);
+}
+.rbc-show-more {
+  color: var(--brand1);
+  font-size: 0.72rem;
+}
+.rbc-toolbar {
+  color: var(--text);
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rbc-toolbar button {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.rbc-toolbar button:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text);
+}
+.rbc-toolbar button.rbc-active {
+  background: var(--brand1);
+  color: #0f172a;
+  border-color: var(--brand1);
+  font-weight: 600;
+}
+.rbc-toolbar .rbc-toolbar-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.rbc-current-time-indicator {
+  background-color: var(--brand1);
+}
+.rbc-slot-selection {
+  background: rgba(37,99,235,0.2);
+}
+.rbc-selected-cell {
+  background: rgba(37,99,235,0.15);
+}
+.rbc-popup {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.rbc-popup .rbc-event {
+  margin-bottom: 4px;
+}
+.diary-calendar-wrapper {
+  margin-top: 1rem;
+}
+.diary-calendar-container .rbc-calendar {
+  min-height: 600px;
 }
