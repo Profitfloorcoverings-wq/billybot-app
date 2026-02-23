@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
+
+const IOS_APP_URL = "https://apps.apple.com/gb/app/billybot/id6758058400";
 
 type Props = {
   inviteToken: string;
@@ -11,11 +11,11 @@ type Props = {
 };
 
 export default function AcceptInviteForm({ inviteToken, email, name }: Props) {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,21 +45,38 @@ export default function AcceptInviteForm({ inviteToken, email, name }: Props) {
         return;
       }
 
-      // Auto sign-in so they don't have to log in manually
-      const supabase = createClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) {
-        // Account was created — just send them to login as fallback
-        router.push("/auth/login");
-        return;
-      }
-
-      router.push("/chat");
+      setDone(true);
     } catch {
       setError("Network error. Please try again.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (done) {
+    return (
+      <div className="space-y-6 text-center">
+        <div className="text-4xl">🎉</div>
+        <div>
+          <p className="font-semibold text-[var(--text)] text-lg">You&apos;re all set, {name}!</p>
+          <p className="text-[var(--muted)] text-sm mt-1">
+            Your account has been created. Download the BillyBot app to get started.
+          </p>
+        </div>
+        <a
+          href={IOS_APP_URL}
+          className="btn btn-primary w-full inline-block text-center"
+        >
+          Download BillyBot for iPhone
+        </a>
+        <a
+          href="/chat"
+          className="block text-sm text-[var(--muted)] hover:text-[var(--text)] transition"
+        >
+          Or continue in browser →
+        </a>
+      </div>
+    );
   }
 
   return (
