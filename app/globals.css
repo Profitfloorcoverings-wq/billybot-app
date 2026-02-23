@@ -2029,3 +2029,21 @@ input[type=number].supplierPriceInput {
   text-align: center;
   font-size: 13px;
 }
+
+/* Job detail two-column grid */
+.job-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .job-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .job-detail-grid aside {
+    order: -1;
+  }
+}

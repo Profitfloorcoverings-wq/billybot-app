@@ -43,7 +43,6 @@ export default function JobsList({
   const filteredJobs = useMemo(() => {
     if (!search.trim()) return jobs;
     const query = search.toLowerCase();
-
     return jobs.filter((job) => {
       const title = job.title?.toLowerCase() || "";
       const customer = job.customer_name?.toLowerCase() || "";
@@ -66,14 +65,14 @@ export default function JobsList({
         onSearchChange={setSearch}
       />
 
-      <div className="table-card scrollable-table">
-        <div className="relative w-full max-h-[70vh] overflow-y-auto">
+      <div className="table-card scrollable-table" style={{ marginTop: "8px" }}>
+        <div style={{ position: "relative", width: "100%", maxHeight: "70vh", overflowY: "auto" }}>
           {showError && <div className="empty-state">{jobsError}</div>}
 
           {!showError && !hasJobs && (
-            <div className="empty-state stack items-center">
-              <h3 className="section-title">No jobs yet</h3>
-              <p className="section-subtitle">
+            <div className="empty-state" style={{ textAlign: "center", padding: "40px 24px" }}>
+              <h3 className="section-title" style={{ fontSize: "18px", marginBottom: "8px" }}>No jobs yet</h3>
+              <p className="section-subtitle" style={{ marginBottom: "16px" }}>
                 Jobs appear once a new request or email thread arrives.
               </p>
               <Link href="/requests" className="btn btn-primary">
@@ -88,7 +87,7 @@ export default function JobsList({
 
           {!showError && hasFilteredJobs && (
             <table className="data-table">
-              <thead className="sticky top-0 z-10 bg-[var(--card)]">
+              <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "rgba(15,23,42,0.98)" }}>
                 <tr>
                   <th>Title</th>
                   <th>Customer</th>
@@ -109,16 +108,18 @@ export default function JobsList({
                       <td>
                         <Link
                           href={`/jobs/${id}`}
-                          className="text-[15px] font-semibold text-white hover:underline"
+                          style={{ fontSize: "15px", fontWeight: 600, color: "#f1f5f9", textDecoration: "none" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
                         >
                           {title}
                         </Link>
                       </td>
                       <td>
-                        <div className="stack gap-1">
-                          <span className="text-sm text-[var(--muted)]">{customer}</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                          <span style={{ fontSize: "14px", color: "#e2e8f0" }}>{customer}</span>
                           <span
-                            className="text-xs text-[var(--muted)] truncate max-w-[220px]"
+                            style={{ fontSize: "12px", color: "#64748b", maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                             title={job.customer_email || undefined}
                           >
                             {job.customer_email || "—"}
@@ -130,7 +131,7 @@ export default function JobsList({
                       </td>
                       <td>
                         <span
-                          className="text-xs text-[var(--muted)]"
+                          style={{ fontSize: "12px", color: "#64748b" }}
                           title={lastActivityExact}
                         >
                           {lastActivityLabel}

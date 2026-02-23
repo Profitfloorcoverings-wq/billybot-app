@@ -25,16 +25,28 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
 
   return (
     <div className="page-container">
-      <div className="section-header">
-        <div className="stack">
-          <h1 className="section-title">Jobs</h1>
-          <p className="section-subtitle">
-            Track every active job, email thread, and quote in one place.
-          </p>
+      <header style={{ marginBottom: "4px" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+          <div>
+            <h1 className="section-title">Jobs</h1>
+            <p style={{ color: "#475569", fontSize: "13px", marginTop: "4px" }}>
+              Track every active job, email thread, and quote in one place.
+            </p>
+          </div>
+          {jobs.length > 0 && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", padding: "6px 14px",
+              borderRadius: "999px", fontSize: "13px", fontWeight: 700,
+              background: "rgba(56,189,248,0.1)", color: "#38bdf8",
+              border: "1px solid rgba(56,189,248,0.25)",
+            }}>
+              {jobs.length} {jobs.length === 1 ? "job" : "jobs"}
+            </span>
+          )}
         </div>
-      </div>
+      </header>
 
-      <div className="card stack gap-4">
+      <div className="card" style={{ padding: "20px" }}>
         <JobsList
           jobs={jobs}
           jobsError={jobsError?.message ?? null}
@@ -47,7 +59,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
 
       {debugEnabled ? (
         <div className="card">
-          <pre className="text-xs text-[var(--muted)] whitespace-pre-wrap">
+          <pre style={{ fontSize: "12px", color: "#64748b", whiteSpace: "pre-wrap" }}>
             {JSON.stringify(
               {
                 user_id: user?.id ?? null,

@@ -77,10 +77,10 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
   }
 
   return (
-    <div className="page-container gap-5">
+    <div className="page-container">
       <JobHeader job={bundle.job} quotesCount={bundle.quotes.length} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <main className="min-w-0">
+      <div className="job-detail-grid">
+        <main style={{ minWidth: 0 }}>
           <JobTabs data={bundle} />
         </main>
         <aside>

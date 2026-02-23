@@ -18,20 +18,33 @@ export default function AttachmentsGallery({ attachments }: { attachments: JobPa
   }
 
   return (
-    <div className="stack gap-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "12px" }}>
         {attachments.map((file) => {
           const isImage = looksLikeImage(file.mimeType, file.name);
           return (
-            <article key={file.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-              <p className="line-clamp-1 text-sm font-semibold text-white">{file.name}</p>
-              <p className="text-xs text-[var(--muted)]">{file.mimeType || "Unknown type"} · {formatBytes(file.size)}</p>
-              <p className="text-xs text-[var(--muted)]">From email {formatTimestamp(file.receivedAt)}</p>
-              <div className="mt-3 flex gap-2">
-                {isImage && file.url ? (
+            <article
+              key={file.id}
+              style={{
+                borderRadius: "14px", border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.03)", padding: "14px 16px",
+              }}
+            >
+              <p style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {file.name}
+              </p>
+              <p style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+                {file.mimeType || "Unknown type"} · {formatBytes(file.size)}
+              </p>
+              <p style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+                Received {formatTimestamp(file.receivedAt)}
+              </p>
+              <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+                {isImage && file.url && (
                   <button
                     type="button"
-                    className="btn btn-secondary h-8 px-3 text-xs"
+                    className="btn btn-secondary"
+                    style={{ padding: "6px 12px", fontSize: "12px" }}
                     onClick={() => {
                       const idx = imageAttachments.findIndex((image) => image.id === file.id);
                       setActiveIndex(idx >= 0 ? idx : null);
@@ -39,13 +52,19 @@ export default function AttachmentsGallery({ attachments }: { attachments: JobPa
                   >
                     Preview
                   </button>
-                ) : null}
+                )}
                 {file.url ? (
-                  <a href={file.url} target="_blank" rel="noreferrer" className="btn btn-secondary h-8 px-3 text-xs">
-                    Open / Download
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-secondary"
+                    style={{ padding: "6px 12px", fontSize: "12px" }}
+                  >
+                    Download
                   </a>
                 ) : (
-                  <span className="text-xs text-[var(--muted)]">Attachment detected but no link available</span>
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>No link available</span>
                 )}
               </div>
             </article>
@@ -53,38 +72,56 @@ export default function AttachmentsGallery({ attachments }: { attachments: JobPa
         })}
       </div>
 
-      {activeIndex !== null && imageAttachments[activeIndex] ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-          <div className="relative w-full max-w-5xl rounded-2xl border border-white/15 bg-slate-950 p-4">
+      {activeIndex !== null && imageAttachments[activeIndex] && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 50,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "rgba(0,0,0,0.85)", padding: "16px",
+        }}>
+          <div style={{
+            position: "relative", width: "100%", maxWidth: "1000px",
+            borderRadius: "20px", border: "1px solid rgba(148,163,184,0.15)",
+            background: "#020617", padding: "16px",
+          }}>
             <img
               src={imageAttachments[activeIndex].url || ""}
               alt={imageAttachments[activeIndex].name}
-              className="max-h-[75vh] w-full rounded-xl object-contain"
+              style={{ maxHeight: "75vh", width: "100%", borderRadius: "12px", objectFit: "contain" }}
             />
-            <div className="mt-3 flex items-center justify-between">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "12px", gap: "8px" }}>
               <button
                 type="button"
-                className="btn btn-secondary h-9 px-3"
-                onClick={() => setActiveIndex((value) => (value && value > 0 ? value - 1 : value))}
+                className="btn btn-secondary"
+                style={{ padding: "8px 16px" }}
+                onClick={() => setActiveIndex((v) => (v && v > 0 ? v - 1 : v))}
                 disabled={activeIndex === 0}
               >
-                Prev
+                ← Prev
+              </button>
+              <span style={{ fontSize: "13px", color: "#64748b" }}>
+                {activeIndex + 1} / {imageAttachments.length}
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ padding: "8px 16px" }}
+                onClick={() => setActiveIndex((v) => (v !== null && v < imageAttachments.length - 1 ? v + 1 : v))}
+                disabled={activeIndex >= imageAttachments.length - 1}
+              >
+                Next →
               </button>
               <button
                 type="button"
-                className="btn btn-secondary h-9 px-3"
-                onClick={() => setActiveIndex((value) => (value !== null && value < imageAttachments.length - 1 ? value + 1 : value))}
-                disabled={activeIndex >= imageAttachments.length - 1}
+                className="btn btn-primary"
+                style={{ padding: "8px 16px" }}
+                onClick={() => setActiveIndex(null)}
               >
-                Next
-              </button>
-              <button type="button" className="btn btn-primary h-9 px-3" onClick={() => setActiveIndex(null)}>
                 Close
               </button>
             </div>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

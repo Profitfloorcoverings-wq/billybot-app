@@ -40,6 +40,12 @@ function nextStep(job: JobPageData["job"]) {
   return "Create or update the quote and move the job to booked.";
 }
 
+const TAB_COUNTS: Record<string, (data: JobPageData) => number | null> = {
+  emails: (d) => d.emailThread.length || null,
+  attachments: (d) => d.attachments.length || null,
+  quotes: (d) => d.quotes.length || null,
+};
+
 export default function JobTabs({ data }: { data: JobPageData }) {
   const [tab, setTab] = useState<Tab>("overview");
   const summary = useMemo(() => parseSummary(data.job.job_details), [data.job.job_details]);
@@ -53,60 +59,151 @@ export default function JobTabs({ data }: { data: JobPageData }) {
   }, [data.job.customer_phone, data.job.job_details, data.job.site_address]);
 
   return (
-    <div className="stack gap-4">
-      <div className="flex flex-wrap gap-2 border-b border-white/10 pb-2">
-        {TABS.map((name) => (
-          <button
-            type="button"
-            key={name}
-            className={`btn h-9 px-4 ${tab === name ? "btn-primary" : "btn-secondary"}`}
-            onClick={() => setTab(name)}
-          >
-            {name[0].toUpperCase() + name.slice(1)}
-          </button>
-        ))}
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: "4px", borderBottom: "1px solid rgba(148,163,184,0.1)", paddingBottom: "0", flexWrap: "wrap" }}>
+        {TABS.map((name) => {
+          const count = TAB_COUNTS[name]?.(data);
+          const active = tab === name;
+          return (
+            <button
+              type="button"
+              key={name}
+              onClick={() => setTab(name)}
+              style={{
+                padding: "10px 16px",
+                fontSize: "13px",
+                fontWeight: active ? 700 : 500,
+                color: active ? "#f1f5f9" : "#64748b",
+                background: "transparent",
+                border: "none",
+                borderBottom: active ? "2px solid #38bdf8" : "2px solid transparent",
+                cursor: "pointer",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                marginBottom: "-1px",
+                transition: "color 0.15s ease",
+              }}
+            >
+              {name[0].toUpperCase() + name.slice(1)}
+              {count ? (
+                <span style={{
+                  fontSize: "10px", fontWeight: 700, padding: "1px 6px",
+                  borderRadius: "999px", background: "rgba(56,189,248,0.15)",
+                  color: "#38bdf8", border: "1px solid rgba(56,189,248,0.2)",
+                }}>
+                  {count}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
 
+      {/* Overview */}
       {tab === "overview" ? (
-        <div className="stack gap-4">
-          <section className="card">
-            <h3 className="text-base font-semibold text-white">Next step</h3>
-            <p className="mt-1 text-sm">{nextStep(data.job)}</p>
-          </section>
-          <section className="metric-grid">
-            <div className="metric"><p className="metric-label">Status</p><p className="metric-value text-base">{humanizeStatus(data.job.status)}</p></div>
-            <div className="metric"><p className="metric-label">Quotes</p><p className="metric-value text-base">{data.quotes.length}</p></div>
-            <div className="metric"><p className="metric-label">Last email</p><p className="metric-value text-base">{formatRelativeTime(data.latestEmail?.received_at)}</p></div>
-            <div className="metric"><p className="metric-label">Customer replied</p><p className="metric-value text-base">{data.job.customer_reply ? "Yes" : "No"}</p></div>
-            <div className="metric"><p className="metric-label">Provider</p><p className="metric-value text-base">{data.job.provider || "—"}</p></div>
-          </section>
-          <section className="card stack gap-3">
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+
+          {/* Next step callout */}
+          <section style={{
+            background: "rgba(56,189,248,0.07)",
+            border: "1px solid rgba(56,189,248,0.18)",
+            borderRadius: "14px",
+            padding: "14px 18px",
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "12px",
+          }}>
+            <span style={{ fontSize: "18px", flexShrink: 0 }}>→</span>
             <div>
-              <h3 className="text-base font-semibold text-white">Job summary</h3>
-              <p className="text-sm text-[var(--muted)]">Structured details extracted from job notes.</p>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "#38bdf8", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 4px" }}>Next step</p>
+              <p style={{ fontSize: "14px", color: "#e2e8f0", margin: 0 }}>{nextStep(data.job)}</p>
+            </div>
+          </section>
+
+          {/* Key metrics */}
+          <div className="metric-grid">
+            <div className="metric">
+              <p className="metric-label">Status</p>
+              <p className="metric-value" style={{ fontSize: "15px" }}>{humanizeStatus(data.job.status)}</p>
+            </div>
+            <div className="metric">
+              <p className="metric-label">Quotes</p>
+              <p className="metric-value" style={{ fontSize: "15px" }}>{data.quotes.length}</p>
+            </div>
+            <div className="metric">
+              <p className="metric-label">Last email</p>
+              <p className="metric-value" style={{ fontSize: "15px" }}>{formatRelativeTime(data.latestEmail?.received_at)}</p>
+            </div>
+            <div className="metric">
+              <p className="metric-label">Customer replied</p>
+              <p className="metric-value" style={{ fontSize: "15px", color: data.job.customer_reply ? "#34d399" : "#f87171" }}>
+                {data.job.customer_reply ? "Yes" : "No"}
+              </p>
+            </div>
+            <div className="metric">
+              <p className="metric-label">Attachments</p>
+              <p className="metric-value" style={{ fontSize: "15px" }}>{data.attachments.length}</p>
+            </div>
+            {data.job.provider ? (
+              <div className="metric">
+                <p className="metric-label">Provider</p>
+                <p className="metric-value" style={{ fontSize: "15px" }}>{data.job.provider}</p>
+              </div>
+            ) : null}
+          </div>
+
+          {/* Missing info warning */}
+          {missing.length ? (
+            <div style={{
+              background: "rgba(251,191,36,0.06)",
+              border: "1px solid rgba(251,191,36,0.2)",
+              borderRadius: "12px",
+              padding: "12px 16px",
+            }}>
+              <p style={{ fontSize: "12px", fontWeight: 700, color: "#fbbf24", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                Missing info
+              </p>
+              <p style={{ fontSize: "13px", color: "#fcd34d", margin: 0 }}>
+                {missing.join(" · ")} — update before quoting.
+              </p>
+            </div>
+          ) : null}
+
+          {/* Job summary (key-value pairs from job_details) */}
+          <section className="card" style={{ padding: "18px 20px" }}>
+            <div style={{ marginBottom: "14px" }}>
+              <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#f1f5f9", margin: "0 0 4px" }}>Job summary</h3>
+              <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>Details extracted from job notes</p>
             </div>
             {summary.pairs.length ? (
-              <dl className="grid gap-2 sm:grid-cols-2">
+              <dl style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "10px", margin: 0 }}>
                 {summary.pairs.map(([key, value]) => (
-                  <div key={key} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                    <dt className="text-xs uppercase tracking-wide text-[var(--muted)]">{key}</dt>
-                    <dd className="text-sm text-slate-100">{value}</dd>
+                  <div key={key} style={{
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(148,163,184,0.1)",
+                    borderRadius: "10px",
+                    padding: "10px 12px",
+                  }}>
+                    <dt style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>
+                      {key}
+                    </dt>
+                    <dd style={{ fontSize: "14px", color: "#e2e8f0", margin: 0, fontWeight: 500 }}>{value}</dd>
                   </div>
                 ))}
               </dl>
             ) : null}
             {summary.paragraphs.length ? (
-              <div className="space-y-2">
-                {summary.paragraphs.map((line, index) => <p key={`${line}-${index}`} className="text-sm text-slate-100">{line}</p>)}
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: summary.pairs.length ? "14px" : "0" }}>
+                {summary.paragraphs.map((line, index) => (
+                  <p key={`${line}-${index}`} style={{ fontSize: "14px", color: "#cbd5e1", margin: 0, lineHeight: 1.6 }}>{line}</p>
+                ))}
               </div>
             ) : null}
-            {!summary.paragraphs.length && !summary.pairs.length ? <p className="text-sm">No job summary captured yet.</p> : null}
-            {missing.length ? <p className="text-sm text-amber-200">Missing info: {missing.join(", ")}.</p> : null}
-          </section>
-          <section className="card stack gap-2">
-            <h3 className="text-base font-semibold text-white">Customer & site</h3>
-            <p className="text-sm text-slate-200">{data.job.customer_name || "Unknown customer"} · {data.job.customer_email || "No email"}</p>
-            <p className="text-sm text-[var(--muted)]">{data.job.site_address || "No site address"} {data.job.postcode ? `(${data.job.postcode})` : ""}</p>
+            {!summary.paragraphs.length && !summary.pairs.length ? (
+              <p style={{ fontSize: "14px", color: "#64748b", margin: 0 }}>No job summary captured yet.</p>
+            ) : null}
           </section>
         </div>
       ) : null}
@@ -114,32 +211,57 @@ export default function JobTabs({ data }: { data: JobPageData }) {
       {tab === "emails" ? <EmailThread emailThread={data.emailThread} /> : null}
       {tab === "attachments" ? <AttachmentsGallery attachments={data.attachments} /> : null}
       {tab === "quotes" ? <QuotesPanel quotes={data.quotes} jobId={data.job.id} /> : null}
+
+      {/* Updates */}
       {tab === "updates" ? (
-        <div className="stack gap-4">
-          <section className="card stack gap-3">
-            <h3 className="text-base font-semibold text-white">Metadata</h3>
-            {data.job.metadata && Object.keys(data.job.metadata).length ? (
-              <div className="flex flex-wrap gap-2">
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+
+          {/* Timeline */}
+          <section className="card" style={{ padding: "18px 20px" }}>
+            <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#f1f5f9", margin: "0 0 14px" }}>Timeline</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {[
+                { label: "Job created", value: formatTimestamp(data.job.created_at) },
+                { label: "Last activity", value: formatTimestamp(data.job.last_activity_at) },
+                { label: "Customer replied", value: data.job.customer_reply ? "Yes" : "No" },
+                { label: "Latest route", value: String((data.latestEmail?.meta as { recommended_route?: string } | null)?.recommended_route || "—") },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", padding: "8px 0", borderBottom: "1px solid rgba(148,163,184,0.06)" }}>
+                  <span style={{ fontSize: "13px", color: "#64748b" }}>{label}</span>
+                  <span style={{ fontSize: "13px", color: "#e2e8f0", fontWeight: 500, textAlign: "right" }}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Outbound draft */}
+          {(data.job.outbound_email_subject || data.job.outbound_email_body) ? (
+            <section className="card" style={{ padding: "18px 20px" }}>
+              <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#f1f5f9", margin: "0 0 10px" }}>Outbound draft</h3>
+              {data.job.outbound_email_subject && (
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0", margin: "0 0 8px" }}>
+                  Subject: {data.job.outbound_email_subject}
+                </p>
+              )}
+              <p style={{ fontSize: "13px", color: "#94a3b8", margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+                {data.job.outbound_email_body || "No draft body yet."}
+              </p>
+            </section>
+          ) : null}
+
+          {/* Metadata */}
+          {data.job.metadata && Object.keys(data.job.metadata).length ? (
+            <section className="card" style={{ padding: "18px 20px" }}>
+              <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#f1f5f9", margin: "0 0 12px" }}>Metadata</h3>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
                 {Object.entries(data.job.metadata).map(([key, value]) => (
-                  <span key={key} className="tag">{key}: {typeof value === "string" ? value : JSON.stringify(value)}</span>
+                  <span key={key} className="tag">
+                    {key}: {typeof value === "string" ? value : JSON.stringify(value)}
+                  </span>
                 ))}
               </div>
-            ) : <p className="text-sm">No metadata available.</p>}
-          </section>
-          <section className="card stack gap-2">
-            <h3 className="text-base font-semibold text-white">Outbound draft</h3>
-            <p className="text-sm text-slate-100">{data.job.outbound_email_subject || "No subject"}</p>
-            <p className="whitespace-pre-wrap text-sm text-[var(--muted)]">{data.job.outbound_email_body || "No draft body yet."}</p>
-          </section>
-          <section className="card stack gap-2">
-            <h3 className="text-base font-semibold text-white">Recent changes</h3>
-            <ul className="ml-4 list-disc text-sm text-[var(--muted)]">
-              <li>Job created {formatTimestamp(data.job.created_at)}</li>
-              <li>Last activity {formatTimestamp(data.job.last_activity_at)}</li>
-              <li>Customer replied: {data.job.customer_reply ? "Yes" : "No"}</li>
-              <li>Latest email route: {String((data.latestEmail?.meta as { recommended_route?: string } | null)?.recommended_route || "—")}</li>
-            </ul>
-          </section>
+            </section>
+          ) : null}
         </div>
       ) : null}
     </div>

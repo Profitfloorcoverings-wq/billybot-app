@@ -78,24 +78,24 @@ export default function JobsFilters({
   }, [status, updateQueryParams, urlStatusValue]);
 
   return (
-    <div className="stack md:row md:items-end md:justify-between gap-3">
-      <div className="stack flex-1">
-        <p className="section-subtitle">Search</p>
+    <div style={{ display: "flex", gap: "16px", flexWrap: "wrap", alignItems: "flex-end" }}>
+      <div className="form-field" style={{ flex: 1, minWidth: "200px" }}>
+        <label className="form-label">Search</label>
         <input
-          className="input-fluid"
+          className="chat-input"
           value={search}
           onChange={(event) => {
             const nextValue = event.target.value;
             setSearch(nextValue);
             onSearchChange?.(nextValue);
           }}
-          placeholder="Search by job title, customer name, or email"
+          placeholder="Search by title, customer name, or email…"
         />
       </div>
-      <div className="stack min-w-[200px]">
-        <p className="section-subtitle">Status</p>
+      <div className="form-field" style={{ minWidth: "180px" }}>
+        <label className="form-label">Status</label>
         <select
-          className="input-fluid"
+          className="chat-input"
           value={status}
           onChange={(event) => setStatus(event.target.value)}
         >
