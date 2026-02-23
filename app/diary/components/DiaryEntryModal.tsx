@@ -172,7 +172,7 @@ export default function DiaryEntryModal({ entry, onClose, onSaved }: Props) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div className="field-group">
             <label className="field-label" htmlFor="de-title">Title</label>
             <input

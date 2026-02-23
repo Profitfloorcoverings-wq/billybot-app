@@ -80,7 +80,7 @@ export default function AcceptInviteForm({ inviteToken, email, name }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div className="field-group">
         <label className="field-label" htmlFor="invite-name">
           Name

@@ -54,7 +54,7 @@ export default function InviteForm() {
         </div>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-2 gap-4">
           <div className="field-group">
             <label className="field-label" htmlFor="invite-name">

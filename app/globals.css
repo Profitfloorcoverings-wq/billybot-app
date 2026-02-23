@@ -373,13 +373,46 @@ input[type=number].supplierPriceInput {
 .field-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
 .field-label {
   font-weight: 600;
-  color: #f3f4f6;
+  color: #94a3b8;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Standalone form input — used in modals and forms outside the chat row */
+.chat-input {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  color: var(--text);
   font-size: 14px;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.chat-input::placeholder {
+  color: rgba(148, 163, 184, 0.5);
+}
+
+.chat-input:focus {
+  border-color: var(--brand1);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+}
+
+.chat-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .table-card {
@@ -1013,8 +1046,10 @@ input[type=number].supplierPriceInput {
   min-width: 0;
   min-height: 32px;
   border: none;
+  border-radius: 0;
   outline: none;
   background: transparent;
+  box-shadow: none;
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
@@ -1022,6 +1057,11 @@ input[type=number].supplierPriceInput {
   resize: none;
   max-height: 200px;
   overflow-y: auto;
+}
+
+.chat-input-row .chat-input:focus {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .chat-input-row .chat-input::placeholder {
