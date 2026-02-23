@@ -92,13 +92,14 @@ export default function Sidebar() {
       setIsAuthenticated(!!session?.user);
 
       if (session?.user) {
-        const [{ data: profile }, { data: pushToken }] = await Promise.all([
-          supabase.from("clients").select("user_role").eq("id", session.user.id).maybeSingle(),
-          supabase.from("push_tokens").select("profile_id").eq("profile_id", session.user.id).maybeSingle(),
-        ]);
+        const { data: profile } = await supabase
+          .from("clients")
+          .select("user_role, has_mobile_app")
+          .eq("id", session.user.id)
+          .maybeSingle();
         if (isMounted) {
           setUserRole(profile?.user_role ?? "owner");
-          setHasApp(!!pushToken);
+          setHasApp(!!(profile as { has_mobile_app?: boolean } | null)?.has_mobile_app);
         }
       }
     }
