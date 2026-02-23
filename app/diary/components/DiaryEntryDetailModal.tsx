@@ -40,12 +40,23 @@ export default function DiaryEntryDetailModal({ entry, onClose, onEdit }: Props)
 
   const modal = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "rgba(0,0,0,0.7)",
+        padding: "16px",
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+      <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto p-6"
+        style={{ position: "relative", zIndex: 10000 }}
+      >
         {/* Header */}
         <div className="flex items-start justify-between mb-5 gap-3">
           <div className="flex items-center gap-3 min-w-0">
