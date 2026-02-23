@@ -9,11 +9,55 @@ type Props = {
   pendingInvites: TeamInvite[];
 };
 
-const roleBadge: Record<string, string> = {
-  manager: "bg-blue-500/20 text-blue-300",
-  fitter: "bg-cyan-500/20 text-cyan-300",
-  estimator: "bg-purple-500/20 text-purple-300",
+const roleColours: Record<string, { bg: string; text: string; border: string }> = {
+  manager: { bg: "rgba(59,130,246,0.15)", text: "#93c5fd", border: "rgba(59,130,246,0.3)" },
+  fitter:  { bg: "rgba(56,189,248,0.12)", text: "#38bdf8", border: "rgba(56,189,248,0.3)" },
+  estimator: { bg: "rgba(168,85,247,0.12)", text: "#c084fc", border: "rgba(168,85,247,0.3)" },
 };
+
+const statusColours: Record<string, { bg: string; text: string; border: string }> = {
+  accepted: { bg: "rgba(34,197,94,0.12)",  text: "#4ade80", border: "rgba(34,197,94,0.25)" },
+  revoked:  { bg: "rgba(239,68,68,0.10)",  text: "#f87171", border: "rgba(239,68,68,0.25)" },
+  pending:  { bg: "rgba(245,158,11,0.10)", text: "#fbbf24", border: "rgba(245,158,11,0.25)" },
+};
+
+function RoleBadge({ role }: { role: string }) {
+  const c = roleColours[role] ?? { bg: "rgba(255,255,255,0.06)", text: "#94a3b8", border: "rgba(148,163,184,0.2)" };
+  return (
+    <span style={{
+      display: "inline-block",
+      padding: "3px 10px",
+      borderRadius: "999px",
+      fontSize: "11px",
+      fontWeight: 700,
+      letterSpacing: "0.04em",
+      background: c.bg,
+      color: c.text,
+      border: `1px solid ${c.border}`,
+    }}>
+      {role.charAt(0).toUpperCase() + role.slice(1)}
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const c = statusColours[status] ?? { bg: "rgba(255,255,255,0.06)", text: "#94a3b8", border: "rgba(148,163,184,0.2)" };
+  return (
+    <span style={{
+      display: "inline-block",
+      padding: "3px 10px",
+      borderRadius: "999px",
+      fontSize: "11px",
+      fontWeight: 700,
+      letterSpacing: "0.04em",
+      background: c.bg,
+      color: c.text,
+      border: `1px solid ${c.border}`,
+    }}>
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+}
 
 export default function TeamMemberList({ members: initialMembers, pendingInvites }: Props) {
   const [members, setMembers] = useState<TeamMember[]>(initialMembers);
@@ -74,9 +118,11 @@ export default function TeamMemberList({ members: initialMembers, pendingInvites
   }
 
   return (
-    <div className="space-y-4">
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
       {error ? (
-        <p className="text-sm text-red-400 bg-red-400/10 rounded-lg px-3 py-2">{error}</p>
+        <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "12px 16px", margin: 0 }}>
+          {error}
+        </p>
       ) : null}
 
       {members.length > 0 ? (
@@ -93,56 +139,74 @@ export default function TeamMemberList({ members: initialMembers, pendingInvites
               </tr>
             </thead>
             <tbody>
-              {members.map((m) => (
-                <tr key={m.id}>
-                  <td className="font-medium">{m.name ?? "—"}</td>
-                  <td className="text-[var(--muted)] text-sm">{m.email ?? m.invite_email}</td>
-                  <td>
-                    <select
-                      value={m.role}
-                      disabled={actionId === m.id || m.invite_status === "revoked"}
-                      onChange={(e) => handleRoleChange(m.id, e.target.value)}
-                      className={`text-xs px-2 py-1 rounded-md border-0 bg-transparent ${roleBadge[m.role] ?? ""}`}
-                    >
-                      <option value="fitter">Fitter</option>
-                      <option value="estimator">Estimator</option>
-                      <option value="manager">Manager</option>
-                    </select>
-                  </td>
-                  <td>
-                    <span
-                      className={`inline-block text-xs px-2 py-0.5 rounded-full ${
-                        m.invite_status === "accepted"
-                          ? "bg-green-500/20 text-green-300"
-                          : m.invite_status === "revoked"
-                          ? "bg-red-500/20 text-red-300"
-                          : "bg-yellow-500/20 text-yellow-300"
-                      }`}
-                    >
-                      {m.invite_status}
-                    </span>
-                  </td>
-                  <td className="text-[var(--muted)] text-sm">
-                    {m.accepted_at
-                      ? new Date(m.accepted_at).toLocaleDateString()
-                      : "—"}
-                  </td>
-                  <td>
-                    {m.invite_status !== "revoked" ? (
-                      <button
-                        type="button"
-                        onClick={() => handleRevoke(m.id)}
-                        disabled={actionId === m.id}
-                        className="text-xs text-red-400 hover:text-red-300 disabled:opacity-50"
-                      >
-                        {actionId === m.id ? "…" : "Revoke"}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-[var(--muted)]">Revoked</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {members.map((m) => {
+                const rc = roleColours[m.role] ?? { bg: "rgba(255,255,255,0.06)", text: "#94a3b8", border: "rgba(148,163,184,0.2)" };
+                return (
+                  <tr key={m.id}>
+                    <td style={{ fontWeight: 600, color: "#f1f5f9" }}>{m.name ?? "—"}</td>
+                    <td style={{ color: "#64748b", fontSize: "13px" }}>{m.email ?? m.invite_email}</td>
+                    <td>
+                      {m.invite_status === "revoked" ? (
+                        <RoleBadge role={m.role} />
+                      ) : (
+                        <select
+                          value={m.role}
+                          disabled={actionId === m.id}
+                          onChange={(e) => handleRoleChange(m.id, e.target.value)}
+                          style={{
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            padding: "3px 8px",
+                            borderRadius: "999px",
+                            border: `1px solid ${rc.border}`,
+                            background: rc.bg,
+                            color: rc.text,
+                            cursor: "pointer",
+                            outline: "none",
+                            opacity: actionId === m.id ? 0.6 : 1,
+                          }}
+                        >
+                          <option value="fitter">Fitter</option>
+                          <option value="estimator">Estimator</option>
+                          <option value="manager">Manager</option>
+                        </select>
+                      )}
+                    </td>
+                    <td>
+                      <StatusBadge status={m.invite_status} />
+                    </td>
+                    <td style={{ color: "#64748b", fontSize: "13px" }}>
+                      {m.accepted_at
+                        ? new Date(m.accepted_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                        : "—"}
+                    </td>
+                    <td>
+                      {m.invite_status !== "revoked" ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRevoke(m.id)}
+                          disabled={actionId === m.id}
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: 600,
+                            color: "#f87171",
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            padding: "4px 0",
+                            opacity: actionId === m.id ? 0.5 : 1,
+                          }}
+                        >
+                          {actionId === m.id ? "Revoking…" : "Revoke"}
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: "12px", color: "#475569" }}>Revoked</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -150,9 +214,14 @@ export default function TeamMemberList({ members: initialMembers, pendingInvites
 
       {pendingInvites.length > 0 ? (
         <div>
-          <h3 className="text-sm font-semibold text-[var(--muted)] mb-2 uppercase tracking-wider">
-            Pending invites
-          </h3>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+            <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "#475569" }}>
+              Pending invites
+            </span>
+            <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 8px", borderRadius: "999px", background: "rgba(245,158,11,0.10)", color: "#fbbf24", border: "1px solid rgba(245,158,11,0.2)" }}>
+              {pendingInvites.length}
+            </span>
+          </div>
           <div className="table-card">
             <table className="data-table">
               <thead>
@@ -166,15 +235,13 @@ export default function TeamMemberList({ members: initialMembers, pendingInvites
               <tbody>
                 {pendingInvites.map((inv) => (
                   <tr key={inv.id}>
-                    <td className="font-medium">{inv.name}</td>
-                    <td className="text-[var(--muted)] text-sm">{inv.invite_email}</td>
+                    <td style={{ fontWeight: 600, color: "#f1f5f9" }}>{inv.name}</td>
+                    <td style={{ color: "#64748b", fontSize: "13px" }}>{inv.invite_email}</td>
                     <td>
-                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${roleBadge[inv.role] ?? ""}`}>
-                        {inv.role}
-                      </span>
+                      <RoleBadge role={inv.role} />
                     </td>
-                    <td className="text-[var(--muted)] text-sm">
-                      {new Date(inv.expires_at).toLocaleDateString()}
+                    <td style={{ color: "#64748b", fontSize: "13px" }}>
+                      {new Date(inv.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                     </td>
                   </tr>
                 ))}

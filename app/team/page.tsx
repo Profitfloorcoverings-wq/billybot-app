@@ -108,25 +108,51 @@ export default async function TeamPage() {
     invited_by: user.id,
   }));
 
+  const activeMembers = members.filter((m) => m.invite_status !== "revoked");
+
   return (
     <div className="page-container">
-      <header className="section-header">
-        <h1 className="section-title">Team</h1>
-        <p className="text-[var(--muted)] text-sm mt-1">
-          Invite fitters, managers and estimators to your BillyBot account.
-        </p>
+      <header style={{ marginBottom: "4px" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+          <div>
+            <h1 className="section-title">Team</h1>
+            <p style={{ color: "#475569", fontSize: "13px", marginTop: "4px" }}>
+              Invite fitters, managers and estimators to your BillyBot account.
+            </p>
+          </div>
+          {(activeMembers.length > 0 || invites.length > 0) && (
+            <div style={{ display: "flex", gap: "12px" }}>
+              {activeMembers.length > 0 && (
+                <div style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.15)", borderRadius: "10px", padding: "8px 16px", textAlign: "center" as const }}>
+                  <p style={{ fontSize: "20px", fontWeight: 700, color: "#38bdf8", lineHeight: 1 }}>{activeMembers.length}</p>
+                  <p style={{ fontSize: "11px", color: "#475569", marginTop: "3px", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>
+                    {activeMembers.length === 1 ? "Member" : "Members"}
+                  </p>
+                </div>
+              )}
+              {invites.length > 0 && (
+                <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.15)", borderRadius: "10px", padding: "8px 16px", textAlign: "center" as const }}>
+                  <p style={{ fontSize: "20px", fontWeight: 700, color: "#fbbf24", lineHeight: 1 }}>{invites.length}</p>
+                  <p style={{ fontSize: "11px", color: "#475569", marginTop: "3px", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Pending</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </header>
 
-      <div className="space-y-8 mt-6">
+      <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
         <section>
-          <h2 className="text-base font-semibold text-[var(--text)] mb-4">Invite a team member</h2>
+          <h2 style={{ fontSize: "15px", fontWeight: 700, color: "#f1f5f9", marginBottom: "16px" }}>
+            Invite a team member
+          </h2>
           <InviteForm />
         </section>
 
         {members.length > 0 || invites.length > 0 ? (
           <section>
-            <h2 className="text-base font-semibold text-[var(--text)] mb-4">
-              Team members ({members.length})
+            <h2 style={{ fontSize: "15px", fontWeight: 700, color: "#f1f5f9", marginBottom: "16px" }}>
+              Team members{members.length > 0 ? ` (${members.length})` : ""}
             </h2>
             <TeamMemberList members={members} pendingInvites={invites} />
           </section>

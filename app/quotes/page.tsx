@@ -105,58 +105,76 @@ export default function QuotesPage() {
 
   return (
     <div className="page-container">
-      <div className="section-header">
-        <div className="stack">
-          <h1 className="section-title">Quotes</h1>
-          <p className="section-subtitle">
-            Review, track, and open every quote in one place.
-          </p>
+      <header style={{ marginBottom: "4px" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+          <div>
+            <h1 className="section-title">Quotes</h1>
+            <p style={{ color: "#475569", fontSize: "13px", marginTop: "4px" }}>
+              Review, track, and open every quote in one place.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            {!loading && quotes.length > 0 && (
+              <div style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.15)", borderRadius: "10px", padding: "8px 16px", textAlign: "center" as const }}>
+                <p style={{ fontSize: "20px", fontWeight: 700, color: "#38bdf8", lineHeight: 1 }}>{quotes.length}</p>
+                <p style={{ fontSize: "11px", color: "#475569", marginTop: "3px", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Total</p>
+              </div>
+            )}
+            {/* Live feed indicator */}
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "7px 12px", borderRadius: "999px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
+              <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.7)", flexShrink: 0 }} />
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "#4ade80", letterSpacing: "0.04em" }}>Live feed</span>
+            </div>
+          </div>
         </div>
-        <div className="tag">Live feed</div>
-      </div>
+      </header>
 
-      <div className="stack gap-4">
+      <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         {loading && <div className="empty-state">Loading your quotes…</div>}
 
-        {error && !loading && <div className="empty-state">{error}</div>}
+        {error && !loading && <div className="empty-state" style={{ color: "#fca5a5" }}>{error}</div>}
 
         {!loading && !error && !hasQuotes && (
-          <div className="empty-state stack items-center">
-            <h3 className="section-title">No quotes yet</h3>
-            <p className="section-subtitle">Your quotes will appear here once created.</p>
+          <div className="empty-state" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+            <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9" }}>No quotes yet</h3>
+            <p style={{ color: "#475569", fontSize: "14px" }}>Your quotes will appear here once created.</p>
           </div>
         )}
 
         {!loading && !error && hasQuotes && (
-          <div className="card stack gap-4 min-h-0">
-            <div className="stack md:row md:items-end md:justify-between gap-3">
-              <div className="stack flex-1">
-                <p className="section-subtitle">Search</p>
+          <div className="card" style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* Search row */}
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: "200px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" as const, color: "#475569", marginBottom: "8px" }}>
+                  Search
+                </p>
                 <input
-                  className="input-fluid"
+                  className="chat-input"
+                  style={{ width: "100%" }}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by quote ID, customer, job, or date"
                 />
               </div>
-              <p className="text-xs text-[var(--muted)] md:text-right">
+              <p style={{ fontSize: "12px", color: "#475569", whiteSpace: "nowrap" as const }}>
                 {hasFilteredQuotes ? `${filteredQuotes.length} showing` : "0 showing"}
               </p>
             </div>
 
             {hasFilteredQuotes ? (
               <div className="table-card">
-                <div className="quotes-scrollbox min-h-0">
-                  <div className="overflow-x-auto">
+                <div className="quotes-scrollbox">
+                  <div style={{ overflowX: "auto" }}>
                     <table className="data-table">
-                      <thead className="sticky top-0 z-10 bg-[var(--card)]">
-                      <tr>
-                        <th>Quote</th>
-                        <th>Customer</th>
-                        <th>Job</th>
-                        <th>Created</th>
-                        <th className="sticky-cell text-right" aria-label="Quote actions" />
-                      </tr>
+                      <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
+                        <tr>
+                          <th>Quote</th>
+                          <th>Customer</th>
+                          <th>Job</th>
+                          <th>Created</th>
+                          <th className="sticky-cell" style={{ textAlign: "right" }} aria-label="Quote actions" />
+                        </tr>
                       </thead>
                       <tbody>
                         {filteredQuotes.map((quote) => {
@@ -173,40 +191,61 @@ export default function QuotesPage() {
                           return (
                             <tr key={quote.id}>
                               <td>
-                                <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                                  <span className="tag font-mono text-[10px]">
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                                  <span style={{
+                                    fontFamily: "monospace",
+                                    fontSize: "12px",
+                                    padding: "3px 8px",
+                                    borderRadius: "6px",
+                                    background: "rgba(255,255,255,0.06)",
+                                    border: "1px solid rgba(148,163,184,0.12)",
+                                    color: "#94a3b8",
+                                    letterSpacing: "0.02em",
+                                  }}>
                                     {quoteLabel}
                                   </span>
-                                  {isNew ? <span className="tag">New</span> : null}
+                                  {isNew ? (
+                                    <span style={{
+                                      fontSize: "10px",
+                                      fontWeight: 700,
+                                      letterSpacing: "0.06em",
+                                      padding: "2px 7px",
+                                      borderRadius: "999px",
+                                      background: "rgba(56,189,248,0.12)",
+                                      border: "1px solid rgba(56,189,248,0.25)",
+                                      color: "#38bdf8",
+                                      textTransform: "uppercase" as const,
+                                    }}>
+                                      New
+                                    </span>
+                                  ) : null}
                                 </div>
                               </td>
                               <td>
-                                <p className="text-[15px] font-semibold text-white">
+                                <p style={{ fontSize: "15px", fontWeight: 600, color: "#f1f5f9" }}>
                                   {customerName}
                                 </p>
                               </td>
                               <td>
-                                <span
-                                  className="text-sm text-[var(--muted)] truncate block max-w-[260px]"
-                                  title={jobRef}
-                                >
+                                <span style={{ fontSize: "13px", color: "#64748b", display: "block", maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }} title={jobRef}>
                                   {jobRef}
                                 </span>
                               </td>
                               <td>
-                                <span className="text-xs text-[var(--muted)]">
+                                <span style={{ fontSize: "12px", color: "#64748b" }}>
                                   {createdDate}
                                 </span>
                               </td>
                               <td className="sticky-cell">
-                                <div className="flex items-center justify-end">
+                                <div style={{ display: "flex", justifyContent: "flex-end" }}>
                                   <Link
                                     href={quote.pdf_url ?? "#"}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="btn btn-primary btn-small rounded-full px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent1)] focus-visible:ring-offset-2 focus-visible:ring-offset-[rgba(15,23,42,0.92)]"
+                                    className="btn btn-primary"
+                                    style={{ fontSize: "12px", padding: "6px 16px", borderRadius: "999px" }}
                                   >
-                                    Open
+                                    Open PDF
                                   </Link>
                                 </div>
                               </td>
