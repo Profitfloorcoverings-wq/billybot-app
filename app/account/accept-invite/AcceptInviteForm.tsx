@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
 
 type Props = {
   inviteToken: string;
@@ -44,8 +45,16 @@ export default function AcceptInviteForm({ inviteToken, email, name }: Props) {
         return;
       }
 
-      // Sign them in via the login flow
-      router.push(`/auth/login?email=${encodeURIComponent(email)}`);
+      // Auto sign-in so they don't have to log in manually
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        // Account was created — just send them to login as fallback
+        router.push("/auth/login");
+        return;
+      }
+
+      router.push("/chat");
     } catch {
       setError("Network error. Please try again.");
     } finally {

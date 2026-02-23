@@ -60,14 +60,12 @@ export async function POST(req: Request) {
 
   const newUserId = authData.user.id;
 
-  // Insert clients row (pre-onboarded)
-  const { error: clientInsertError } = await supabase.from("clients").insert({
+  // Insert clients row (pre-onboarded) — use any cast so new columns are not stripped
+  const { error: clientInsertError } = await (supabase as any).from("clients").insert({
     id: newUserId,
     email: inv.invite_email,
     business_name: inv.name,
-    // @ts-ignore — new columns not yet in generated types
     user_role: inv.role,
-    // @ts-ignore — new columns not yet in generated types
     parent_client_id: inv.business_id,
     is_onboarded: true,
     terms_accepted: true,
@@ -94,6 +92,8 @@ export async function POST(req: Request) {
 
   if (memberInsertError) {
     console.error("[team/accept-invite] team_members insert error", memberInsertError);
+    await supabase.auth.admin.deleteUser(newUserId);
+    return NextResponse.json({ error: "Failed to set up team membership" }, { status: 500 });
   }
 
   // Mark invite as used
