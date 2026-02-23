@@ -18,6 +18,7 @@ import { createClient as createSupabaseClient } from "@/utils/supabase/client";
 import { getSession } from "@/utils/supabase/session";
 import { useClientFlags } from "@/components/client-flags/ClientFlagsProvider";
 import LoginPage from "../auth/login/page";
+import DiaryConfirmationCard from "./components/DiaryConfirmationCard";
 
 type Message = {
   id: number | string;
@@ -504,6 +505,19 @@ function ChatPageContent() {
 
       if (url) {
         return <LinkCard label="JOB SHEET" reference={m.job_sheet_reference} url={url} />;
+      }
+    }
+
+    if (m.type === "diary_confirmation") {
+      const confirmData = (() => {
+        try {
+          return JSON.parse(m.content) as Parameters<typeof DiaryConfirmationCard>[0]["data"];
+        } catch {
+          return null;
+        }
+      })();
+      if (confirmData) {
+        return <DiaryConfirmationCard key={m.id} messageId={m.id} data={confirmData} />;
       }
     }
 

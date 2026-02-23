@@ -8,7 +8,7 @@ const ONBOARDING_ROUTES = [
   "/post-onboard",
 ];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
-const PUBLIC_ROUTES = ["/terms", "/privacy"];
+const PUBLIC_ROUTES = ["/terms", "/privacy", "/account/accept-invite"];
 
 function redirectWithCookies(req: NextRequest, res: NextResponse, pathname: string) {
   const url = req.nextUrl.clone();
@@ -74,10 +74,21 @@ export async function middleware(req: NextRequest) {
   const { data: clientProfile } = await supabase
     .from("clients")
     .select(
-      "business_name, contact_name, phone, address_line1, city, postcode, country, is_onboarded, terms_accepted"
+      "business_name, contact_name, phone, address_line1, city, postcode, country, is_onboarded, terms_accepted, user_role"
     )
     .eq("id", user.id)
     .maybeSingle();
+
+  // Team members (non-owners) are pre-onboarded — skip the onboarding gate
+  if (clientProfile?.user_role && clientProfile.user_role !== "owner") {
+    if (AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
+      return redirectWithCookies(req, res, "/chat");
+    }
+    if (ONBOARDING_ROUTES.some((r) => pathname.startsWith(r))) {
+      return redirectWithCookies(req, res, "/chat");
+    }
+    return res;
+  }
 
   const businessComplete =
     clientProfile?.is_onboarded === true ||
