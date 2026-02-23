@@ -101,13 +101,13 @@ const MISSING_PRICE_LABELS: Record<PlanKey, { monthly: string; annual: string }>
     annual: "NEXT_PUBLIC_STRIPE_PRICE_TEAM_ANNUAL",
   },
 };
+
 const PLAN_CONFIGS: PlanConfig[] = [
   {
     key: "starter",
     name: "Starter",
     monthlyLabel: "£79/mo",
     annualLabel: "£790/yr",
-
     bullets: ["1 user", "Up to 20 quotes / month"],
   },
   {
@@ -115,7 +115,6 @@ const PLAN_CONFIGS: PlanConfig[] = [
     name: "Pro",
     monthlyLabel: "£149/mo",
     annualLabel: "£1490/yr",
-
     bullets: ["2 users", "20–50 quotes / month", "Send quotes to customers"],
   },
   {
@@ -123,7 +122,6 @@ const PLAN_CONFIGS: PlanConfig[] = [
     name: "Team",
     monthlyLabel: "£249/mo",
     annualLabel: "£2490/yr",
-
     bullets: [
       "Up to 5 users",
       "Unlimited quotes / month",
@@ -147,14 +145,14 @@ const BILLING_LABELS: Record<BillingCycle, string> = {
 
 type StatusBadge = {
   label: string;
-  className: string;
+  bg: string;
+  text: string;
+  border: string;
 };
 
 function getPlanLabel(tier?: string | null) {
   const normalized = (tier ?? "").toLowerCase();
-  if (normalized in PLAN_LABELS) {
-    return PLAN_LABELS[normalized as PlanKey];
-  }
+  if (normalized in PLAN_LABELS) return PLAN_LABELS[normalized as PlanKey];
   return "—";
 }
 
@@ -162,25 +160,22 @@ function getBillingLabel(billing?: string | null) {
   const normalized = (billing ?? "").toLowerCase();
   if (normalized === "month") return BILLING_LABELS.monthly;
   if (normalized === "year") return BILLING_LABELS.annual;
-  if (normalized in BILLING_LABELS) {
-    return BILLING_LABELS[normalized as BillingCycle];
-  }
+  if (normalized in BILLING_LABELS) return BILLING_LABELS[normalized as BillingCycle];
   return "—";
 }
 
 function getStripeStatusBadge(status?: string | null): StatusBadge {
   switch ((status ?? "").toLowerCase()) {
     case "active":
-      return { label: "Active", className: "bg-emerald-500/15 text-emerald-200" };
+      return { label: "Active", bg: "rgba(52,211,153,0.12)", text: "#34d399", border: "rgba(52,211,153,0.25)" };
     case "trialing":
-      return { label: "Trialing", className: "bg-emerald-500/15 text-emerald-200" };
+      return { label: "Trialing", bg: "rgba(52,211,153,0.12)", text: "#34d399", border: "rgba(52,211,153,0.25)" };
     case "past_due":
-      return { label: "Past due", className: "bg-amber-500/15 text-amber-200" };
+      return { label: "Past due", bg: "rgba(251,191,36,0.12)", text: "#fbbf24", border: "rgba(251,191,36,0.25)" };
     case "canceled":
-      return { label: "Canceled", className: "bg-red-500/15 text-red-200" };
-    case "none":
+      return { label: "Canceled", bg: "rgba(248,113,113,0.12)", text: "#f87171", border: "rgba(248,113,113,0.25)" };
     default:
-      return { label: "Not subscribed", className: "bg-white/5 text-white/70" };
+      return { label: "Not subscribed", bg: "rgba(255,255,255,0.05)", text: "rgba(255,255,255,0.5)", border: "rgba(255,255,255,0.08)" };
   }
 }
 
@@ -196,6 +191,24 @@ function isBusinessProfileComplete(profile: ClientProfile | null) {
         profile.postcode &&
         profile.country)
   );
+}
+
+function getConnectionStatusLabel(status?: EmailConnectionStatus | null): StatusBadge {
+  switch (status) {
+    case "ok":
+      return { label: "Connected", bg: "rgba(52,211,153,0.12)", text: "#34d399", border: "rgba(52,211,153,0.25)" };
+    case "watch_expired":
+      return { label: "Watch expired", bg: "rgba(251,191,36,0.12)", text: "#fbbf24", border: "rgba(251,191,36,0.25)" };
+    case "subscription_expired":
+      return { label: "Subscription expired", bg: "rgba(251,191,36,0.12)", text: "#fbbf24", border: "rgba(251,191,36,0.25)" };
+    case "refresh_failed":
+      return { label: "Token refresh failed", bg: "rgba(248,113,113,0.12)", text: "#f87171", border: "rgba(248,113,113,0.25)" };
+    case "provider_revoked":
+    case "needs_reconnect":
+      return { label: "Reconnect required", bg: "rgba(248,113,113,0.12)", text: "#f87171", border: "rgba(248,113,113,0.25)" };
+    default:
+      return { label: "Not connected", bg: "rgba(255,255,255,0.05)", text: "rgba(255,255,255,0.5)", border: "rgba(255,255,255,0.08)" };
+  }
 }
 
 export default function AccountPage() {
@@ -268,9 +281,7 @@ export default function AccountPage() {
         .eq("id", userData.user.id)
         .maybeSingle();
 
-      if (clientError) {
-        throw clientError;
-      }
+      if (clientError) throw clientError;
 
       setAccountingSystem(clientData?.accounting_system ?? null);
       setStripeStatus(clientData?.stripe_status ?? null);
@@ -321,9 +332,7 @@ export default function AccountPage() {
 
     try {
       const res = await fetch("/api/email/accounts");
-      if (!res.ok) {
-        throw new Error("Unable to load email accounts");
-      }
+      if (!res.ok) throw new Error("Unable to load email accounts");
       const data = (await res.json()) as { data?: EmailAccount[] };
       setEmailAccounts(data?.data ?? []);
     } catch (err) {
@@ -362,16 +371,12 @@ export default function AccountPage() {
 
       const { error: upsertError } = await supabase
         .from("clients")
-        .update({
-          ...profile,
-        })
+        .update({ ...profile })
         .eq("id", userData.user.id);
 
-      if (upsertError) {
-        throw upsertError;
-      }
+      if (upsertError) throw upsertError;
 
-      setSuccess("Profile updated successfully");
+      setSuccess("Profile updated successfully.");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
@@ -389,16 +394,12 @@ export default function AccountPage() {
 
   function handleConnect(service: "sage" | "xero" | "quickbooks") {
     if (!userId) return;
-
     const url = `https://tradiebrain.app.n8n.cloud/webhook/start-oauth?service=${service}&user_id=${userId}`;
     window.location.href = url;
   }
 
   function handleEmailConnect(provider: "google" | "microsoft") {
-    const url =
-      provider === "google"
-        ? "/api/email/google/connect"
-        : "/api/email/microsoft/connect";
+    const url = provider === "google" ? "/api/email/google/connect" : "/api/email/microsoft/connect";
     window.location.href = url;
   }
 
@@ -411,9 +412,7 @@ export default function AccountPage() {
         body: JSON.stringify({ provider, account_id: accountId }),
       });
 
-      if (!res.ok) {
-        throw new Error("Unable to disconnect email account");
-      }
+      if (!res.ok) throw new Error("Unable to disconnect email account");
 
       await loadEmailAccounts();
     } catch (err) {
@@ -427,46 +426,12 @@ export default function AccountPage() {
     }
   }
 
-  function getConnectionStatusLabel(status?: EmailConnectionStatus | null) {
-    switch (status) {
-      case "ok":
-        return { label: "Connected", className: "bg-emerald-500/15 text-emerald-300" };
-      case "watch_expired":
-        return { label: "Watch expired", className: "bg-amber-500/15 text-amber-300" };
-      case "subscription_expired":
-        return { label: "Subscription expired", className: "bg-amber-500/15 text-amber-300" };
-      case "refresh_failed":
-        return { label: "Token refresh failed", className: "bg-red-500/15 text-red-300" };
-      case "provider_revoked":
-      case "needs_reconnect":
-        return { label: "Reconnect required", className: "bg-red-500/15 text-red-300" };
-      default:
-        return { label: "Not connected", className: "bg-white/5 text-white/70" };
-    }
-  }
-
-  function getStatusConfig(status?: EmailAccountStatus | null) {
-    switch (status) {
-      case "connected":
-        return { label: "Connected", className: "bg-emerald-500/15 text-emerald-200" };
-      case "needs_reauth":
-        return { label: "Needs reauth", className: "bg-amber-500/15 text-amber-200" };
-      case "error":
-        return { label: "Error", className: "bg-red-500/15 text-red-200" };
-      case "disconnected":
-      default:
-        return { label: "Not connected", className: "bg-white/5 text-white/70" };
-    }
-  }
-
   async function handleManageBilling() {
     try {
       setLoadingPortal(true);
       setBillingError(null);
 
-      const res = await fetch("/api/billing/manage", {
-        method: "POST",
-      });
+      const res = await fetch("/api/billing/manage", { method: "POST" });
 
       const data = (await res.json().catch(() => ({}))) as {
         url?: string;
@@ -485,9 +450,7 @@ export default function AccountPage() {
         return;
       }
 
-      if (!res.ok || !data.url) {
-        throw new Error(data.error || "Unable to open billing portal.");
-      }
+      if (!res.ok || !data.url) throw new Error(data.error || "Unable to open billing portal.");
 
       window.location.href = data.url;
     } catch (err) {
@@ -499,6 +462,10 @@ export default function AccountPage() {
     } finally {
       setLoadingPortal(false);
     }
+  }
+
+  function getCyclePriceIds(plan: PlanConfig) {
+    return PRICE_MAP[plan.key];
   }
 
   async function handleStartSubscription(plan: PlanConfig) {
@@ -528,9 +495,7 @@ export default function AccountPage() {
         return;
       }
 
-      if (!res.ok || !data?.url) {
-        throw new Error(data?.error || "Unable to start checkout.");
-      }
+      if (!res.ok || !data?.url) throw new Error(data?.error || "Unable to start checkout.");
 
       if (!/^https?:\/\//i.test(data.url)) {
         setBillingError("Invalid checkout URL received. Please try again.");
@@ -557,7 +522,7 @@ export default function AccountPage() {
     const isEmailProvider = authProvider === "email";
 
     if (isEmailProvider && !userEmail) {
-      setPasswordError("Can’t load your email — refresh and try again.");
+      setPasswordError("Can't load your email — refresh and try again.");
       return;
     }
 
@@ -580,18 +545,12 @@ export default function AccountPage() {
           password: currentPassword,
         });
 
-        if (reauthError) {
-          throw new Error("Current password is incorrect.");
-        }
+        if (reauthError) throw new Error("Current password is incorrect.");
       }
 
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
 
-      if (updateError) {
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
       setPasswordSuccess("Password updated successfully.");
       setCurrentPassword("");
@@ -612,32 +571,20 @@ export default function AccountPage() {
   const isSageConnected = accountingSystem === "sage";
   const isXeroConnected = accountingSystem === "xero";
   const isQuickBooksConnected = accountingSystem === "quickbooks";
-  const providerConfigs: {
-    key: "sage" | "xero" | "quickbooks";
-    label: string;
-    connected: boolean;
-  }[] = [
+  const providerConfigs: { key: "sage" | "xero" | "quickbooks"; label: string; connected: boolean }[] = [
     { key: "sage", label: "Sage", connected: isSageConnected },
     { key: "xero", label: "Xero", connected: isXeroConnected },
     { key: "quickbooks", label: "QuickBooks", connected: isQuickBooksConnected },
   ];
 
-  const googleAccount = emailAccounts.find((account) => account.provider === "google") ?? null;
-  const microsoftAccount =
-    emailAccounts.find((account) => account.provider === "microsoft") ?? null;
-
-  const isConnected = (account: EmailAccount | null) =>
-    !!account && account.status === "connected";
-
-  function getCyclePriceIds(plan: PlanConfig) {
-    return PRICE_MAP[plan.key];
-  }
+  const googleAccount = emailAccounts.find((a) => a.provider === "google") ?? null;
+  const microsoftAccount = emailAccounts.find((a) => a.provider === "microsoft") ?? null;
+  const isConnected = (account: EmailAccount | null) => !!account && account.status === "connected";
 
   const normalizedStripeStatus = (stripeStatus ?? "").toLowerCase();
   const isSubscriber = SUBSCRIBER_STATUSES.has(normalizedStripeStatus);
   const normalizedPlanTier = (stripePlanTier ?? "").toLowerCase();
   const normalizedPlanBilling = (stripePlanBilling ?? "").toLowerCase();
-
   const planLabel = getPlanLabel(normalizedPlanTier);
   const billingLabel = getBillingLabel(normalizedPlanBilling);
   const statusBadge = getStripeStatusBadge(normalizedStripeStatus);
@@ -645,343 +592,375 @@ export default function AccountPage() {
   const missingPriceIds = PLAN_CONFIGS.flatMap((plan) => {
     const ids = getCyclePriceIds(plan);
     const missing: string[] = [];
-
-    if (!ids.monthly) {
-      missing.push(MISSING_PRICE_LABELS[plan.key].monthly);
-    }
-
-    if (!ids.annual) {
-      missing.push(MISSING_PRICE_LABELS[plan.key].annual);
-    }
-
+    if (!ids.monthly) missing.push(MISSING_PRICE_LABELS[plan.key].monthly);
+    if (!ids.annual) missing.push(MISSING_PRICE_LABELS[plan.key].annual);
     return missing;
   });
 
   return (
-    <div className="page-container stack gap-6">
-      <div className="section-header">
-        <div className="stack gap-1">
-          <h1 className="section-title">Account</h1>
-          <p className="section-subtitle">Manage your profile and sign out.</p>
+    <div className="page-container">
+      {/* ── Page header ─────────────────────────────────────────────── */}
+      <header style={{ marginBottom: "4px" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+          <div>
+            <h1 className="section-title">Account</h1>
+            <p style={{ color: "#475569", fontSize: "13px", marginTop: "4px" }}>
+              Manage your profile, billing, and integrations.
+            </p>
+          </div>
+          <button className="btn btn-secondary" onClick={handleLogout}>
+            Log out
+          </button>
         </div>
-        <button className="btn btn-secondary" onClick={handleLogout}>
-          Logout
-        </button>
-      </div>
+      </header>
 
-      <div className="card stack gap-4">
-        <div className="stack gap-1">
-          <h2 className="section-title">Profile Information</h2>
-          <p className="section-subtitle">Your account identity and onboarding status.</p>
+      {/* ── Identity card ───────────────────────────────────────────── */}
+      <div className="card" style={{ padding: "24px 28px" }}>
+        <div style={{ marginBottom: "16px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Your account</h2>
+          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Login identity and account status.</p>
         </div>
 
-        <div className="inline-flex items-center rounded-full px-3 py-1 text-xs bg-white/10 text-white/80 w-fit">
-          {profile.is_onboarded ? "Onboarded" : "Not onboarded"}
-        </div>
+        {loading && <p style={{ fontSize: "14px", color: "#64748b" }}>Loading account…</p>}
 
-        {loading ? <p className="section-subtitle">Loading account…</p> : null}
-        {error ? <p className="text-sm text-red-400">{error}</p> : null}
-        {success ? <p className="text-sm text-emerald-300">{success}</p> : null}
+        {error && (
+          <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+            {error}
+          </p>
+        )}
 
-        {!loading && !error ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="stack gap-1">
-              <p className="section-subtitle">Email</p>
-              <p className="text-base font-semibold">{userEmail || "—"}</p>
+        {!loading && !error && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            <div>
+              <span style={{
+                display: "inline-flex", alignItems: "center", padding: "4px 10px",
+                borderRadius: "999px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.04em",
+                background: profile.is_onboarded ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.05)",
+                color: profile.is_onboarded ? "#34d399" : "rgba(255,255,255,0.5)",
+                border: `1px solid ${profile.is_onboarded ? "rgba(52,211,153,0.25)" : "rgba(255,255,255,0.08)"}`,
+              }}>
+                {profile.is_onboarded ? "Onboarded" : "Not onboarded"}
+              </span>
             </div>
-            <div className="stack gap-1">
-              <p className="section-subtitle">User ID</p>
-              <p className="text-sm font-mono break-all">{userId}</p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", margin: 0 }}>Email</p>
+                <p style={{ fontSize: "15px", fontWeight: 600, color: "#f1f5f9", margin: 0 }}>{userEmail || "—"}</p>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", margin: 0 }}>User ID</p>
+                <p style={{ fontSize: "12px", fontFamily: "ui-monospace, 'SF Mono', monospace", color: "#94a3b8", wordBreak: "break-all", margin: 0 }}>{userId}</p>
+              </div>
             </div>
           </div>
-        ) : null}
+        )}
       </div>
 
-      <div className="card stack gap-4">
-        <div className="stack gap-1">
-          <h2 className="section-title">Business Information</h2>
-          <p className="section-subtitle">Update the details used across your quotes.</p>
+      {/* ── Business Information ─────────────────────────────────────── */}
+      <div className="card" style={{ padding: "24px 28px" }}>
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Business Information</h2>
+          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Update the details used across your quotes.</p>
         </div>
 
         {!loading && !error ? (
-          <form onSubmit={handleSubmit} className="stack gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="field-group">
-                <label className="field-label" htmlFor="business_name">
-                  Business name
-                </label>
+          <form onSubmit={handleSubmit} className="form-stack">
+            {success && (
+              <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+                {success}
+              </p>
+            )}
+
+            <div className="form-row">
+              <div className="form-field">
+                <label className="form-label" htmlFor="business_name">Business name</label>
                 <input
                   id="business_name"
-                  className="input-fluid"
+                  className="chat-input"
                   value={profile.business_name}
                   onChange={(e) => updateField("business_name", e.target.value)}
                   required
+                  disabled={saving || loading}
                 />
               </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="contact_name">
-                  Contact name
-                </label>
+              <div className="form-field">
+                <label className="form-label" htmlFor="contact_name">Contact name</label>
                 <input
                   id="contact_name"
-                  className="input-fluid"
+                  className="chat-input"
                   value={profile.contact_name}
                   onChange={(e) => updateField("contact_name", e.target.value)}
                   required
+                  disabled={saving || loading}
                 />
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="field-group">
-                <label className="field-label" htmlFor="phone">
-                  Phone
-                </label>
+            <div className="form-row">
+              <div className="form-field">
+                <label className="form-label" htmlFor="phone">Phone</label>
                 <input
                   id="phone"
-                  className="input-fluid"
+                  className="chat-input"
                   value={profile.phone}
                   onChange={(e) => updateField("phone", e.target.value)}
                   required
+                  disabled={saving || loading}
                 />
               </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="country">
-                  Country
-                </label>
+              <div className="form-field">
+                <label className="form-label" htmlFor="country">Country</label>
                 <input
                   id="country"
-                  className="input-fluid"
+                  className="chat-input"
                   value={profile.country}
                   onChange={(e) => updateField("country", e.target.value)}
                   required
+                  disabled={saving || loading}
                 />
               </div>
             </div>
 
-            <div className="field-group">
-              <label className="field-label" htmlFor="address_line1">
-                Address line 1
-              </label>
+            <div className="form-field">
+              <label className="form-label" htmlFor="address_line1">Address line 1</label>
               <input
                 id="address_line1"
-                className="input-fluid"
+                className="chat-input"
                 value={profile.address_line1}
                 onChange={(e) => updateField("address_line1", e.target.value)}
                 required
+                disabled={saving || loading}
               />
             </div>
 
-            <div className="field-group">
-              <label className="field-label" htmlFor="address_line2">
-                Address line 2
-              </label>
+            <div className="form-field">
+              <label className="form-label" htmlFor="address_line2">Address line 2</label>
               <input
                 id="address_line2"
-                className="input-fluid"
-                value={profile.address_line2}
+                className="chat-input"
+                value={profile.address_line2 ?? ""}
                 onChange={(e) => updateField("address_line2", e.target.value)}
+                disabled={saving || loading}
               />
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="field-group">
-                <label className="field-label" htmlFor="city">
-                  City
-                </label>
+            <div className="form-row">
+              <div className="form-field">
+                <label className="form-label" htmlFor="city">City</label>
                 <input
                   id="city"
-                  className="input-fluid"
+                  className="chat-input"
                   value={profile.city}
                   onChange={(e) => updateField("city", e.target.value)}
                   required
+                  disabled={saving || loading}
                 />
               </div>
-
-              <div className="field-group">
-                <label className="field-label" htmlFor="postcode">
-                  Postcode
-                </label>
+              <div className="form-field">
+                <label className="form-label" htmlFor="postcode">Postcode</label>
                 <input
                   id="postcode"
-                  className="input-fluid"
+                  className="chat-input"
                   value={profile.postcode}
                   onChange={(e) => updateField("postcode", e.target.value)}
                   required
+                  disabled={saving || loading}
                 />
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="form-actions">
               <button type="submit" className="btn btn-primary" disabled={saving || loading}>
-                {saving ? "Saving..." : "Save changes"}
+                {saving ? "Saving…" : "Save changes"}
               </button>
             </div>
           </form>
         ) : null}
       </div>
 
-      <div className="card stack gap-4">
-        <div className="stack gap-1">
-          <h2 className="section-title">Linked Accounts</h2>
-          <p className="section-subtitle">
-            Connect your accounting software so BillyBot can create quotes inside your system.
+      {/* ── Integrations ────────────────────────────────────────────── */}
+      <div className="card" style={{ padding: "24px 28px" }}>
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Integrations</h2>
+          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
+            Connect your accounting software and email inbox.
           </p>
         </div>
 
-        <div className="stack gap-3">
-          {providerConfigs.map((provider) => (
-            <div key={provider.key} className="linked-account-badge">
-              <div className="linked-account-badge-left">
-                <div className="linked-account-badge-text">
-                  <p className="linked-account-badge-title">{provider.label}</p>
-                  <p className="linked-account-badge-sub">
-                    {!accountingStatusLoaded
-                      ? "Loading..."
-                      : provider.connected
-                      ? "Connected"
-                      : "Not connected"}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                className="btn btn-primary"
-                disabled={!accountingStatusLoaded || provider.connected}
-                onClick={() => handleConnect(provider.key)}
-              >
-                {!accountingStatusLoaded
-                  ? "Loading..."
-                  : provider.connected
-                  ? "Connected"
-                  : "Connect"}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="card stack gap-4">
-        <div className="stack gap-1">
-          <h2 className="section-title">Email Accounts</h2>
-          <p className="section-subtitle">
-            Connect your inbox so BillyBot can read enquiries automatically.
+        {/* Accounting */}
+        <div style={{ marginBottom: "24px" }}>
+          <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "12px" }}>
+            Accounting
           </p>
-        </div>
-
-        {emailAccountsLoading ? <p className="section-subtitle">Loading email accounts…</p> : null}
-        {emailAccountsError ? <p className="text-sm text-red-400">{emailAccountsError}</p> : null}
-
-        <div className="stack gap-3">
-          {[
-            { key: "google" as const, label: "Gmail", account: googleAccount },
-            {
-              key: "microsoft" as const,
-              label: "Outlook",
-              account: microsoftAccount,
-            },
-          ].map(({ key, label, account }) => {
-            const connected = isConnected(account);
-            const statusConfig = getConnectionStatusLabel(account?.email_connection_status);
-            const isActionLoading = emailActionTarget === key || emailAccountsLoading;
-
-            return (
-              <div key={key} className="linked-account-badge">
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {providerConfigs.map((provider) => (
+              <div key={provider.key} className="linked-account-badge">
                 <div className="linked-account-badge-left">
                   <div className="linked-account-badge-text">
-                    <p className="linked-account-badge-title">{label}</p>
-                    <div className="stack gap-1">
-                      <div className={`tag ${statusConfig.className}`} aria-live="polite">
-                        {statusConfig.label}
-                      </div>
-                      {connected && account?.email_address ? (
-                        <p className="text-sm text-white/80">{account.email_address}</p>
-                      ) : null}
-                      {!connected && account?.last_error ? (
-                        <p className="text-xs text-white/60">{account.last_error.slice(0, 140)}</p>
-                      ) : null}
-                    </div>
+                    <p className="linked-account-badge-title">{provider.label}</p>
+                    <p className="linked-account-badge-sub">
+                      {!accountingStatusLoaded ? "Loading…" : provider.connected ? "Connected" : "Not connected"}
+                    </p>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2">
-                  {!connected || account?.email_connection_status === "needs_reconnect" || account?.email_connection_status === "refresh_failed" || account?.email_connection_status === "provider_revoked" || account?.email_connection_status === "watch_expired" || account?.email_connection_status === "subscription_expired" ? (
-                    <button
-                      className="btn btn-primary"
-                      onClick={() => handleEmailConnect(key)}
-                      disabled={isActionLoading}
-                    >
-                      {isActionLoading
-                        ? "Working..."
-                        : key === "google"
-                        ? connected
-                          ? "Reconnect Gmail"
-                          : "Connect Gmail"
-                        : connected
-                        ? "Reconnect Outlook"
-                        : "Connect Outlook"}
-                    </button>
-                  ) : null}
-                  {connected ? (
-                    <button
-                      className="btn btn-secondary"
-                      onClick={() => handleEmailDisconnect(key, account?.id)}
-                      disabled={isActionLoading}
-                    >
-                      {isActionLoading ? "Working..." : "Disconnect"}
-                    </button>
-                  ) : null}
-                </div>
+                <button
+                  className="btn btn-primary"
+                  disabled={!accountingStatusLoaded || provider.connected}
+                  onClick={() => handleConnect(provider.key)}
+                >
+                  {!accountingStatusLoaded ? "Loading…" : provider.connected ? "Connected" : "Connect"}
+                </button>
               </div>
-            );
-          })}
+            ))}
+          </div>
+        </div>
+
+        <div style={{ height: "1px", background: "rgba(148,163,184,0.1)", marginBottom: "24px" }} />
+
+        {/* Email */}
+        <div>
+          <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "12px" }}>
+            Email
+          </p>
+
+          {emailAccountsLoading && (
+            <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "12px" }}>Loading email accounts…</p>
+          )}
+          {emailAccountsError && (
+            <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", marginBottom: "12px" }}>
+              {emailAccountsError}
+            </p>
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {[
+              { key: "google" as const, label: "Gmail", account: googleAccount },
+              { key: "microsoft" as const, label: "Outlook", account: microsoftAccount },
+            ].map(({ key, label, account }) => {
+              const connected = isConnected(account);
+              const emailStatusBadge = getConnectionStatusLabel(account?.email_connection_status);
+              const isActionLoading = emailActionTarget === key || emailAccountsLoading;
+              const needsReconnect =
+                account?.email_connection_status === "needs_reconnect" ||
+                account?.email_connection_status === "refresh_failed" ||
+                account?.email_connection_status === "provider_revoked" ||
+                account?.email_connection_status === "watch_expired" ||
+                account?.email_connection_status === "subscription_expired";
+
+              return (
+                <div key={key} className="linked-account-badge">
+                  <div className="linked-account-badge-left">
+                    <div className="linked-account-badge-text">
+                      <p className="linked-account-badge-title">{label}</p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "4px" }}>
+                        <span
+                          aria-live="polite"
+                          style={{
+                            display: "inline-flex", alignItems: "center", padding: "3px 8px",
+                            borderRadius: "999px", fontSize: "11px", fontWeight: 700,
+                            background: emailStatusBadge.bg, color: emailStatusBadge.text,
+                            border: `1px solid ${emailStatusBadge.border}`,
+                          }}
+                        >
+                          {emailStatusBadge.label}
+                        </span>
+                        {connected && account?.email_address && (
+                          <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)", margin: 0 }}>
+                            {account.email_address}
+                          </p>
+                        )}
+                        {!connected && account?.last_error && (
+                          <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
+                            {account.last_error.slice(0, 140)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {(!connected || needsReconnect) && (
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => handleEmailConnect(key)}
+                        disabled={isActionLoading}
+                      >
+                        {isActionLoading
+                          ? "Working…"
+                          : key === "google"
+                          ? connected ? "Reconnect Gmail" : "Connect Gmail"
+                          : connected ? "Reconnect Outlook" : "Connect Outlook"}
+                      </button>
+                    )}
+                    {connected && (
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => handleEmailDisconnect(key, account?.id)}
+                        disabled={isActionLoading}
+                      >
+                        {isActionLoading ? "Working…" : "Disconnect"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      <div className="card stack gap-4">
-        <div className="stack gap-1">
-          <h2 className="section-title">Plan & Billing</h2>
-          <p className="section-subtitle">Choose your plan or manage your existing subscription.</p>
+      {/* ── Plan & Billing ───────────────────────────────────────────── */}
+      <div className="card" style={{ padding: "24px 28px" }}>
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Plan &amp; Billing</h2>
+          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Choose a plan or manage your subscription.</p>
         </div>
 
-        {billingSuccess ? <p className="text-sm text-emerald-300">{billingSuccess}</p> : null}
+        {billingSuccess && (
+          <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px" }}>
+            {billingSuccess}
+          </p>
+        )}
 
         {isSubscriber && !showPlanOptions ? (
-          <div className="subscription-summary stack gap-3">
-            <div className="row flex-wrap gap-2">
-              <div className={`tag ${statusBadge.className}`}>{statusBadge.label}</div>
-              <span className="text-sm text-white/70">
-                Plan: {planLabel} ({billingLabel})
+          <div className="subscription-summary" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <span style={{
+                display: "inline-flex", alignItems: "center", padding: "4px 10px",
+                borderRadius: "999px", fontSize: "11px", fontWeight: 700,
+                background: statusBadge.bg, color: statusBadge.text, border: `1px solid ${statusBadge.border}`,
+              }}>
+                {statusBadge.label}
+              </span>
+              <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>
+                {planLabel} · {billingLabel}
               </span>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleManageBilling}
-                disabled={loadingPortal}
-                className="btn btn-primary"
-              >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <button onClick={handleManageBilling} disabled={loadingPortal} className="btn btn-primary">
                 {loadingPortal ? "Loading…" : "Manage subscription"}
               </button>
-              <button
-                className="btn btn-secondary"
-                onClick={() => setShowPlanOptions(true)}
-                disabled={loadingPortal}
-              >
+              <button className="btn btn-secondary" onClick={() => setShowPlanOptions(true)} disabled={loadingPortal}>
                 Change plan
               </button>
             </div>
           </div>
         ) : (
-          <div className="stack gap-4">
-            <div className="row flex-wrap gap-2">
-              <div className={`tag ${statusBadge.className}`}>{statusBadge.label}</div>
-              {isSubscriber ? (
-                <span className="text-sm text-white/70">
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+              <span style={{
+                display: "inline-flex", alignItems: "center", padding: "4px 10px",
+                borderRadius: "999px", fontSize: "11px", fontWeight: 700,
+                background: statusBadge.bg, color: statusBadge.text, border: `1px solid ${statusBadge.border}`,
+              }}>
+                {statusBadge.label}
+              </span>
+              {isSubscriber && (
+                <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>
                   Current plan: {planLabel} ({billingLabel})
                 </span>
-              ) : null}
+              )}
             </div>
 
             <div className="billing-toggle" role="group" aria-label="Billing cycle">
@@ -1009,28 +988,31 @@ export default function AccountPage() {
                 const actionKey = `${plan.key}-${billingCycle}`;
                 const isWorking = billingActionTarget === actionKey;
                 const cyclePriceIds = getCyclePriceIds(plan);
-                const activePriceId =
-                  billingCycle === "monthly" ? cyclePriceIds.monthly : cyclePriceIds.annual;
+                const activePriceId = billingCycle === "monthly" ? cyclePriceIds.monthly : cyclePriceIds.annual;
                 const isPlanAvailable = Boolean(activePriceId);
                 const isPopular = plan.key === "pro";
 
                 return (
-                  <div
-                    key={plan.key}
-                    className={`pricing-card ${isPopular ? "is-popular" : ""}`}
-                  >
-                    <div className="pricing-card-header stack gap-2">
-                      <div className="row justify-between flex-wrap gap-2">
-                        <h3 className="text-lg font-semibold">{plan.name}</h3>
-                        {isPopular ? (
-                          <span className="tag bg-white/10 text-white/80">Most popular</span>
-                        ) : null}
+                  <div key={plan.key} className={`pricing-card ${isPopular ? "is-popular" : ""}`}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+                        <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>{plan.name}</h3>
+                        {isPopular && (
+                          <span style={{
+                            display: "inline-flex", alignItems: "center", padding: "3px 8px",
+                            borderRadius: "999px", fontSize: "10px", fontWeight: 700,
+                            background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)",
+                            border: "1px solid rgba(255,255,255,0.12)",
+                          }}>
+                            Most popular
+                          </span>
+                        )}
                       </div>
-                      <div className="stack gap-1">
+                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                         <p className="pricing-card-price">
                           {billingCycle === "monthly" ? plan.monthlyLabel : plan.annualLabel}
                         </p>
-                        <p className="text-xs text-white/60">
+                        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: 0 }}>
                           {billingCycle === "monthly" ? "Billed monthly" : "Billed annually"}
                         </p>
                       </div>
@@ -1042,150 +1024,164 @@ export default function AccountPage() {
                       ))}
                     </ul>
 
-                    <div className="pricing-card-cta stack gap-2">
+                    <div className="pricing-card-cta" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                       <button
                         className="btn btn-primary"
                         onClick={() => void handleStartSubscription(plan)}
                         disabled={!!billingActionTarget || !isPlanAvailable}
                       >
-                        {isWorking ? "Working..." : "Start subscription"}
+                        {isWorking ? "Working…" : "Start subscription"}
                       </button>
-                      {!isPlanAvailable ? (
-                        <p className="text-xs text-white/60">
+                      {!isPlanAvailable && (
+                        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
                           Plan unavailable (billing not configured)
                         </p>
-                      ) : null}
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="row flex-wrap items-center justify-between gap-2">
-              <p className="section-subtitle">Cancel anytime | No contract</p>
-              {isSubscriber ? (
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => setShowPlanOptions(false)}
-                  type="button"
-                >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+              <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>Cancel anytime · No contract</p>
+              {isSubscriber && (
+                <button className="btn btn-secondary" onClick={() => setShowPlanOptions(false)} type="button">
                   Hide plans
                 </button>
-              ) : null}
+              )}
             </div>
           </div>
         )}
 
-        {process.env.NODE_ENV !== "production" ? (
-          <p className="billing-debug text-xs text-white/50">
-            Debug — stripe_status: {stripeStatus ?? "null"}, stripe_plan_tier:{" "}
-            {stripePlanTier ?? "null"}, stripe_plan_billing: {stripePlanBilling ?? "null"},
-            stripe_subscription_id: {stripeSubscriptionId ?? "null"}, stripe_price_id:{" "}
-            {stripePriceId ?? "null"}, stripe_id: {stripeId ?? "null"}, missing price_ids:{" "}
+        {process.env.NODE_ENV !== "production" && (
+          <p className="billing-debug" style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "16px" }}>
+            Debug — stripe_status: {stripeStatus ?? "null"}, stripe_plan_tier: {stripePlanTier ?? "null"},
+            stripe_plan_billing: {stripePlanBilling ?? "null"}, stripe_subscription_id: {stripeSubscriptionId ?? "null"},
+            stripe_price_id: {stripePriceId ?? "null"}, stripe_id: {stripeId ?? "null"}, missing price_ids:{" "}
             {missingPriceIds.length ? missingPriceIds.join(", ") : "none"}
           </p>
-        ) : null}
+        )}
 
-        {billingError ? <p className="text-sm text-red-400">{billingError}</p> : null}
+        {billingError && (
+          <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", marginTop: "12px" }}>
+            {billingError}
+          </p>
+        )}
       </div>
 
-      <div className="card stack gap-4">
-        <div className="stack gap-1">
-          <h2 className="section-title">Password &amp; Security</h2>
-          <p className="section-subtitle">Change your password to keep your account secure.</p>
+      {/* ── Password & Security ──────────────────────────────────────── */}
+      <div className="card" style={{ padding: "24px 28px" }}>
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Password &amp; Security</h2>
+          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Change your password to keep your account secure.</p>
         </div>
 
-        <form onSubmit={handleChangePassword} className="stack gap-4">
+        <form onSubmit={handleChangePassword} className="form-stack">
           {authProvider === "email" ? (
-            <div className="field-group">
-              <label className="field-label" htmlFor="current_password">
-                Current password (optional)
-              </label>
+            <div className="form-field">
+              <label className="form-label" htmlFor="current_password">Current password (optional)</label>
               <input
                 id="current_password"
                 type="password"
-                className="input-fluid"
+                className="chat-input"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 autoComplete="current-password"
+                disabled={passwordSaving}
               />
-              <p className="text-xs text-white/60">
+              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
                 For extra security, enter your current password to confirm.
               </p>
             </div>
           ) : (
-            <p className="text-xs text-white/60">
-              You signed in with Google/Microsoft. Set a password to enable email + password
-              login too.
+            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", margin: 0 }}>
+              You signed in with Google/Microsoft. Set a password to enable email + password login too.
             </p>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="field-group">
-              <label className="field-label" htmlFor="new_password">
-                New password
-              </label>
+          <div className="form-row">
+            <div className="form-field">
+              <label className="form-label" htmlFor="new_password">New password</label>
               <input
                 id="new_password"
                 type="password"
-                className="input-fluid"
+                className="chat-input"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
                 required
                 minLength={8}
+                disabled={passwordSaving}
               />
             </div>
-
-            <div className="field-group">
-              <label className="field-label" htmlFor="confirm_new_password">
-                Confirm new password
-              </label>
+            <div className="form-field">
+              <label className="form-label" htmlFor="confirm_new_password">Confirm new password</label>
               <input
                 id="confirm_new_password"
                 type="password"
-                className="input-fluid"
+                className="chat-input"
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
                 autoComplete="new-password"
                 required
                 minLength={8}
+                disabled={passwordSaving}
               />
             </div>
           </div>
 
-          {authProvider === "email" && !userEmail ? (
-            <p className="text-xs text-red-400">Can’t load your email — refresh and try again.</p>
-          ) : null}
-          {passwordError ? <p className="text-sm text-red-400">{passwordError}</p> : null}
-          {passwordSuccess ? <p className="text-sm text-emerald-300">{passwordSuccess}</p> : null}
+          {authProvider === "email" && !userEmail && (
+            <p style={{ fontSize: "13px", color: "#f87171", margin: 0 }}>
+              Can&apos;t load your email — refresh and try again.
+            </p>
+          )}
 
-          <div>
+          {passwordError && (
+            <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+              {passwordError}
+            </p>
+          )}
+
+          {passwordSuccess && (
+            <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+              {passwordSuccess}
+            </p>
+          )}
+
+          <div className="form-actions">
             <button
               className="btn btn-primary"
               type="submit"
               disabled={passwordSaving || (authProvider === "email" && !userEmail)}
             >
-              {passwordSaving ? "Updating..." : "Change password"}
+              {passwordSaving ? "Updating…" : "Change password"}
             </button>
           </div>
         </form>
       </div>
 
-      <div className="card stack gap-4">
-        <div className="stack gap-1">
-          <h2 className="section-title">Legal</h2>
-          <p className="section-subtitle">Important documents for using BillyBot.</p>
+      {/* ── Legal ───────────────────────────────────────────────────── */}
+      <div className="card" style={{ padding: "24px 28px" }}>
+        <div style={{ marginBottom: "16px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Legal</h2>
+          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Important documents for using BillyBot.</p>
         </div>
 
-        <div className="stack gap-3">
-          <Link href="/legal/terms" className="flex items-center justify-between">
-            <span className="font-semibold">Terms of Service</span>
-            <span className="section-subtitle">View</span>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <Link
+            href="/legal/terms"
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+          >
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9" }}>Terms of Service</span>
+            <span style={{ fontSize: "13px", color: "#64748b" }}>View →</span>
           </Link>
-          <Link href="/legal/privacy" className="flex items-center justify-between">
-            <span className="font-semibold">Privacy Policy</span>
-            <span className="section-subtitle">View</span>
+          <Link
+            href="/legal/privacy"
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0" }}
+          >
+            <span style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9" }}>Privacy Policy</span>
+            <span style={{ fontSize: "13px", color: "#64748b" }}>View →</span>
           </Link>
         </div>
       </div>

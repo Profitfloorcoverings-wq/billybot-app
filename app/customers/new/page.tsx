@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { createClient } from "@/utils/supabase/client";
 
@@ -61,111 +62,114 @@ export default function NewCustomerPage() {
 
   return (
     <div className="page-container">
-      <div className="section-header">
-        <div className="stack">
-          <h1 className="section-title">Add Customer</h1>
-          <p className="section-subtitle">
-            Create a new customer profile so BillyBot can keep everything organised.
-          </p>
+      <header style={{ marginBottom: "4px" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+          <div>
+            <Link href="/customers" style={{ fontSize: "13px", color: "#475569", display: "inline-flex", alignItems: "center", gap: "4px", marginBottom: "8px", textDecoration: "none" }}>
+              ← Customers
+            </Link>
+            <h1 className="section-title">Add Customer</h1>
+            <p style={{ color: "#475569", fontSize: "13px", marginTop: "4px" }}>
+              Create a new customer profile so BillyBot can keep everything organised.
+            </p>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <form onSubmit={handleSubmit} className="card stack gap-6">
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="field-group">
-            <label className="field-label" htmlFor="customer_name">
-              Customer name
-            </label>
-            <input
-              id="customer_name"
-              className="input-fluid"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Acme Corp"
-              required
-            />
+      <div className="card" style={{ padding: "28px 32px", maxWidth: "720px" }}>
+        <form onSubmit={handleSubmit} className="form-stack">
+          <div className="form-row">
+            <div className="form-field">
+              <label className="form-label" htmlFor="customer_name">Customer name</label>
+              <input
+                id="customer_name"
+                className="chat-input"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Acme Corp"
+                required
+                disabled={loading}
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label" htmlFor="contact_name">Contact name</label>
+              <input
+                id="contact_name"
+                className="chat-input"
+                value={contactName}
+                onChange={(e) => setContactName(e.target.value)}
+                placeholder="Jane Doe"
+                disabled={loading}
+              />
+            </div>
           </div>
 
-          <div className="field-group">
-            <label className="field-label" htmlFor="contact_name">
-              Contact name
-            </label>
-            <input
-              id="contact_name"
-              className="input-fluid"
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
-              placeholder="Jane Doe"
-            />
-          </div>
-
-          <div className="field-group md:col-span-2">
-            <label className="field-label" htmlFor="address">
-              Address
-            </label>
+          <div className="form-field">
+            <label className="form-label" htmlFor="address">Address</label>
             <input
               id="address"
-              className="input-fluid"
+              className="chat-input"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="123 Main Street, Springfield"
+              disabled={loading}
             />
           </div>
 
-          <div className="field-group">
-            <label className="field-label" htmlFor="email">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              className="input-fluid"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="contact@acme.com"
-            />
+          <div className="form-row">
+            <div className="form-field">
+              <label className="form-label" htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                className="chat-input"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="contact@acme.com"
+                disabled={loading}
+              />
+            </div>
+            <div className="form-field">
+              <label className="form-label" htmlFor="phone">Phone</label>
+              <input
+                id="phone"
+                className="chat-input"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="07700 900123"
+                disabled={loading}
+              />
+            </div>
           </div>
 
-          <div className="field-group">
-            <label className="field-label" htmlFor="phone">
-              Phone
-            </label>
-            <input
-              id="phone"
-              className="input-fluid"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="(555) 123-4567"
-            />
-          </div>
-
-          <div className="field-group md:col-span-2">
-            <label className="field-label" htmlFor="mobile">
-              Mobile
-            </label>
+          <div className="form-field">
+            <label className="form-label" htmlFor="mobile">Mobile</label>
             <input
               id="mobile"
-              className="input-fluid"
+              className="chat-input"
               value={mobile}
               onChange={(e) => setMobile(e.target.value)}
-              placeholder="(555) 987-6543"
+              placeholder="07700 900456"
+              disabled={loading}
             />
           </div>
-        </div>
 
-        {error ? (
-          <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
-            {error}
+          {error ? (
+            <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+              {error}
+            </p>
+          ) : null}
+
+          <div className="form-actions">
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? "Saving…" : "Save customer"}
+            </button>
+            <Link href="/customers" className="btn btn-secondary">
+              Cancel
+            </Link>
           </div>
-        ) : null}
-
-        <div className="flex items-center gap-3">
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? "Saving…" : "Save customer"}
-          </button>
-          {loading ? <span className="text-sm text-[var(--muted)]">Creating customer…</span> : null}
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
