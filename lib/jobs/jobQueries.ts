@@ -27,6 +27,8 @@ export type TenantJob = {
   job_thread_id: string | null;
   job_sheet_url: string | null;
   job_sheet_ref: string | null;
+  quote_url: string | null;
+  quote_ref: string | null;
 };
 
 export type JobsTenantResult = {
