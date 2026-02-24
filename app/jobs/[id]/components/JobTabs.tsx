@@ -1,12 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import AttachmentsGallery from "./AttachmentsGallery";
 import EmailThread from "./EmailThread";
 import { formatRelativeTime, formatTimestamp, humanizeStatus } from "./helpers";
 import QuotesPanel from "./QuotesPanel";
+import { createClient } from "@/utils/supabase/client";
 import type { JobPageData } from "./types";
+
+type RamsSignature = {
+  id: string;
+  job_id: string;
+  document_type: "risk_assessment" | "method_statement";
+  signer_name: string;
+  signed_at: string | null;
+};
 
 const TABS = ["overview", "emails", "attachments", "documents", "updates"] as const;
 
@@ -48,7 +57,43 @@ const TAB_COUNTS: Record<string, (data: JobPageData) => number | null> = {
 
 export default function JobTabs({ data }: { data: JobPageData }) {
   const [tab, setTab] = useState<Tab>("overview");
+  const [signatures, setSignatures] = useState<RamsSignature[]>([]);
+  const [sending, setSending] = useState(false);
+  const [sendToast, setSendToast] = useState<string | null>(null);
   const summary = useMemo(() => parseSummary(data.job.job_details), [data.job.job_details]);
+
+  useEffect(() => {
+    if (tab !== "documents") return;
+    if (!data.job.risk_assessment_url && !data.job.method_statement_url) return;
+
+    const supabase = createClient();
+    void supabase
+      .from("rams_signatures")
+      .select("id, job_id, document_type, signer_name, signed_at")
+      .eq("job_id", data.job.id)
+      .order("document_type")
+      .order("signer_name")
+      .then(({ data: sigs }) => {
+        if (sigs) setSignatures(sigs as RamsSignature[]);
+      });
+  }, [tab, data.job.id, data.job.risk_assessment_url, data.job.method_statement_url]);
+
+  async function handleSendRams() {
+    setSending(true);
+    try {
+      const res = await fetch("/api/rams/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job_id: data.job.id }),
+      });
+      setSendToast(res.ok ? "RAMS sent to customer ✓" : "Failed to send — check N8N");
+    } catch {
+      setSendToast("Failed to send");
+    } finally {
+      setSending(false);
+      setTimeout(() => setSendToast(null), 3000);
+    }
+  }
 
   const missing = useMemo(() => {
     const list: string[] = [];
@@ -362,6 +407,60 @@ export default function JobTabs({ data }: { data: JobPageData }) {
               <p style={{ fontSize: "14px", color: "#64748b", margin: 0 }}>No method statement generated yet.</p>
             )}
           </section>
+
+          {/* Signature status + Send button */}
+          {(data.job.risk_assessment_url || data.job.method_statement_url) ? (
+            <section className="card" style={{ padding: "16px 18px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", margin: 0 }}>Signatures</p>
+                <button
+                  type="button"
+                  onClick={() => void handleSendRams()}
+                  disabled={sending}
+                  style={{
+                    padding: "7px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: 700,
+                    background: sending ? "rgba(56,189,248,0.2)" : "#38bdf8",
+                    color: sending ? "#64748b" : "#0f172a",
+                    border: "none", cursor: sending ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {sending ? "Sending…" : "Send to Customer ↗"}
+                </button>
+              </div>
+              {sendToast ? (
+                <p style={{ fontSize: "13px", color: "#34d399", margin: "0 0 10px" }}>{sendToast}</p>
+              ) : null}
+              {signatures.length === 0 ? (
+                <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>No signatures requested yet — N8N will create these when RAMS are generated.</p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {(["risk_assessment", "method_statement"] as const).map((docType) => {
+                    const docSigs = signatures.filter((s) => s.document_type === docType);
+                    if (!docSigs.length) return null;
+                    const label = docType === "risk_assessment" ? "Risk Assessment" : "Method Statement";
+                    return (
+                      <div key={docType} style={{ marginBottom: "8px" }}>
+                        <p style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.05em", margin: "0 0 6px" }}>{label}</p>
+                        {docSigs.map((sig) => (
+                          <div key={sig.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 0", borderBottom: "1px solid rgba(148,163,184,0.06)" }}>
+                            <span style={{ fontSize: "14px" }}>{sig.signed_at ? "✓" : "⏳"}</span>
+                            <span style={{ fontSize: "13px", color: sig.signed_at ? "#34d399" : "#94a3b8", flex: 1 }}>{sig.signer_name}</span>
+                            {sig.signed_at ? (
+                              <span style={{ fontSize: "11px", color: "#475569" }}>
+                                {new Date(sig.signed_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: "11px", color: "#475569" }}>Awaiting</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          ) : null}
 
           {/* Latest Quote (from jobs table) */}
           <section>

@@ -33,6 +33,13 @@ export type JobRecord = {
   risk_assessment_ref: string | null;
   method_statement_url: string | null;
   method_statement_ref: string | null;
+  fitter_1: string | null;
+  fitter_2: string | null;
+  fitter_3: string | null;
+  fitter_4: string | null;
+  fitter_5: string | null;
+  fitter_6: string | null;
+  fitter_7: string | null;
 };
 
 export type CustomerRecord = {
