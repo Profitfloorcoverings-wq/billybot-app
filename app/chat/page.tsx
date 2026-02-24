@@ -139,7 +139,7 @@ function ChatPageContent() {
   };
 
   const isLocked =
-    taskState === "building_quote" || taskState === "updating_quote";
+    taskState === "building_quote" || taskState === "updating_quote" || taskState === "building_job_sheet";
 
   const taskBannerContent = useMemo(() => {
     if (taskState === "building_quote") {
@@ -156,6 +156,13 @@ function ChatPageContent() {
       };
     }
 
+    if (taskState === "building_job_sheet") {
+      return {
+        title: "Building job sheet…",
+        subtext: "Please wait while I put together the job sheet.",
+      };
+    }
+
     return null;
   }, [taskState]);
 
@@ -165,7 +172,9 @@ function ChatPageContent() {
     const hint =
       taskState === "updating_quote"
         ? "Quote is updating. Wait a moment."
-        : "Quote is still being built. Wait a moment.";
+        : taskState === "building_job_sheet"
+          ? "Job sheet is being built. Wait a moment."
+          : "Quote is still being built. Wait a moment.";
 
     setTaskHint(hint);
 
