@@ -80,17 +80,6 @@ export default function JobHeader({ job, quotesCount }: { job: JobPageData["job"
           >
             View conversation
           </Link>
-          {job.job_sheet_url ? (
-            <a
-              href={job.job_sheet_url}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-secondary"
-              style={{ padding: "10px 16px", fontSize: "13px" }}
-            >
-              {job.job_sheet_ref ? `Job sheet ${job.job_sheet_ref}` : "View job sheet"} ↗
-            </a>
-          ) : null}
           <button
             type="button"
             className="btn btn-secondary"

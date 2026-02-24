@@ -1,21 +1,12 @@
 "use client";
 
-import Link from "next/link";
-
 import { formatTimestamp } from "./helpers";
 import type { JobPageData } from "./types";
 
 export default function QuotesPanel({ quotes, jobId }: { quotes: JobPageData["quotes"]; jobId: string }) {
   if (!quotes.length) {
     return (
-      <div className="empty-state" style={{ textAlign: "center", padding: "40px 24px" }}>
-        <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "16px" }}>
-          No quotes are linked to this job yet.
-        </p>
-        <Link href={`/quotes/new?jobId=${jobId}`} className="btn btn-primary">
-          Create first quote
-        </Link>
-      </div>
+      <p style={{ fontSize: "14px", color: "#64748b", margin: 0 }}>No quotes linked to this job yet.</p>
     );
   }
 
