@@ -574,14 +574,14 @@ function ChatPageContent() {
     }
 
     if (m.type === "risk_assessment") {
-      const url = m.file_url || (isHttpUrl(m.content.trim()) ? m.content.trim() : null);
+      const url = isHttpUrl(m.content.trim()) ? m.content.trim() : null;
       if (url) {
         return <LinkCard label="RISK ASSESSMENT" url={url} />;
       }
     }
 
     if (m.type === "method_statement") {
-      const url = m.file_url || (isHttpUrl(m.content.trim()) ? m.content.trim() : null);
+      const url = isHttpUrl(m.content.trim()) ? m.content.trim() : null;
       if (url) {
         return <LinkCard label="METHOD STATEMENT" url={url} />;
       }
