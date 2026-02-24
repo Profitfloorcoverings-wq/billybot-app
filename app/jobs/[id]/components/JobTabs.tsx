@@ -210,7 +210,45 @@ export default function JobTabs({ data }: { data: JobPageData }) {
 
       {tab === "emails" ? <EmailThread emailThread={data.emailThread} /> : null}
       {tab === "attachments" ? <AttachmentsGallery attachments={data.attachments} /> : null}
-      {tab === "quotes" ? <QuotesPanel quotes={data.quotes} jobId={data.job.id} /> : null}
+      {tab === "quotes" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {data.job.job_sheet_url ? (
+            <section style={{
+              background: "linear-gradient(135deg, rgba(249,115,22,0.12) 0%, rgba(249,115,22,0.06) 100%)",
+              border: "1px solid rgba(249,115,22,0.25)",
+              borderRadius: "14px",
+              padding: "18px 20px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "16px",
+              flexWrap: "wrap",
+            }}>
+              <div>
+                <p style={{ fontSize: "11px", fontWeight: 700, color: "#fb923c", textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 4px" }}>
+                  Job Sheet
+                </p>
+                <p style={{ fontSize: "15px", fontWeight: 700, color: "#f1f5f9", margin: "0 0 2px" }}>
+                  {data.job.job_sheet_ref || "View job sheet"}
+                </p>
+                <p style={{ fontSize: "12px", color: "#94a3b8", margin: 0 }}>
+                  PDF document attached to this job
+                </p>
+              </div>
+              <a
+                href={data.job.job_sheet_url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-primary"
+                style={{ padding: "10px 18px", fontSize: "13px", whiteSpace: "nowrap" }}
+              >
+                Open job sheet ↗
+              </a>
+            </section>
+          ) : null}
+          <QuotesPanel quotes={data.quotes} jobId={data.job.id} />
+        </div>
+      ) : null}
 
       {/* Updates */}
       {tab === "updates" ? (

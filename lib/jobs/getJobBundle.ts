@@ -25,6 +25,8 @@ export type JobRecord = {
   client_id: string | null;
   conversation_id: string | null;
   job_thread_id: string | null;
+  job_sheet_url: string | null;
+  job_sheet_ref: string | null;
 };
 
 export type CustomerRecord = {
