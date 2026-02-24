@@ -29,6 +29,10 @@ export type JobRecord = {
   job_sheet_ref: string | null;
   quote_url: string | null;
   quote_ref: string | null;
+  risk_assessment_url: string | null;
+  risk_assessment_ref: string | null;
+  method_statement_url: string | null;
+  method_statement_ref: string | null;
 };
 
 export type CustomerRecord = {

@@ -33,14 +33,45 @@ type Message = {
 };
 
 type LinkCardProps = {
-  label: "QUOTE" | "JOB SHEET";
+  label: "QUOTE" | "JOB SHEET" | "RISK ASSESSMENT" | "METHOD STATEMENT";
   reference?: string | null;
   url: string;
 };
 
+const LINK_CARD_STYLES: Record<LinkCardProps["label"], { border: string; background: string; shadow: string; icon: string; openText: string }> = {
+  "QUOTE": {
+    border: "rgba(249,115,22,0.5)",
+    background: "linear-gradient(135deg, #f97316, #fb923c)",
+    shadow: "0 0 18px rgba(249,115,22,0.5)",
+    icon: "📄",
+    openText: "Open Quote",
+  },
+  "JOB SHEET": {
+    border: "rgba(56,189,248,0.4)",
+    background: "linear-gradient(135deg, #0369a1, #0ea5e9)",
+    shadow: "0 0 18px rgba(56,189,248,0.4)",
+    icon: "📋",
+    openText: "Open Job Sheet",
+  },
+  "RISK ASSESSMENT": {
+    border: "rgba(239,68,68,0.4)",
+    background: "linear-gradient(135deg, #b91c1c, #ef4444)",
+    shadow: "0 0 18px rgba(239,68,68,0.4)",
+    icon: "⚠️",
+    openText: "Open Risk Assessment",
+  },
+  "METHOD STATEMENT": {
+    border: "rgba(34,197,94,0.4)",
+    background: "linear-gradient(135deg, #15803d, #22c55e)",
+    shadow: "0 0 18px rgba(34,197,94,0.4)",
+    icon: "📝",
+    openText: "Open Method Statement",
+  },
+};
+
 function LinkCard({ label, reference, url }: LinkCardProps) {
   const title = reference ? `${label} ${reference}` : label;
-  const isJobSheet = label === "JOB SHEET";
+  const s = LINK_CARD_STYLES[label];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -56,26 +87,22 @@ function LinkCard({ label, reference, url }: LinkCardProps) {
       >
         <div style={{
           borderRadius: "14px",
-          border: `1px solid ${isJobSheet ? "rgba(56,189,248,0.4)" : "rgba(249,115,22,0.5)"}`,
-          background: isJobSheet
-            ? "linear-gradient(135deg, #0369a1, #0ea5e9)"
-            : "linear-gradient(135deg, #f97316, #fb923c)",
+          border: `1px solid ${s.border}`,
+          background: s.background,
           padding: "14px 20px",
           textAlign: "center" as const,
           fontSize: "14px",
           fontWeight: 800,
           color: "#fff",
-          boxShadow: isJobSheet
-            ? "0 0 18px rgba(56,189,248,0.4)"
-            : "0 0 18px rgba(249,115,22,0.5)",
+          boxShadow: s.shadow,
           transition: "filter 0.12s ease, transform 0.12s ease",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           gap: "8px",
         }}>
-          <span style={{ fontSize: "16px" }}>{isJobSheet ? "📋" : "📄"}</span>
-          Open {label === "QUOTE" ? "Quote" : "Job Sheet"}
+          <span style={{ fontSize: "16px" }}>{s.icon}</span>
+          {s.openText}
         </div>
       </a>
     </div>
@@ -139,7 +166,7 @@ function ChatPageContent() {
   };
 
   const isLocked =
-    taskState === "building_quote" || taskState === "updating_quote" || taskState === "building_job_sheet";
+    taskState === "building_quote" || taskState === "updating_quote" || taskState === "building_job_sheet" || taskState === "building_rams";
 
   const taskBannerContent = useMemo(() => {
     if (taskState === "building_quote") {
@@ -163,6 +190,13 @@ function ChatPageContent() {
       };
     }
 
+    if (taskState === "building_rams") {
+      return {
+        title: "Building RAMS documents…",
+        subtext: "Please wait while I generate the risk assessment and method statement.",
+      };
+    }
+
     return null;
   }, [taskState]);
 
@@ -174,7 +208,9 @@ function ChatPageContent() {
         ? "Quote is updating. Wait a moment."
         : taskState === "building_job_sheet"
           ? "Job sheet is being built. Wait a moment."
-          : "Quote is still being built. Wait a moment.";
+          : taskState === "building_rams"
+            ? "RAMS documents are being generated. Wait a moment."
+            : "Quote is still being built. Wait a moment.";
 
     setTaskHint(hint);
 
@@ -534,6 +570,20 @@ function ChatPageContent() {
 
       if (url) {
         return <LinkCard label="JOB SHEET" reference={m.job_sheet_reference} url={url} />;
+      }
+    }
+
+    if (m.type === "risk_assessment") {
+      const url = m.file_url || (isHttpUrl(m.content.trim()) ? m.content.trim() : null);
+      if (url) {
+        return <LinkCard label="RISK ASSESSMENT" url={url} />;
+      }
+    }
+
+    if (m.type === "method_statement") {
+      const url = m.file_url || (isHttpUrl(m.content.trim()) ? m.content.trim() : null);
+      if (url) {
+        return <LinkCard label="METHOD STATEMENT" url={url} />;
       }
     }
 
