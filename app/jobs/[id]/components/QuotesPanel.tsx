@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { formatTimestamp } from "./helpers";
 import type { JobPageData } from "./types";
 
