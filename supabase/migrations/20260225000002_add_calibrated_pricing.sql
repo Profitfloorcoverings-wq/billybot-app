@@ -1,0 +1,2 @@
+ALTER TABLE public.clients
+  ADD COLUMN IF NOT EXISTS has_calibrated_pricing BOOLEAN NOT NULL DEFAULT FALSE;

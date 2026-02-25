@@ -54,5 +54,10 @@ export async function POST() {
     return NextResponse.json({ error: "Webhook unreachable" }, { status: 502 });
   }
 
+  await supabase
+    .from("clients")
+    .update({ has_calibrated_pricing: true } as never)
+    .eq("id", user.id);
+
   return NextResponse.json({ ok: true });
 }

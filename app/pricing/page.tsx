@@ -723,6 +723,7 @@ export default function PricingPage() {
   const [labourDisplay, setLabourDisplay] = useState<"split" | "main">("split");
 
   const [accountingSystem, setAccountingSystem] = useState<string | null>(null);
+  const [hasCalibratedPricing, setHasCalibratedPricing] = useState(false);
   const [calibrateState, setCalibrateState] = useState<"idle" | "loading" | "done" | "error">("idle");
 
   const [loading, setLoading] = useState(true);
@@ -882,13 +883,13 @@ export default function PricingPage() {
 
       const { data: clientProfile } = await supabase
         .from("clients")
-        .select("accounting_system")
+        .select("accounting_system, has_calibrated_pricing")
         .eq("id", data.user.id)
         .maybeSingle();
 
-      setAccountingSystem(
-        (clientProfile as { accounting_system?: string | null } | null)?.accounting_system ?? null
-      );
+      const cp = clientProfile as { accounting_system?: string | null; has_calibrated_pricing?: boolean } | null;
+      setAccountingSystem(cp?.accounting_system ?? null);
+      setHasCalibratedPricing(cp?.has_calibrated_pricing ?? false);
 
       const { data: settings, error: settingsError } = await supabase
         .from("pricing_settings")
@@ -982,6 +983,7 @@ export default function PricingPage() {
         return;
       }
       setCalibrateState("done");
+      setHasCalibratedPricing(true);
     } catch {
       setCalibrateState("error");
     }
@@ -1176,7 +1178,7 @@ export default function PricingPage() {
         </div>
       ) : null}
 
-      {accountingSystem ? (
+      {accountingSystem && !hasCalibratedPricing ? (
         <div className="card stack">
           <div className="settings-section-heading">
             <div className="stack">
