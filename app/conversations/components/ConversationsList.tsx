@@ -88,7 +88,7 @@ export default function ConversationsList({
             return (
               <Link
                 key={c.id}
-                href={`/jobs/${c.id}`}
+                href={`/conversations/${c.id}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
