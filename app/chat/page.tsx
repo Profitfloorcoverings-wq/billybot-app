@@ -109,7 +109,7 @@ function LinkCard({ label, reference, url }: LinkCardProps) {
   );
 }
 
-const isHttpUrl = (value: string) => /^https?:\/\/\S+$/i.test(value);
+const isHttpUrl = (value: string) => /^https?:\/\//i.test(value.trim());
 
 type HistoryResponse = {
   conversation_id: string;
