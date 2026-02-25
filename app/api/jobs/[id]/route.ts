@@ -19,6 +19,8 @@ const ALLOWED_FIELDS = new Set([
   "site_address",
   "postcode",
   "customer_phone",
+  "outbound_email_subject",
+  "outbound_email_body",
 ]);
 
 type PatchBody = {
@@ -27,6 +29,8 @@ type PatchBody = {
   site_address?: unknown;
   postcode?: unknown;
   customer_phone?: unknown;
+  outbound_email_subject?: unknown;
+  outbound_email_body?: unknown;
 };
 
 function sanitizeStringField(value: unknown, maxLength: number): string | null {
@@ -95,6 +99,22 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: "Invalid customer_phone" }, { status: 400 });
     }
     patch.customer_phone = customerPhone;
+  }
+
+  if ("outbound_email_subject" in body) {
+    const val = sanitizeStringField(body.outbound_email_subject, 500);
+    if (val === null) {
+      return NextResponse.json({ error: "Invalid outbound_email_subject" }, { status: 400 });
+    }
+    patch.outbound_email_subject = val || null;
+  }
+
+  if ("outbound_email_body" in body) {
+    const val = sanitizeStringField(body.outbound_email_body, 20000);
+    if (val === null) {
+      return NextResponse.json({ error: "Invalid outbound_email_body" }, { status: 400 });
+    }
+    patch.outbound_email_body = val || null;
   }
 
   if (!Object.keys(patch).length) {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import AttachmentsGallery from "./AttachmentsGallery";
 import EmailThread from "./EmailThread";
+import OutboundDraftPanel from "./OutboundDraftPanel";
 import { formatRelativeTime, formatTimestamp, humanizeStatus } from "./helpers";
 import QuotesPanel from "./QuotesPanel";
 import { createClient } from "@/utils/supabase/client";
@@ -54,6 +55,10 @@ const TAB_COUNTS: Record<string, (data: JobPageData) => number | null> = {
   attachments: (d) => d.attachments.length || null,
   documents: (d) => (d.quotes.length + (d.job.job_sheet_url ? 1 : 0) + (d.job.quote_url ? 1 : 0) + (d.job.risk_assessment_url ? 1 : 0) + (d.job.method_statement_url ? 1 : 0)) || null,
 };
+
+function hasDraft(data: JobPageData) {
+  return !!(data.job.outbound_email_subject || data.job.outbound_email_body);
+}
 
 export default function JobTabs({ data }: { data: JobPageData }) {
   const [tab, setTab] = useState<Tab>("overview");
@@ -140,6 +145,12 @@ export default function JobTabs({ data }: { data: JobPageData }) {
                 }}>
                   {count}
                 </span>
+              ) : null}
+              {name === "emails" && hasDraft(data) ? (
+                <span style={{
+                  width: "7px", height: "7px", borderRadius: "50%",
+                  background: "#fb923c", flexShrink: 0,
+                }} />
               ) : null}
             </button>
           );
@@ -253,7 +264,18 @@ export default function JobTabs({ data }: { data: JobPageData }) {
         </div>
       ) : null}
 
-      {tab === "emails" ? <EmailThread emailThread={data.emailThread} /> : null}
+      {tab === "emails" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {hasDraft(data) ? (
+            <OutboundDraftPanel
+              jobId={data.job.id}
+              initialSubject={data.job.outbound_email_subject ?? null}
+              initialBody={data.job.outbound_email_body ?? null}
+            />
+          ) : null}
+          <EmailThread emailThread={data.emailThread} />
+        </div>
+      ) : null}
       {tab === "attachments" ? <AttachmentsGallery attachments={data.attachments} /> : null}
       {tab === "documents" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -554,20 +576,6 @@ export default function JobTabs({ data }: { data: JobPageData }) {
             </div>
           </section>
 
-          {/* Outbound draft */}
-          {(data.job.outbound_email_subject || data.job.outbound_email_body) ? (
-            <section className="card" style={{ padding: "18px 20px" }}>
-              <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#f1f5f9", margin: "0 0 10px" }}>Outbound draft</h3>
-              {data.job.outbound_email_subject && (
-                <p style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0", margin: "0 0 8px" }}>
-                  Subject: {data.job.outbound_email_subject}
-                </p>
-              )}
-              <p style={{ fontSize: "13px", color: "#94a3b8", margin: 0, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-                {data.job.outbound_email_body || "No draft body yet."}
-              </p>
-            </section>
-          ) : null}
 
           {/* Metadata */}
           {data.job.metadata && Object.keys(data.job.metadata).length ? (
