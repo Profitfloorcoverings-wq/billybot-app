@@ -5,7 +5,7 @@ import { createEmailServiceClient } from "@/lib/email/serviceClient";
 import { getValidAccessToken } from "@/lib/email/tokens";
 
 const GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0";
-const SUBSCRIPTION_TTL_MS = 2 * 24 * 60 * 60 * 1000;
+const SUBSCRIPTION_TTL_MS = 70 * 60 * 60 * 1000; // 70 hours (near MS max of ~70.5h for delegated mail)
 const SUBSCRIPTION_RENEW_WINDOW_MS = 12 * 60 * 60 * 1000;
 
 export type MicrosoftAccount = {
