@@ -12,46 +12,57 @@ type Conversation = {
   customer_email?: string | null;
   thread_type?: string | null;
   last_activity_at?: string | null;
-};
-
-type ConversationsListProps = {
-  conversations: Conversation[];
-  conversationsError: string | null;
-  initialSearch: string;
+  outbound_email_body?: string | null;
 };
 
 export default function ConversationsList({
   conversations,
   conversationsError,
   initialSearch,
-}: ConversationsListProps) {
+}: {
+  conversations: Conversation[];
+  conversationsError: string | null;
+  initialSearch: string;
+}) {
   const [search, setSearch] = useState(initialSearch);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return conversations;
-    const query = search.toLowerCase();
-    return conversations.filter((c) => {
-      const title = c.title?.toLowerCase() || "";
-      const customer = c.customer_name?.toLowerCase() || "";
-      const email = c.customer_email?.toLowerCase() || "";
-      return [title, customer, email].some((v) => v.includes(query));
-    });
+    const q = search.toLowerCase();
+    return conversations.filter((c) =>
+      [c.title, c.customer_name, c.customer_email]
+        .some((v) => v?.toLowerCase().includes(q))
+    );
   }, [conversations, search]);
 
-  const hasItems = conversations.length > 0;
-  const hasFiltered = filtered.length > 0;
+  if (conversationsError) {
+    return <div className="empty-state">{conversationsError}</div>;
+  }
+
+  if (!conversations.length) {
+    return (
+      <div className="empty-state" style={{ textAlign: "center", padding: "48px 24px" }}>
+        <h3 className="section-title" style={{ fontSize: "18px", marginBottom: "8px" }}>
+          No conversations yet
+        </h3>
+        <p className="section-subtitle">
+          General email threads that aren&apos;t linked to a job will appear here.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>
       <div style={{ marginBottom: "16px" }}>
         <input
           type="text"
-          placeholder="Search conversations..."
+          placeholder="Search..."
           defaultValue={initialSearch}
           onChange={(e) => setSearch(e.target.value)}
           style={{
             width: "100%",
-            maxWidth: "360px",
+            maxWidth: "320px",
             padding: "8px 12px",
             borderRadius: "8px",
             border: "1px solid rgba(255,255,255,0.08)",
@@ -63,94 +74,64 @@ export default function ConversationsList({
         />
       </div>
 
-      <div className="table-card scrollable-table">
-        <div style={{ position: "relative", width: "100%", maxHeight: "70vh", overflowY: "auto" }}>
-          {conversationsError && (
-            <div className="empty-state">{conversationsError}</div>
-          )}
+      {!filtered.length ? (
+        <div className="empty-state">No conversations match your search.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {filtered.map((c, i) => {
+            const title = c.title?.trim() || "No subject";
+            const customer = c.customer_name?.trim() || c.customer_email || "Unknown";
+            const hasDraft = !!c.outbound_email_body;
+            const relativeTime = formatRelativeTime(c.last_activity_at);
+            const exactTime = formatTimestamp(c.last_activity_at);
 
-          {!conversationsError && !hasItems && (
-            <div className="empty-state" style={{ textAlign: "center", padding: "40px 24px" }}>
-              <h3 className="section-title" style={{ fontSize: "18px", marginBottom: "8px" }}>
-                No conversations yet
-              </h3>
-              <p className="section-subtitle">
-                General email threads that aren't linked to a job will appear here.
-              </p>
-            </div>
-          )}
+            return (
+              <Link
+                key={c.id}
+                href={`/jobs/${c.id}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "16px",
+                  padding: "14px 4px",
+                  borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none",
+                  textDecoration: "none",
+                  color: "inherit",
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "3px" }}>
+                    {hasDraft && (
+                      <span
+                        title="Draft reply pending"
+                        style={{
+                          width: "7px", height: "7px", borderRadius: "50%",
+                          background: "#fb923c", flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <span style={{
+                      fontSize: "14px", fontWeight: 600, color: "#f1f5f9",
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {title}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>{customer}</span>
+                </div>
 
-          {!conversationsError && hasItems && !hasFiltered && (
-            <div className="empty-state">No conversations match your search.</div>
-          )}
-
-          {!conversationsError && hasFiltered && (
-            <table className="data-table">
-              <thead style={{ position: "sticky", top: 0, zIndex: 10, background: "rgba(15,23,42,0.98)" }}>
-                <tr>
-                  <th>Subject</th>
-                  <th>From</th>
-                  <th>Type</th>
-                  <th>Last activity</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c) => {
-                  const title = c.title?.trim() || "No subject";
-                  const customer = c.customer_name?.trim() || "Unknown";
-                  const lastActivityLabel = formatRelativeTime(c.last_activity_at);
-                  const lastActivityExact = formatTimestamp(c.last_activity_at);
-                  const typeLabel = c.thread_type === "enquiry" ? "Enquiry" : "Conversation";
-                  const typeColor = c.thread_type === "enquiry" ? "#f59e0b" : "#94a3b8";
-
-                  return (
-                    <tr key={c.id}>
-                      <td>
-                        <Link
-                          href={`/jobs/${c.id}`}
-                          style={{ fontSize: "15px", fontWeight: 600, color: "#f1f5f9", textDecoration: "none" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-                          onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
-                        >
-                          {title}
-                        </Link>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                          <span style={{ fontSize: "14px", color: "#e2e8f0" }}>{customer}</span>
-                          <span
-                            style={{ fontSize: "12px", color: "#64748b", maxWidth: "220px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                            title={c.customer_email || undefined}
-                          >
-                            {c.customer_email || "—"}
-                          </span>
-                        </div>
-                      </td>
-                      <td>
-                        <span style={{
-                          display: "inline-flex", alignItems: "center",
-                          padding: "3px 10px", borderRadius: "999px",
-                          fontSize: "12px", fontWeight: 600,
-                          background: `${typeColor}18`,
-                          color: typeColor,
-                          border: `1px solid ${typeColor}30`,
-                        }}>
-                          {typeLabel}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: "12px", color: "#64748b" }} title={lastActivityExact}>
-                          {lastActivityLabel}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
+                <span
+                  style={{ fontSize: "12px", color: "#475569", whiteSpace: "nowrap", flexShrink: 0 }}
+                  title={exactTime}
+                >
+                  {relativeTime}
+                </span>
+              </Link>
+            );
+          })}
         </div>
-      </div>
+      )}
     </>
   );
 }
