@@ -40,6 +40,7 @@ export type TenantJob = {
   fitter_5: string | null;
   fitter_6: string | null;
   fitter_7: string | null;
+  thread_type: string | null;
 };
 
 export type JobsTenantResult = {
@@ -75,6 +76,7 @@ export async function getJobsForCurrentTenant(statusValue = "all"): Promise<Jobs
     .from("jobs")
     .select(JOB_SELECT)
     .eq("client_id", user.id)
+    .eq("thread_type", "job")
     .order("last_activity_at", { ascending: false });
 
   if (statusValue !== "all") {
@@ -84,6 +86,35 @@ export async function getJobsForCurrentTenant(statusValue = "all"): Promise<Jobs
   }
 
   const { data, error } = await query;
+
+  return {
+    user: { id: user.id, email: user.email ?? null },
+    userError: userErrorRaw ? { message: userErrorRaw.message } : null,
+    jobs: (data as TenantJob[] | null) ?? [],
+    jobsError: error ? { message: error.message } : null,
+  };
+}
+
+export async function getConversationsForCurrentTenant(): Promise<JobsTenantResult> {
+  const supabase = await createServerClient();
+  const { data: userData, error: userErrorRaw } = await supabase.auth.getUser();
+  const user = userData?.user ?? null;
+
+  if (!user) {
+    return {
+      user: null,
+      userError: userErrorRaw ? { message: userErrorRaw.message } : null,
+      jobs: [],
+      jobsError: null,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("jobs")
+    .select(JOB_SELECT)
+    .eq("client_id", user.id)
+    .in("thread_type", ["conversation", "enquiry"])
+    .order("last_activity_at", { ascending: false });
 
   return {
     user: { id: user.id, email: user.email ?? null },

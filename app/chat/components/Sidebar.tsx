@@ -19,6 +19,7 @@ const navItems: NavItem[] = [
   { label: "Chat", href: "/chat" },
   { label: "Diary", href: "/diary" },
   { label: "Jobs", href: "/jobs" },
+  { label: "Conversations", href: "/conversations" },
   { label: "Quotes", href: "/quotes", watchQuotes: true },
   { label: "Suppliers", href: "/suppliers" },
   { label: "Customers", href: "/customers" },
