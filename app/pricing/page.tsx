@@ -722,6 +722,9 @@ export default function PricingPage() {
   const [vatRegistered, setVatRegistered] = useState(true);
   const [labourDisplay, setLabourDisplay] = useState<"split" | "main">("split");
 
+  const [accountingSystem, setAccountingSystem] = useState<string | null>(null);
+  const [calibrateState, setCalibrateState] = useState<"idle" | "loading" | "done" | "error">("idle");
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -877,6 +880,16 @@ export default function PricingPage() {
         return;
       }
 
+      const { data: clientProfile } = await supabase
+        .from("clients")
+        .select("accounting_system")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      setAccountingSystem(
+        (clientProfile as { accounting_system?: string | null } | null)?.accounting_system ?? null
+      );
+
       const { data: settings, error: settingsError } = await supabase
         .from("pricing_settings")
         .select("*")
@@ -959,6 +972,20 @@ export default function PricingPage() {
 
     void loadSettings();
   }, [router, supabase]);
+
+  async function handleCalibrate() {
+    setCalibrateState("loading");
+    try {
+      const res = await fetch("/api/pricing/calibrate", { method: "POST" });
+      if (!res.ok) {
+        setCalibrateState("error");
+        return;
+      }
+      setCalibrateState("done");
+    } catch {
+      setCalibrateState("error");
+    }
+  }
 
   function buildSettingsPayload() {
     const payload: Record<string, unknown> = {
@@ -1146,6 +1173,47 @@ export default function PricingPage() {
       {error ? (
         <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/50 rounded-lg p-3">
           {error}
+        </div>
+      ) : null}
+
+      {accountingSystem ? (
+        <div className="card stack">
+          <div className="settings-section-heading">
+            <div className="stack">
+              <h3 className="section-title text-lg">Calibrate from invoices</h3>
+              <p className="section-subtitle">
+                Import your last 12 months of{" "}
+                <span style={{ textTransform: "capitalize" }}>{accountingSystem}</span> invoices so
+                BillyBot can suggest accurate material and labour rates based on what you&apos;ve
+                actually charged.
+              </p>
+              {calibrateState === "error" ? (
+                <p className="text-sm text-red-300">Calibration failed. Please try again.</p>
+              ) : null}
+              {calibrateState === "done" ? (
+                <p className="section-subtitle" style={{ color: "var(--brand1)" }}>
+                  BillyBot is analysing your invoices — check your chat for a summary and suggested
+                  pricing updates.
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={calibrateState === "loading" || calibrateState === "done"}
+              onClick={() => {
+                void handleCalibrate();
+              }}
+            >
+              {calibrateState === "loading"
+                ? "Analysing…"
+                : calibrateState === "done"
+                  ? "Done ✓"
+                  : calibrateState === "error"
+                    ? "Retry"
+                    : "Calibrate pricing"}
+            </button>
+          </div>
         </div>
       ) : null}
 
