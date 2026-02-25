@@ -83,6 +83,7 @@ export async function POST(req: Request) {
     .insert({
       business_id: inv.business_id,
       member_id: newUserId,
+      name: inv.name,
       role: inv.role,
       invite_email: inv.invite_email,
       invite_status: "accepted",
