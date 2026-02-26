@@ -111,6 +111,13 @@ function LinkCard({ label, reference, url }: LinkCardProps) {
 
 const isHttpUrl = (value: string) => /^https?:\/\//i.test(value.trim());
 
+function formatMessageTime(ts?: string): string {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 type HistoryResponse = {
   conversation_id: string;
   messages: Message[];
@@ -691,6 +698,11 @@ function ChatPageContent() {
             >
               <div className={`chat-badge ${m.role === "user" ? "chat-badge-user" : ""}`}>
                 {m.role === "user" ? "You" : "BillyBot"}
+                {m.created_at ? (
+                  <span style={{ opacity: 0.5, fontWeight: 400, marginLeft: "6px" }}>
+                    {formatMessageTime(m.created_at)}
+                  </span>
+                ) : null}
               </div>
 
               {renderMessage(m)}
