@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { sendGmailReply, sendMicrosoftReply } from "@/lib/email/send";
 import { createEmailServiceClient } from "@/lib/email/serviceClient";
 import { getValidAccessToken } from "@/lib/email/tokens";
-import { getUserFromCookies } from "@/utils/supabase/auth";
+import { getUserFromRequest } from "@/utils/supabase/auth";
 
 type InboundEmailEvent = {
   id: string;
@@ -39,7 +39,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromCookies();
+  const user = await getUserFromRequest(request);
   if (!user?.id) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

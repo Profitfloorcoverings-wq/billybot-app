@@ -84,3 +84,23 @@ export async function getAuthenticatedUserId(): Promise<string | null> {
   const user = await getUserFromCookies();
   return user?.id ?? null;
 }
+
+/**
+ * Accepts either:
+ *   - Authorization: Bearer <supabase-jwt>  (mobile app)
+ *   - Supabase SSR cookies                  (web app)
+ */
+export async function getUserFromRequest(request: Request): Promise<{ id: string } | null> {
+  const authHeader = request.headers.get("Authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    const token = authHeader.slice(7);
+    if (!supabaseUrl || !supabaseServiceKey) return null;
+    const admin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: { user } } = await admin.auth.getUser(token);
+    if (user?.id) return { id: user.id };
+  }
+  const user = await getUserFromCookies();
+  return user ? { id: user.id } : null;
+}
