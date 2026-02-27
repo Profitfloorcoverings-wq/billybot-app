@@ -48,6 +48,9 @@ export default function SignUpPage() {
         throw insertError;
       }
 
+      if (typeof window !== "undefined" && typeof (window as Window & { fbq?: (...args: unknown[]) => void }).fbq === "function") {
+        (window as Window & { fbq?: (...args: unknown[]) => void }).fbq!("track", "Lead", { currency: "GBP", value: 0 });
+      }
       router.push("/post-onboard");
     } catch (err) {
       setError(
