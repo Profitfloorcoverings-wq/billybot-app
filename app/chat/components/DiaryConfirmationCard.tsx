@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import type { DiaryConfirmationPayload } from "@/types/diary";
 
 type Props = {
@@ -30,63 +31,44 @@ function formatDateRange(start: string, end: string): string {
 }
 
 export default function DiaryConfirmationCard({ data }: Props) {
-  const [status, setStatus] = useState<"pending" | "confirming" | "confirmed" | "cancelling" | "cancelled">("pending");
+  const [cancelled, setCancelled] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const entryId = data.entry_id;
   const typeStyle = ENTRY_TYPE_STYLES[data.entry_type] ?? ENTRY_TYPE_STYLES.other;
-  const busy = status === "confirming" || status === "cancelling";
 
-  async function handleConfirm() {
+  // Auto-confirm the entry as soon as the card appears
+  useEffect(() => {
     if (!entryId) return;
-    setStatus("confirming");
-    setError(null);
-
-    try {
-      const res = await fetch("/api/diary/entries/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entry_id: entryId, confirmation_data: data }),
-      });
-
-      const result = (await res.json()) as { success?: boolean; error?: string };
-
-      if (!res.ok || !result.success) {
-        setError(result.error ?? "Failed to confirm booking.");
-        setStatus("pending");
-        return;
-      }
-
-      setStatus("confirmed");
-    } catch {
-      setError("Network error. Please try again.");
-      setStatus("pending");
-    }
-  }
+    void fetch("/api/diary/entries/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entry_id: entryId, confirmation_data: data }),
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryId]);
 
   async function handleCancel() {
     if (!entryId) return;
-    setStatus("cancelling");
+    setCancelling(true);
     setError(null);
-
     try {
       const res = await fetch(`/api/diary/entries/${entryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "cancelled" }),
       });
-
       if (!res.ok) {
         const result = (await res.json()) as { error?: string };
         setError(result.error ?? "Failed to cancel.");
-        setStatus("pending");
         return;
       }
-
-      setStatus("cancelled");
+      setCancelled(true);
     } catch {
       setError("Network error. Please try again.");
-      setStatus("pending");
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -170,34 +152,26 @@ export default function DiaryConfirmationCard({ data }: Props) {
       ) : null}
 
       {/* Actions */}
-      {status === "confirmed" ? (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "10px", background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
-          <span style={{ fontSize: "16px" }}>✓</span>
-          <span style={{ fontSize: "14px", fontWeight: 700, color: "#4ade80" }}>Booked</span>
-        </div>
-      ) : status === "cancelled" ? (
+      {cancelled ? (
         <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "10px 12px", borderRadius: "10px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(148,163,184,0.1)" }}>
           <span style={{ fontSize: "13px", color: "#64748b" }}>Booking cancelled.</span>
         </div>
       ) : (
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button
-            type="button"
-            onClick={handleCancel}
-            disabled={busy}
-            className="btn btn-secondary"
-            style={{ flex: 1, fontSize: "13px", padding: "10px 14px", opacity: busy ? 0.5 : 1 }}
-          >
-            {status === "cancelling" ? "Cancelling…" : "Cancel"}
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={busy || !entryId}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+          <Link
+            href="/diary"
             className="btn btn-primary"
-            style={{ flex: 1, fontSize: "13px", padding: "10px 14px", opacity: (busy || !entryId) ? 0.5 : 1 }}
+            style={{ fontSize: "13px", padding: "10px 18px" }}
           >
-            {status === "confirming" ? "Confirming…" : "Confirm booking"}
+            Edit booking →
+          </Link>
+          <button
+            type="button"
+            onClick={() => void handleCancel()}
+            disabled={cancelling}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: "12px", color: "#475569", padding: "4px", opacity: cancelling ? 0.5 : 1 }}
+          >
+            {cancelling ? "Cancelling…" : "Cancel booking"}
           </button>
         </div>
       )}
