@@ -56,6 +56,7 @@ type PlanKey = "starter" | "pro" | "team";
 type PlanConfig = {
   key: PlanKey;
   name: string;
+  tagline: string;
   monthlyLabel: string;
   annualLabel: string;
   bullets: string[];
@@ -109,28 +110,47 @@ const PLAN_CONFIGS: PlanConfig[] = [
   {
     key: "starter",
     name: "Starter",
-    monthlyLabel: "£79/mo",
-    annualLabel: "£790/yr",
-    bullets: ["1 user", "Up to 20 quotes / month"],
+    tagline: "The one man band",
+    monthlyLabel: "£149/mo",
+    annualLabel: "£1,490/yr",
+    bullets: [
+      "Just you — no fitters needed",
+      "AI chat assistant",
+      "Instant quote generation with your branding",
+      "Job & customer management",
+      "Email integration — AI reads emails & drafts replies",
+      "Mobile app",
+    ],
   },
   {
     key: "pro",
     name: "Pro",
-    monthlyLabel: "£149/mo",
-    annualLabel: "£1490/yr",
-    bullets: ["2 users", "20–50 quotes / month", "Send quotes to customers"],
+    tagline: "The established flooring business",
+    monthlyLabel: "£249/mo",
+    annualLabel: "£2,490/yr",
+    bullets: [
+      "Everything in Starter",
+      "You + up to 4 fitters",
+      "Diary & AI scheduling",
+      "Assign jobs to your fitters",
+      "Fitter mobile app — they see their jobs, nothing else",
+      "Push notifications to fitters when booked",
+      "Supplier price management",
+    ],
   },
   {
     key: "team",
     name: "Team",
-    monthlyLabel: "£249/mo",
-    annualLabel: "£2490/yr",
+    tagline: "The serious operation",
+    monthlyLabel: "£499/mo",
+    annualLabel: "£4,990/yr",
     bullets: [
-      "Up to 5 users",
-      "Unlimited quotes / month",
-      "Send quotes to customers",
-      "Early access to new features",
-      "Built for teams & growing businesses",
+      "Everything in Pro",
+      "Unlimited fitters, managers & estimators",
+      "Multiple manager logins",
+      "Estimator accounts — full quoting, no admin",
+      "Dedicated onboarding call with Steve",
+      "Priority support",
     ],
   },
 ];
@@ -1040,6 +1060,7 @@ export default function AccountPage() {
                           </span>
                         )}
                       </div>
+                      <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>{plan.tagline}</p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                         <p className="pricing-card-price">
                           {billingCycle === "monthly" ? plan.monthlyLabel : plan.annualLabel}
