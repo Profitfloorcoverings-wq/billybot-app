@@ -11,6 +11,7 @@ export default function SignUpPage() {
   const supabase = useMemo(() => createClient(), []);
 
   const [businessName, setBusinessName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -41,6 +42,7 @@ export default function SignUpPage() {
         id: user.id,
         business_name: businessName,
         email,
+        phone,
         created_at: new Date().toISOString(),
       });
 
@@ -83,6 +85,21 @@ export default function SignUpPage() {
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
                 placeholder="BillyBot Builders"
+                required
+              />
+            </div>
+
+            <div className="field-group">
+              <label className="field-label" htmlFor="phone">
+                Mobile number
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                className="input-fluid"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="07700 900123"
                 required
               />
             </div>
