@@ -8,7 +8,7 @@ const ONBOARDING_ROUTES = [
   "/post-onboard",
 ];
 const AUTH_ROUTES = ["/auth/login", "/auth/signup"];
-const PUBLIC_ROUTES = ["/terms", "/privacy", "/legal/terms", "/legal/privacy", "/account/accept-invite"];
+const PUBLIC_ROUTES = ["/terms", "/privacy", "/legal/terms", "/legal/privacy", "/account/accept-invite", "/get-the-app"];
 
 function redirectWithCookies(req: NextRequest, res: NextResponse, pathname: string) {
   const url = req.nextUrl.clone();
