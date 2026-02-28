@@ -111,6 +111,22 @@ function LinkCard({ label, reference, url }: LinkCardProps) {
 
 const isHttpUrl = (value: string) => /^https?:\/\//i.test(value.trim());
 
+type SpeechRecognitionInstance = {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((event: { results: { [i: number]: { [j: number]: { transcript: string } } } }) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+type SpeechRecognitionCtor = new () => SpeechRecognitionInstance;
+type WindowWithSpeech = Window & {
+  SpeechRecognition?: SpeechRecognitionCtor;
+  webkitSpeechRecognition?: SpeechRecognitionCtor;
+};
+
 function formatMessageTime(ts?: string): string {
   if (!ts) return "";
   const d = new Date(ts);
@@ -150,11 +166,15 @@ function ChatPageContent() {
   >("idle");
   const [taskHint, setTaskHint] = useState<string | null>(null);
 
+  const [isListening, setIsListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const initialLoadRef = useRef(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const taskHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
 
   const { flags } = useClientFlags();
   const searchParams = useSearchParams();
@@ -421,6 +441,53 @@ function ChatPageContent() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const w = window as WindowWithSpeech;
+    setVoiceSupported(!!(w.SpeechRecognition || w.webkitSpeechRecognition));
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
+
+  function toggleVoice() {
+    if (isLocked || sending) return;
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const w = window as WindowWithSpeech;
+    const SR = w.SpeechRecognition ?? w.webkitSpeechRecognition;
+    if (!SR) return;
+
+    const recognition = new SR();
+    recognition.lang = "en-GB";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }
 
   async function sendMessage() {
     if (isLocked) return;
@@ -799,6 +866,39 @@ function ChatPageContent() {
               onChange={handleFileSelect}
               className="hidden"
             />
+
+            {voiceSupported ? (
+              <button
+                type="button"
+                onClick={toggleVoice}
+                disabled={isLocked || sending}
+                aria-label={isListening ? "Stop recording" : "Start voice input"}
+                style={{
+                  flexShrink: 0,
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "50%",
+                  border: isListening ? "none" : "1px solid rgba(255,255,255,0.1)",
+                  background: isListening ? "#ef4444" : "rgba(255,255,255,0.05)",
+                  color: isListening ? "#fff" : "#94a3b8",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: isLocked || sending ? "not-allowed" : "pointer",
+                  transition: "background 0.15s ease, box-shadow 0.15s ease",
+                  boxShadow: isListening ? "0 0 0 4px rgba(239,68,68,0.25)" : "none",
+                  animation: isListening ? "mic-pulse 1.4s ease-in-out infinite" : "none",
+                  opacity: isLocked || sending ? 0.4 : 1,
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="9" y="2" width="6" height="11" rx="3" />
+                  <path d="M5 10a7 7 0 0 0 14 0" />
+                  <line x1="12" y1="19" x2="12" y2="22" />
+                  <line x1="9" y1="22" x2="15" y2="22" />
+                </svg>
+              </button>
+            ) : null}
 
             <button
               onClick={sendMessage}
