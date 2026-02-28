@@ -28,9 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}</Script>
         <ClientFlagsProvider>
           <div className="flex min-h-screen bg-[var(--bg1)]">
-            <div className="hidden md:block">
-              <Sidebar />
-            </div>
+            <Sidebar />
             <main className="flex-1 relative overflow-y-auto p-6 md:p-10">
               {children}
             </main>
