@@ -154,7 +154,7 @@ async function markEventProcessed(
       processed_at: new Date().toISOString(),
       provider_thread_id: providerThreadId,
       error: null,
-      meta,
+      meta: meta as import("@/types/supabase").Json,
       ...(payload
         ? {
             from_email: payload.from,
@@ -193,7 +193,7 @@ async function markEventError(
       meta: {
         failed_at: new Date().toISOString(),
         error: message,
-      },
+      } as import("@/types/supabase").Json,
     })
     .eq("id", event.id);
 
