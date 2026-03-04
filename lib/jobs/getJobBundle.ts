@@ -285,8 +285,8 @@ export async function getJobBundle({ job, currentClientId }: GetJobBundleParams)
     latestEmailQuery,
   ]);
 
-  const latestEmail = latestEmailList?.[0] ?? null;
-  const thread = emailThread ?? [];
+  const latestEmail = (latestEmailList?.[0] ?? null) as EmailEventRecord | null;
+  const thread = (emailThread ?? []) as EmailEventRecord[];
 
   let quotes = directQuotesResult.data ?? [];
   if (!quotes.length && job.customer_name && job.created_at) {
