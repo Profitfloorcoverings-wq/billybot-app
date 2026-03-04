@@ -21,6 +21,7 @@ import LoginPage from "../auth/login/page";
 import DiaryConfirmationCard from "./components/DiaryConfirmationCard";
 import QuoteBuilderCard from "./components/QuoteBuilderCard";
 import type { LineItem } from "./components/QuoteBuilderCard";
+import InvoiceBuilderCard from "./components/InvoiceBuilderCard";
 
 type Message = {
   id: number | string;
@@ -679,6 +680,36 @@ function ChatPageContent() {
         }
       })();
       return <QuoteBuilderCard conversationId={conversationId} initialLines={initialLines} />;
+    }
+
+    if (m.type === "invoice_builder" && conversationId) {
+      const parsed = (() => {
+        try {
+          return JSON.parse(m.content) as {
+            lines?: LineItem[];
+            quote_id?: string;
+            quote_reference?: string;
+            customer_name?: string;
+            billing_email?: string;
+            billing_address?: string;
+          };
+        } catch {
+          return null;
+        }
+      })();
+      if (parsed) {
+        return (
+          <InvoiceBuilderCard
+            conversationId={conversationId}
+            initialLines={Array.isArray(parsed.lines) ? parsed.lines : []}
+            quoteId={parsed.quote_id}
+            quoteReference={parsed.quote_reference}
+            customerName={parsed.customer_name}
+            billingEmail={parsed.billing_email}
+            billingAddress={parsed.billing_address}
+          />
+        );
+      }
     }
 
     if (m.type === "diary_confirmation") {

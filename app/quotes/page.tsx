@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 const QUOTES_LAST_VIEWED_KEY = "quotes_last_viewed_at";
 
@@ -32,11 +33,52 @@ type QuotesResponse = {
 };
 
 export default function QuotesPage() {
+  const router = useRouter();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [initialLastViewed, setInitialLastViewed] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [invoicingQuoteId, setInvoicingQuoteId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  }
+
+  async function handleCreateInvoice(quoteId: string) {
+    setInvoicingQuoteId(quoteId);
+    try {
+      // Fetch most recent conversation for this user
+      const convRes = await fetch("/api/conversations/latest");
+      const convData = convRes.ok ? (await convRes.json()) as { conversation_id?: string } : {};
+      const conversationId = convData.conversation_id ?? "";
+
+      if (!conversationId) {
+        showToast("No conversation found — go to chat first.");
+        return;
+      }
+
+      const res = await fetch("/api/invoices/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quote_id: quoteId, conversation_id: conversationId }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        showToast(data.error ?? "Failed to initiate invoice");
+        return;
+      }
+
+      router.push(`/chat?conversation_id=${conversationId}`);
+    } catch {
+      showToast("Failed to initiate invoice");
+    } finally {
+      setInvoicingQuoteId(null);
+    }
+  }
 
   useEffect(() => {
     setInitialLastViewed(localStorage.getItem(QUOTES_LAST_VIEWED_KEY));
@@ -116,6 +158,11 @@ export default function QuotesPage() {
 
   return (
     <div className="page-container">
+      {toast && (
+        <div className="toast" style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 100 }}>
+          {toast}
+        </div>
+      )}
       <header style={{ marginBottom: "4px" }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
           <div>
@@ -263,7 +310,16 @@ export default function QuotesPage() {
                                 </span>
                               </td>
                               <td className="sticky-cell">
-                                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                                <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    style={{ fontSize: "12px", padding: "6px 14px", borderRadius: "999px" }}
+                                    disabled={invoicingQuoteId === String(quote.id)}
+                                    onClick={() => handleCreateInvoice(String(quote.id))}
+                                  >
+                                    {invoicingQuoteId === String(quote.id) ? "Creating…" : "Create Invoice"}
+                                  </button>
                                   <Link
                                     href={quote.pdf_url ?? "#"}
                                     target="_blank"

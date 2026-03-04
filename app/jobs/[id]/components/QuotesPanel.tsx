@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { formatTimestamp } from "./helpers";
 import type { JobPageData } from "./types";
@@ -16,6 +18,46 @@ function isBespoke(quoteJson?: string | null): boolean {
 }
 
 export default function QuotesPanel({ quotes, jobId }: { quotes: JobPageData["quotes"]; jobId: string }) {
+  const router = useRouter();
+  const [invoicingQuoteId, setInvoicingQuoteId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 4000);
+  }
+
+  async function handleCreateInvoice(quoteId: string) {
+    setInvoicingQuoteId(quoteId);
+    try {
+      const convRes = await fetch("/api/conversations/latest");
+      const convData = convRes.ok ? (await convRes.json()) as { conversation_id?: string } : {};
+      const conversationId = convData.conversation_id ?? "";
+
+      if (!conversationId) {
+        showToast("No conversation found — go to chat first.");
+        return;
+      }
+
+      const res = await fetch("/api/invoices/initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quote_id: quoteId, conversation_id: conversationId }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        showToast(data.error ?? "Failed to initiate invoice");
+        return;
+      }
+
+      router.push(`/chat?conversation_id=${conversationId}`);
+    } catch {
+      showToast("Failed to initiate invoice");
+    } finally {
+      setInvoicingQuoteId(null);
+    }
+  }
   if (!quotes.length) {
     return (
       <p style={{ fontSize: "14px", color: "#64748b", margin: 0 }}>No quotes linked to this job yet.</p>
@@ -24,6 +66,11 @@ export default function QuotesPanel({ quotes, jobId }: { quotes: JobPageData["qu
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+      {toast && (
+        <div className="toast" style={{ position: "fixed", bottom: "24px", right: "24px", zIndex: 100 }}>
+          {toast}
+        </div>
+      )}
       {quotes.map((quote) => (
         <article
           key={quote.id}
@@ -103,6 +150,15 @@ export default function QuotesPanel({ quotes, jobId }: { quotes: JobPageData["qu
             >
               Open quote
             </Link>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ padding: "6px 12px", fontSize: "12px" }}
+              disabled={invoicingQuoteId === quote.id}
+              onClick={() => handleCreateInvoice(quote.id)}
+            >
+              {invoicingQuoteId === quote.id ? "Creating…" : "Create Invoice"}
+            </button>
           </div>
         </article>
       ))}
