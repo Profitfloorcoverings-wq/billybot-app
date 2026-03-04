@@ -13,8 +13,6 @@ export type DiaryFitter = DiaryFitterRow & {
 
 export type DiaryEntry = DiaryEntryRow & {
   fitters?: DiaryFitter[];
-  // Added in migration 20260304120000 — remove this override once types are regenerated
-  cancellation_reason?: string | null;
 };
 
 export type DiaryConfirmationPayload = {

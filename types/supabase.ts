@@ -382,6 +382,7 @@ export type Database = {
       diary_entries: {
         Row: {
           business_id: string
+          cancellation_reason: string | null
           confirmation_data: Json | null
           created_at: string
           created_by: string | null
@@ -402,6 +403,7 @@ export type Database = {
         }
         Insert: {
           business_id: string
+          cancellation_reason?: string | null
           confirmation_data?: Json | null
           created_at?: string
           created_by?: string | null
@@ -422,6 +424,7 @@ export type Database = {
         }
         Update: {
           business_id?: string
+          cancellation_reason?: string | null
           confirmation_data?: Json | null
           created_at?: string
           created_by?: string | null
