@@ -112,7 +112,7 @@ async function insertOutboundEvent(
     queue_status: payload.queueStatus,
     processed_at: payload.status === "processed" ? now : null,
     error: payload.errorMessage ?? null,
-    meta: payload.meta,
+    meta: payload.meta as import("@/types/supabase").Json,
   });
 
   if (error) {
