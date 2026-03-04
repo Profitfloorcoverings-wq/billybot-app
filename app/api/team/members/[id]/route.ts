@@ -1,20 +1,23 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import { getAuthenticatedUserId } from "@/utils/supabase/auth";
+import type { Database } from "@/types/supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-async function getOwnerBusinessId(supabase: any, userId: string): Promise<string | null> {
+async function getOwnerBusinessId(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<string | null> {
   const { data } = await supabase
     .from("clients")
     .select("user_role")
     .eq("id", userId)
     .maybeSingle();
 
-  if ((data as any)?.user_role === "owner") return userId;
+  if (data?.user_role === "owner") return userId;
   return null;
 }
 
@@ -28,7 +31,7 @@ export async function PATCH(
   }
 
   const { id } = await params;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
   const businessId = await getOwnerBusinessId(supabase, userId);
   if (!businessId) {
@@ -53,7 +56,7 @@ export async function PATCH(
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
 
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("team_members")
     .update(updates)
     .eq("id", id)
@@ -79,14 +82,14 @@ export async function DELETE(
   }
 
   const { id } = await params;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
   const businessId = await getOwnerBusinessId(supabase, userId);
   if (!businessId) {
     return NextResponse.json({ error: "Only owners can remove team members" }, { status: 403 });
   }
 
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("team_members")
     .delete()
     .eq("id", id)

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
+import { Database } from "@/types/supabase";
 
 export function createEmailServiceClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -10,7 +11,7 @@ export function createEmailServiceClient() {
     throw new Error("Missing Supabase service role configuration");
   }
 
-  return createClient(supabaseUrl, serviceKey, {
+  return createClient<Database>(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

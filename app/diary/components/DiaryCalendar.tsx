@@ -89,11 +89,12 @@ export default function DiaryCalendar({ initialEntries }: Props) {
   const events = entries.map(entryToEvent);
 
   const eventPropGetter = useCallback((event: CalendarEvent) => {
-    const colour = entryTypeColours[event.resource.entry_type] ?? "#64748b";
+    const isCancelled = event.resource.status === "cancelled";
+    const colour = isCancelled ? "#475569" : (entryTypeColours[event.resource.entry_type] ?? "#64748b");
     return {
       style: {
         backgroundColor: colour + "22",
-        borderLeft: `3px solid ${colour}`,
+        borderLeft: `3px ${isCancelled ? "dashed" : "solid"} ${colour}`,
         borderTop: "none",
         borderRight: "none",
         borderBottom: "none",
@@ -102,6 +103,8 @@ export default function DiaryCalendar({ initialEntries }: Props) {
         fontWeight: 700,
         fontSize: "0.72rem",
         padding: "2px 6px",
+        opacity: isCancelled ? 0.4 : 1,
+        textDecoration: isCancelled ? "line-through" : "none",
       },
     };
   }, []);
@@ -129,6 +132,26 @@ export default function DiaryCalendar({ initialEntries }: Props) {
       setModalOpen(true);
     }
   }, [detailEntry]);
+
+  const handleDetailDelete = useCallback(async (id: string) => {
+    await fetch(`/api/diary/entries/${id}`, { method: "DELETE" });
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+    setDetailEntry(null);
+  }, []);
+
+  const handleDetailCancel = useCallback(async (id: string, reason: string) => {
+    await fetch(`/api/diary/entries/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "cancelled", cancellation_reason: reason }),
+    });
+    setEntries((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, status: "cancelled" as const, cancellation_reason: reason } : e
+      )
+    );
+    setDetailEntry(null);
+  }, []);
 
   const fetchEntries = useCallback(async (date: Date) => {
     const start = startOfMonth(date).toISOString();
@@ -265,7 +288,7 @@ export default function DiaryCalendar({ initialEntries }: Props) {
       </div>
 
       {detailEntry ? (
-        <DiaryEntryDetailModal entry={detailEntry} onClose={handleDetailClose} onEdit={handleDetailEdit} />
+        <DiaryEntryDetailModal entry={detailEntry} onClose={handleDetailClose} onEdit={handleDetailEdit} onDelete={handleDetailDelete} onCancel={handleDetailCancel} />
       ) : null}
 
       {modalOpen ? (

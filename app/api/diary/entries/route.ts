@@ -1,24 +1,27 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import { getAuthenticatedUserId } from "@/utils/supabase/auth";
 import { confirmDiaryEntrySideEffects } from "@/lib/diary/confirmSideEffects";
 import type { DiaryEntry } from "@/types/diary";
+import type { Database, Json } from "@/types/supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const n8nSharedSecret = process.env.N8N_SHARED_SECRET;
 
-async function resolveBusinessId(supabase: any, userId: string): Promise<string> {
+async function resolveBusinessId(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<string> {
   const { data } = await supabase
     .from("clients")
     .select("user_role, parent_client_id")
     .eq("id", userId)
     .maybeSingle();
 
-  if ((data as any)?.user_role !== "owner" && (data as any)?.parent_client_id) {
-    return (data as any).parent_client_id as string;
+  if (data?.user_role !== "owner" && data?.parent_client_id) {
+    return data.parent_client_id;
   }
   return userId;
 }
@@ -29,7 +32,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
   const businessId = await resolveBusinessId(supabase, userId);
 
   const { searchParams } = new URL(req.url);
@@ -37,7 +40,7 @@ export async function GET(req: Request) {
   const end = searchParams.get("end");
   const status = searchParams.get("status");
 
-  let query = (supabase as any)
+  let query = supabase
     .from("diary_entries")
     .select("*")
     .eq("business_id", businessId)
@@ -54,7 +57,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Failed to fetch entries" }, { status: 500 });
   }
 
-  return NextResponse.json({ entries: (data as unknown[]) ?? [] });
+  return NextResponse.json({ entries: data ?? [] });
 }
 
 export async function POST(req: Request) {
@@ -62,7 +65,7 @@ export async function POST(req: Request) {
   const callerSecret = req.headers.get("X-BillyBot-Secret");
   const isN8NCall = n8nSharedSecret && callerSecret === n8nSharedSecret;
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
   if (isN8NCall) {
     const body = await req.json();
@@ -85,7 +88,7 @@ export async function POST(req: Request) {
 }
 
 async function handlePost(
-  supabase: any,
+  supabase: SupabaseClient<Database>,
   userId: string,
   businessId: string,
   body: Record<string, unknown>
@@ -136,19 +139,19 @@ async function handlePost(
     .from("diary_entries")
     .insert({
       business_id: businessId,
-      job_id: job_id ?? null,
-      title,
-      entry_type,
-      status,
-      start_datetime,
-      end_datetime,
-      customer_name: customer_name ?? null,
-      customer_email: customer_email ?? null,
-      customer_phone: customer_phone ?? null,
-      job_address: job_address ?? null,
-      postcode: postcode ?? null,
-      notes: notes ?? null,
-      confirmation_data: confirmationData,
+      job_id: (job_id as string) ?? null,
+      title: title as string,
+      entry_type: entry_type as string,
+      status: status as string,
+      start_datetime: start_datetime as string,
+      end_datetime: end_datetime as string,
+      customer_name: (customer_name as string) ?? null,
+      customer_email: (customer_email as string) ?? null,
+      customer_phone: (customer_phone as string) ?? null,
+      job_address: (job_address as string) ?? null,
+      postcode: (postcode as string) ?? null,
+      notes: (notes as string) ?? null,
+      confirmation_data: confirmationData as Json | null,
       created_by: userId,
     })
     .select()
@@ -163,16 +166,16 @@ async function handlePost(
   if (status === "pending_confirmation" && conversation_id) {
     const messageContent = JSON.stringify({
       ...confirmationData,
-      entry_id: (entry as any).id,
+      entry_id: entry.id,
     });
 
     await supabase.from("messages").insert({
-      conversation_id,
+      conversation_id: conversation_id as string,
       profile_id: businessId,
       role: "assistant",
       type: "diary_confirmation",
       content: messageContent,
-      metadata: { entry_id: (entry as any).id },
+      metadata: { entry_id: entry.id },
     });
   }
 

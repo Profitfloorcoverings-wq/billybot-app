@@ -4,6 +4,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 
 import type { TeamInvite, TeamMember } from "@/types/team";
+import type { Database } from "@/types/supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -33,39 +34,33 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profile } = await (supabase as any)
+  const { data: profile } = await supabase
     .from("clients")
     .select("user_role, parent_client_id")
     .eq("id", user.id)
     .maybeSingle();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const userRole: string = (profile as any)?.user_role ?? "owner";
+  const userRole: string = profile?.user_role ?? "owner";
 
   if (userRole !== "owner" && userRole !== "manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let businessId = user.id;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  if (userRole === "manager" && (profile as any)?.parent_client_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    businessId = (profile as any).parent_client_id as string;
+  if (userRole === "manager" && profile?.parent_client_id) {
+    businessId = profile.parent_client_id;
   }
 
   // Fetch team members
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawMembers } = await (supabase as any)
+  const { data: rawMembers } = await supabase
     .from("team_members")
     .select("id, business_id, member_id, role, invite_email, invite_status, created_at, accepted_at, invited_by")
     .eq("business_id", businessId)
     .order("created_at", { ascending: true });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const members: TeamMember[] = (rawMembers ?? []) as any[];
+  const members: TeamMember[] = (rawMembers ?? []) as TeamMember[];
 
   // Enrich with client names
   if (members.length > 0) {
@@ -86,16 +81,14 @@ export async function GET() {
   }
 
   // Fetch pending invites
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: rawInvites } = await (supabase as any)
+  const { data: rawInvites } = await supabase
     .from("team_invites")
     .select("id, invite_email, name, role, expires_at, used_at, created_at")
     .eq("business_id", businessId)
     .is("used_at", null)
     .order("created_at", { ascending: false });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const invites: TeamInvite[] = ((rawInvites ?? []) as any[]).map((inv: any) => ({
+  const invites: TeamInvite[] = (rawInvites ?? []).map((inv) => ({
     ...inv,
     invite_token: "",
     business_id: businessId,

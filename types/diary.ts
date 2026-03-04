@@ -1,37 +1,20 @@
+import type { Database } from "./supabase";
+
+type DiaryEntryRow = Database["public"]["Tables"]["diary_entries"]["Row"];
+type DiaryFitterRow = Database["public"]["Tables"]["diary_fitters"]["Row"];
+
 export type EntryType = "prep" | "fitting" | "survey" | "other";
 export type EntryStatus = "pending_confirmation" | "confirmed" | "cancelled" | "completed";
 
-export type DiaryEntry = {
-  id: string;
-  business_id: string;
-  job_id: string | null;
-  title: string;
-  entry_type: EntryType;
-  status: EntryStatus;
-  start_datetime: string;
-  end_datetime: string;
-  customer_name: string | null;
-  customer_email: string | null;
-  customer_phone: string | null;
-  job_address: string | null;
-  postcode: string | null;
-  notes: string | null;
-  confirmation_data: DiaryConfirmationPayload | null;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
-  // Joined fitters
-  fitters?: DiaryFitter[];
-};
-
-export type DiaryFitter = {
-  id: string;
-  diary_entry_id: string;
-  team_member_id: string;
-  notified_at: string | null;
-  // Joined from team_members + clients
+export type DiaryFitter = DiaryFitterRow & {
   name?: string | null;
   role?: string | null;
+};
+
+export type DiaryEntry = DiaryEntryRow & {
+  fitters?: DiaryFitter[];
+  // Added in migration 20260304120000 — remove this override once types are regenerated
+  cancellation_reason?: string | null;
 };
 
 export type DiaryConfirmationPayload = {

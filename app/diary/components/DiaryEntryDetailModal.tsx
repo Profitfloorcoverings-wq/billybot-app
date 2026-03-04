@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import type { DiaryEntry, EntryType } from "@/types/diary";
 
@@ -37,6 +38,8 @@ type Props = {
   entry: DiaryEntry;
   onClose: () => void;
   onEdit: () => void;
+  onDelete: (id: string) => void;
+  onCancel: (id: string, reason: string) => void;
 };
 
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
@@ -55,9 +58,13 @@ function Section({ label, children }: { label: string; children: React.ReactNode
   );
 }
 
-export default function DiaryEntryDetailModal({ entry, onClose, onEdit }: Props) {
-  const colour = entryTypeColours[entry.entry_type] ?? "#64748b";
-  const label = entryTypeLabels[entry.entry_type] ?? entry.entry_type;
+export default function DiaryEntryDetailModal({ entry, onClose, onEdit, onDelete, onCancel }: Props) {
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+
+  const isCancelled = entry.status === "cancelled";
+  const colour = isCancelled ? "#475569" : (entryTypeColours[entry.entry_type as EntryType] ?? "#64748b");
+  const label = entryTypeLabels[entry.entry_type as EntryType] ?? entry.entry_type;
   const hasCustomer = entry.customer_name || entry.customer_email || entry.customer_phone || entry.job_address;
 
   const modal = (
@@ -71,14 +78,25 @@ export default function DiaryEntryDetailModal({ entry, onClose, onEdit }: Props)
         <div style={{ marginBottom: "24px" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
             <div style={{ minWidth: 0, flex: 1 }}>
-              {/* Type badge */}
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-                <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: colour, flexShrink: 0 }} />
-                <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: colour }}>
-                  {label}
-                </span>
+              {/* Type badge + cancelled badge */}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+                  <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: colour, flexShrink: 0 }} />
+                  <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: colour }}>
+                    {label}
+                  </span>
+                </div>
+                {isCancelled ? (
+                  <span style={{
+                    fontSize: "10px", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
+                    color: "#f87171", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)",
+                    borderRadius: "6px", padding: "2px 8px",
+                  }}>
+                    CANCELLED
+                  </span>
+                ) : null}
               </div>
-              <h2 style={{ fontSize: "20px", fontWeight: 700, color: "#f1f5f9", lineHeight: 1.3, margin: 0 }}>
+              <h2 style={{ fontSize: "20px", fontWeight: 700, color: isCancelled ? "#64748b" : "#f1f5f9", lineHeight: 1.3, margin: 0, textDecoration: isCancelled ? "line-through" : "none" }}>
                 {entry.title}
               </h2>
             </div>
@@ -88,6 +106,15 @@ export default function DiaryEntryDetailModal({ entry, onClose, onEdit }: Props)
 
         {/* Sections */}
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+
+          {/* Cancellation reason — shown when already cancelled */}
+          {isCancelled && entry.cancellation_reason ? (
+            <Section label="Cancellation Reason">
+              <p style={{ fontSize: "14px", color: "#94a3b8", whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0 }}>
+                {entry.cancellation_reason}
+              </p>
+            </Section>
+          ) : null}
 
           {/* Date & Time */}
           <Section label="Date & Time">
@@ -159,19 +186,117 @@ export default function DiaryEntryDetailModal({ entry, onClose, onEdit }: Props)
             </Section>
           ) : null}
 
+          {/* Cancel flow — inline reason input */}
+          {cancelling ? (
+            <div style={{
+              background: "rgba(239,68,68,0.06)",
+              border: "1px solid rgba(239,68,68,0.2)",
+              borderRadius: "12px",
+              padding: "16px 18px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+            }}>
+              <p style={{ fontSize: "13px", fontWeight: 600, color: "#f87171", margin: 0 }}>
+                Why is this entry being cancelled?
+              </p>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="e.g. Customer cancelled, no access to property…"
+                rows={3}
+                style={{
+                  width: "100%",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(239,68,68,0.25)",
+                  borderRadius: "8px",
+                  color: "#f1f5f9",
+                  fontSize: "14px",
+                  padding: "10px 12px",
+                  resize: "vertical",
+                  outline: "none",
+                  fontFamily: "inherit",
+                  boxSizing: "border-box",
+                }}
+              />
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (cancelReason.trim()) {
+                      onCancel(entry.id, cancelReason.trim());
+                    }
+                  }}
+                  disabled={!cancelReason.trim()}
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    background: cancelReason.trim() ? "rgba(239,68,68,0.18)" : "rgba(239,68,68,0.06)",
+                    border: "1px solid rgba(239,68,68,0.3)",
+                    color: cancelReason.trim() ? "#f87171" : "#64748b",
+                    cursor: cancelReason.trim() ? "pointer" : "not-allowed",
+                  }}
+                >
+                  Confirm cancellation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCancelling(false); setCancelReason(""); }}
+                  style={{ background: "none", border: "none", color: "#64748b", fontSize: "13px", cursor: "pointer", textDecoration: "underline", padding: "0 4px", flexShrink: 0 }}
+                >
+                  Go back
+                </button>
+              </div>
+            </div>
+          ) : null}
+
         </div>
 
         {/* Actions */}
-        <div className="form-actions" style={{ marginTop: "24px" }}>
-          {entry.job_id ? (
-            <a href={`/jobs/${entry.job_id}`} className="btn btn-secondary" style={{ flex: 1, textAlign: "center" }}>
-              View Job
-            </a>
-          ) : null}
-          <button type="button" onClick={onEdit} className="btn btn-primary" style={{ flex: 1 }}>
-            Edit entry
-          </button>
-        </div>
+        {!isCancelled && !cancelling ? (
+          <div className="form-actions" style={{ marginTop: "24px" }}>
+            {entry.job_id ? (
+              <a href={`/jobs/${entry.job_id}`} className="btn btn-secondary" style={{ flex: 1, textAlign: "center" }}>
+                View Job
+              </a>
+            ) : null}
+            <button type="button" onClick={onEdit} className="btn btn-secondary" style={{ flex: 1 }}>
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={() => setCancelling(true)}
+              className="btn"
+              style={{ flex: 1, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}
+            >
+              Cancel Entry
+            </button>
+          </div>
+        ) : !isCancelled && cancelling ? null : (
+          /* Already cancelled — just close */
+          <div className="form-actions" style={{ marginTop: "24px" }}>
+            {entry.job_id ? (
+              <a href={`/jobs/${entry.job_id}`} className="btn btn-secondary" style={{ flex: 1, textAlign: "center" }}>
+                View Job
+              </a>
+            ) : null}
+            <button type="button" onClick={onClose} className="btn btn-secondary" style={{ flex: 1 }}>
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (confirm("Permanently delete this diary entry? This cannot be undone.")) {
+                  onDelete(entry.id);
+                }
+              }}
+              className="btn"
+              style={{ flex: 1, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", color: "#f87171" }}
+            >
+              Delete
+            </button>
+          </div>
+        )}
 
       </div>
     </div>

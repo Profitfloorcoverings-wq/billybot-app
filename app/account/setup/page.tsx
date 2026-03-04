@@ -73,7 +73,17 @@ export default function AccountSetupPage() {
         }
 
         if (clientData) {
-          setProfile({ ...EMPTY_PROFILE, ...clientData });
+          setProfile({
+            ...EMPTY_PROFILE,
+            business_name: clientData.business_name ?? "",
+            contact_name: clientData.contact_name ?? "",
+            phone: clientData.phone ?? "",
+            address_line1: clientData.address_line1 ?? "",
+            address_line2: clientData.address_line2 ?? "",
+            city: clientData.city ?? "",
+            postcode: clientData.postcode ?? "",
+            country: clientData.country ?? "",
+          });
         }
       } catch (err) {
         setError(

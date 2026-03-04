@@ -41,7 +41,7 @@ export default function DiaryEntryModal({ entry, onClose, onSaved }: Props) {
   const isEdit = !!entry;
 
   const [title, setTitle] = useState(entry?.title ?? "");
-  const [entryType, setEntryType] = useState<EntryType>(entry?.entry_type ?? "fitting");
+  const [entryType, setEntryType] = useState<EntryType>((entry?.entry_type as EntryType | undefined) ?? "fitting");
   const [startDatetime, setStartDatetime] = useState(
     entry ? formatDatetimeLocal(entry.start_datetime) : defaultStart()
   );

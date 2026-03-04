@@ -1,22 +1,25 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import { getAuthenticatedUserId } from "@/utils/supabase/auth";
 import { confirmDiaryEntrySideEffects } from "@/lib/diary/confirmSideEffects";
 import type { DiaryEntry } from "@/types/diary";
+import type { Database } from "@/types/supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-async function resolveBusinessId(supabase: any, userId: string): Promise<string> {
+async function resolveBusinessId(
+  supabase: SupabaseClient<Database>,
+  userId: string
+): Promise<string> {
   const { data } = await supabase
     .from("clients")
     .select("user_role, parent_client_id")
     .eq("id", userId)
     .maybeSingle();
-  if ((data as any)?.user_role !== "owner" && (data as any)?.parent_client_id) {
-    return (data as any).parent_client_id as string;
+  if (data?.user_role !== "owner" && data?.parent_client_id) {
+    return data.parent_client_id;
   }
   return userId;
 }
@@ -29,10 +32,10 @@ export async function GET(
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
   const businessId = await resolveBusinessId(supabase, userId);
 
-  const { data: entry, error } = await (supabase as any)
+  const { data: entry, error } = await supabase
     .from("diary_entries")
     .select("*")
     .eq("id", id)
@@ -54,7 +57,7 @@ export async function PATCH(
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
   const businessId = await resolveBusinessId(supabase, userId);
 
   // Only owner/manager can update
@@ -64,12 +67,12 @@ export async function PATCH(
     .eq("id", userId)
     .maybeSingle();
 
-  if ((profile as any)?.user_role === "fitter") {
+  if (profile?.user_role === "fitter") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // Verify entry belongs to business
-  const { data: existing } = await (supabase as any)
+  const { data: existing } = await supabase
     .from("diary_entries")
     .select("id, status, entry_type, customer_name, start_datetime")
     .eq("id", id)
@@ -85,6 +88,7 @@ export async function PATCH(
     "title",
     "entry_type",
     "status",
+    "cancellation_reason",
     "start_datetime",
     "end_datetime",
     "customer_name",
@@ -105,7 +109,7 @@ export async function PATCH(
     return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
   }
 
-  const { data: updated, error: updateError } = await (supabase as any)
+  const { data: updated, error: updateError } = await supabase
     .from("diary_entries")
     .update(updates)
     .eq("id", id)
@@ -119,7 +123,7 @@ export async function PATCH(
   }
 
   // If transitioning to confirmed, run side effects
-  if (updates.status === "confirmed" && (existing as any).status !== "confirmed") {
+  if (updates.status === "confirmed" && existing.status !== "confirmed") {
     const fitterIds = Array.isArray(body.fitter_ids) ? (body.fitter_ids as string[]) : [];
     await confirmDiaryEntrySideEffects(updated as DiaryEntry, fitterIds);
   }
@@ -135,7 +139,7 @@ export async function DELETE(
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
   // Only owners can delete
   const { data: profile } = await supabase
@@ -144,11 +148,11 @@ export async function DELETE(
     .eq("id", userId)
     .maybeSingle();
 
-  if ((profile as any)?.user_role !== "owner") {
+  if (profile?.user_role !== "owner") {
     return NextResponse.json({ error: "Only owners can delete diary entries" }, { status: 403 });
   }
 
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("diary_entries")
     .delete()
     .eq("id", id)

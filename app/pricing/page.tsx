@@ -907,10 +907,12 @@ export default function PricingPage() {
         setVatRegistered(settings.vat_registered ?? true);
         setLabourDisplay(settings.separate_labour === false ? "main" : "split");
 
+        const s = settings as Record<string, unknown>;
+
         setServiceToggles((prev) => {
           const next = { ...prev };
           serviceOptions.forEach(({ column }) => {
-            next[column] = settings[column] ?? prev[column];
+            next[column] = (s[column] as boolean | undefined) ?? prev[column];
           });
           return next;
         });
@@ -919,8 +921,8 @@ export default function PricingPage() {
           const next = { ...prev };
           markupOptions.forEach(({ valueColumn, typeColumn }) => {
             next[valueColumn] = {
-              value: numberToInput(settings[valueColumn]),
-              type: settings[typeColumn] === "£" ? "£" : "%",
+              value: numberToInput(s[valueColumn] as number | null | undefined),
+              type: s[typeColumn] === "£" ? "£" : "%",
             };
           });
           return next;
@@ -929,7 +931,7 @@ export default function PricingPage() {
         setMaterialPrices((prev) => {
           const next = { ...prev };
           materialPriceFields.forEach(({ column }) => {
-            next[column] = numberToInput(settings[column]);
+            next[column] = numberToInput(s[column] as number | null | undefined);
           });
           return next;
         });
@@ -937,7 +939,7 @@ export default function PricingPage() {
         setLabourPrices((prev) => {
           const next = { ...prev };
           labourPriceFields.forEach(({ column }) => {
-            next[column] = numberToInput(settings[column]);
+            next[column] = numberToInput(s[column] as number | null | undefined);
           });
           return next;
         });
@@ -945,7 +947,7 @@ export default function PricingPage() {
         setSmallJobs((prev) => {
           const next = { ...prev };
           smallJobFields.forEach(({ column }) => {
-            next[column] = numberToInput(settings[column]);
+            next[column] = numberToInput(s[column] as number | null | undefined);
           });
           return next;
         });

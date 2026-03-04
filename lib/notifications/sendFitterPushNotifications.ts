@@ -1,6 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
+
+import type { Database } from "@/types/supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -32,17 +33,17 @@ export async function sendFitterPushNotifications({
 }: SendFitterPushOptions): Promise<void> {
   if (fitterTeamMemberIds.length === 0) return;
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
   // Resolve team_member_id → member_id (auth user id)
-  const { data: teamMembers } = await (supabase as any)
+  const { data: teamMembers } = await supabase
     .from("team_members")
     .select("id, member_id")
     .in("id", fitterTeamMemberIds);
 
-  if (!teamMembers || (teamMembers as any[]).length === 0) return;
+  if (!teamMembers || teamMembers.length === 0) return;
 
-  const memberUserIds = (teamMembers as any[]).map((tm: any) => tm.member_id as string);
+  const memberUserIds = teamMembers.map((tm) => tm.member_id);
 
   // Look up push tokens
   const { data: tokenRows } = await supabase
@@ -52,8 +53,8 @@ export async function sendFitterPushNotifications({
 
   if (!tokenRows || tokenRows.length === 0) return;
 
-  const tokens = (tokenRows as any[])
-    .map((r: any) => r.expo_push_token as string)
+  const tokens = tokenRows
+    .map((r) => r.expo_push_token)
     .filter((t) => typeof t === "string" && t.startsWith("ExponentPushToken["));
 
   if (tokens.length === 0) return;
@@ -100,7 +101,7 @@ export async function sendFitterPushNotifications({
       });
 
       const now = new Date().toISOString();
-      await (supabase as any)
+      await supabase
         .from("diary_fitters")
         .update({ notified_at: now })
         .eq("diary_entry_id", entryId)

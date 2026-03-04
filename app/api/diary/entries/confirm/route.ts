@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import { getAuthenticatedUserId } from "@/utils/supabase/auth";
 import { confirmDiaryEntrySideEffects } from "@/lib/diary/confirmSideEffects";
 import type { DiaryConfirmationPayload, DiaryEntry } from "@/types/diary";
+import type { Database } from "@/types/supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   const userId = await getAuthenticatedUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
   // Resolve business_id
   const { data: profile } = await supabase
@@ -23,8 +23,8 @@ export async function POST(req: Request) {
     .maybeSingle();
 
   const businessId =
-    (profile as any)?.user_role !== "owner" && (profile as any)?.parent_client_id
-      ? (profile as any).parent_client_id as string
+    profile?.user_role !== "owner" && profile?.parent_client_id
+      ? profile.parent_client_id
       : userId;
 
   const body = await req.json();
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   }
 
   // Verify entry belongs to business and is pending
-  const { data: existing } = await (supabase as any)
+  const { data: existing } = await supabase
     .from("diary_entries")
     .select("id, status")
     .eq("id", entry_id)
@@ -49,11 +49,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Entry not found" }, { status: 404 });
   }
 
-  if ((existing as any).status === "confirmed") {
+  if (existing.status === "confirmed") {
     return NextResponse.json({ error: "Entry is already confirmed" }, { status: 400 });
   }
 
-  if ((existing as any).status === "cancelled") {
+  if (existing.status === "cancelled") {
     return NextResponse.json({ error: "Cannot confirm a cancelled entry" }, { status: 400 });
   }
 
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
     if (confirmation_data.job_id !== undefined) updates.job_id = confirmation_data.job_id ?? null;
   }
 
-  const { data: updated, error: updateError } = await (supabase as any)
+  const { data: updated, error: updateError } = await supabase
     .from("diary_entries")
     .update(updates)
     .eq("id", entry_id)

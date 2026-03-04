@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import { getUserFromCookies } from "@/utils/supabase/auth";
+import type { Database } from "@/types/supabase";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
   // Verify caller is owner or manager
   const { data: callerProfile } = await supabase
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     .eq("id", user.id)
     .maybeSingle();
 
-  const callerRole: string = (callerProfile as any)?.user_role ?? "owner";
+  const callerRole: string = callerProfile?.user_role ?? "owner";
   if (callerRole !== "owner" && callerRole !== "manager") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   // Determine the business_id (owners are their own business_id; managers look up their business)
   let businessId = user.id;
   if (callerRole === "manager") {
-    const { data: memberRow } = await (supabase as any)
+    const { data: memberRow } = await supabase
       .from("team_members")
       .select("business_id")
       .eq("member_id", user.id)
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     if (!memberRow) {
       return NextResponse.json({ error: "Business not found" }, { status: 400 });
     }
-    businessId = (memberRow as any).business_id as string;
+    businessId = memberRow.business_id;
   }
 
   const body = await req.json();
@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });
   }
 
-  const { data: invite, error: insertError } = await (supabase as any)
+  const { data: invite, error: insertError } = await supabase
     .from("team_invites")
     .insert({
       business_id: businessId,
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to create invite" }, { status: 500 });
   }
 
-  const inviteLink = `${appUrl}/account/accept-invite?token=${(invite as any).invite_token}`;
+  const inviteLink = `${appUrl}/account/accept-invite?token=${invite.invite_token}`;
 
   // Fire N8N webhook to send branded email (non-blocking)
   if (n8nTeamInviteWebhook) {
@@ -79,7 +79,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        invite_id: (invite as any).id,
+        invite_id: invite.id,
         business_id: businessId,
         invite_email: email.toLowerCase().trim(),
         name: name.trim(),
@@ -91,5 +91,5 @@ export async function POST(req: Request) {
     }).catch((err) => console.error("[team/invite] N8N webhook error", err));
   }
 
-  return NextResponse.json({ success: true, invite_id: (invite as any).id });
+  return NextResponse.json({ success: true, invite_id: invite.id });
 }
