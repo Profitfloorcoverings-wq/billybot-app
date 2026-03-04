@@ -102,6 +102,8 @@ async function resolveJobId(
   provider: "microsoft" | "google",
   providerThreadId: string | null
 ) {
+  if (!providerThreadId) return null;
+
   const { data: existing, error } = await serviceClient
     .from("jobs")
     .select("id")
