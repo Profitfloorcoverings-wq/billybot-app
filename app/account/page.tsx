@@ -202,7 +202,7 @@ function getStripeStatusBadge(status?: string | null): StatusBadge {
   }
 }
 
-function isBusinessProfileComplete(profile: ClientProfile | null) {
+function isBusinessProfileComplete(profile: { [K in keyof ClientProfile]?: ClientProfile[K] | null } | null) {
   if (!profile) return false;
   return Boolean(
     profile.is_onboarded ||
