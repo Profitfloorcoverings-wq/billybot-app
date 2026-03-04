@@ -7,7 +7,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { reply, conversation_id } = body;
+    const { reply, conversation_id, type } = body;
 
     if (!reply || !conversation_id) {
       return NextResponse.json(
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       conversation_id,
       profile_id: conversation.profile_id,
       role: "assistant",
-      type: "text",
+      type: typeof type === "string" ? type : "text",
       content: reply,
       created_at: new Date().toISOString(),
     });
