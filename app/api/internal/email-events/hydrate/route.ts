@@ -98,7 +98,8 @@ async function resolveConversationId(
 
 async function resolveJobId(
   serviceClient: ReturnType<typeof createEmailServiceClient>,
-  profileId: string,
+  clientId: string,
+  conversationId: string,
   provider: "microsoft" | "google",
   providerThreadId: string | null
 ) {
@@ -107,7 +108,7 @@ async function resolveJobId(
   const { data: existing, error } = await serviceClient
     .from("jobs")
     .select("id")
-    .eq("profile_id", profileId)
+    .eq("client_id", clientId)
     .eq("provider", provider)
     .eq("provider_thread_id", providerThreadId)
     .maybeSingle<{ id: string }>();
@@ -123,7 +124,8 @@ async function resolveJobId(
   const { data: inserted, error: insertError } = await serviceClient
     .from("jobs")
     .insert({
-      profile_id: profileId,
+      client_id: clientId,
+      conversation_id: conversationId,
       provider,
       provider_thread_id: providerThreadId,
       created_at: new Date().toISOString(),
@@ -271,6 +273,7 @@ export async function POST(request: NextRequest) {
       const jobId = await resolveJobId(
         serviceClient,
         event.client_id,
+        conversationId,
         event.provider,
         providerThreadId
       );
@@ -334,13 +337,15 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      const { error: jobUpdateError } = await serviceClient
-        .from("jobs")
-        .update({ last_activity_at: receivedAt })
-        .eq("id", jobId);
+      if (jobId) {
+        const { error: jobUpdateError } = await serviceClient
+          .from("jobs")
+          .update({ last_activity_at: receivedAt })
+          .eq("id", jobId);
 
-      if (jobUpdateError) {
-        throw new Error("Failed to update job activity");
+        if (jobUpdateError) {
+          throw new Error("Failed to update job activity");
+        }
       }
 
       const { error: conversationUpdateError } = await serviceClient
