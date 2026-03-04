@@ -19,6 +19,8 @@ import { getSession } from "@/utils/supabase/session";
 import { useClientFlags } from "@/components/client-flags/ClientFlagsProvider";
 import LoginPage from "../auth/login/page";
 import DiaryConfirmationCard from "./components/DiaryConfirmationCard";
+import QuoteBuilderCard from "./components/QuoteBuilderCard";
+import type { LineItem } from "./components/QuoteBuilderCard";
 
 type Message = {
   id: number | string;
@@ -489,15 +491,8 @@ function ChatPageContent() {
     setIsListening(true);
   }
 
-  async function sendMessage() {
-    if (isLocked) return;
-
-    const userText = input.trim();
-    const filesToSend = attachedFiles;
+  async function sendMessageCore(userText: string, filesToSend: File[]) {
     const hasAttachments = filesToSend.length > 0;
-    const hasContent = !!userText || hasAttachments;
-
-    if (!hasContent || sending) return;
 
     setSending(true);
 
@@ -603,6 +598,19 @@ function ChatPageContent() {
     }
   }
 
+  async function sendMessage() {
+    if (isLocked) return;
+    const userText = input.trim();
+    const filesToSend = attachedFiles;
+    if ((!userText && filesToSend.length === 0) || sending) return;
+    await sendMessageCore(userText, filesToSend);
+  }
+
+  async function sendPrompt(text: string) {
+    if (isLocked || sending) return;
+    await sendMessageCore(text, []);
+  }
+
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (isLocked) return;
     if (e.key !== "Enter" || e.shiftKey) return;
@@ -659,6 +667,18 @@ function ChatPageContent() {
       if (url) {
         return <LinkCard label="METHOD STATEMENT" url={url} />;
       }
+    }
+
+    if (m.type === "quote_builder" && conversationId) {
+      const initialLines = (() => {
+        try {
+          const parsed = JSON.parse(m.content) as LineItem[];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      })();
+      return <QuoteBuilderCard conversationId={conversationId} initialLines={initialLines} />;
     }
 
     if (m.type === "diary_confirmation") {
@@ -758,6 +778,48 @@ function ChatPageContent() {
         </div>
 
         <div className="chat-messages">
+          {!loading && messages.length === 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", gap: "20px", padding: "24px 16px" }}>
+              <p style={{ color: "#64748b", fontSize: "14px", fontWeight: 600, margin: 0, textAlign: "center" }}>
+                What do you need to quote today?
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center" }}>
+                {[
+                  { label: "Quote a 20m² LVT kitchen", message: "I need to quote a 20m² LVT kitchen floor — supply and fit." },
+                  { label: "Repair a vinyl floor", message: "I need to quote a vinyl floor repair, roughly 2m² patch." },
+                  { label: "Price up a full house carpet", message: "I need to price up carpeting a full house — 3 beds, landing, and stairs." },
+                ].map(({ label, message }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => void sendPrompt(message)}
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "10px",
+                      color: "#cbd5e1",
+                      fontSize: "13px",
+                      fontWeight: 500,
+                      padding: "10px 16px",
+                      cursor: "pointer",
+                      transition: "border-color 0.15s, background 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(249,115,22,0.4)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(249,115,22,0.07)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,0.1)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {messages.map((m) => (
             <div
               key={m.id}

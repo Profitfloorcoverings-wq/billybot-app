@@ -1,0 +1,92 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+import { getUserFromCookies } from "@/utils/supabase/auth";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const customQuoteWebhook = process.env.N8N_CUSTOM_QUOTE_WEBHOOK;
+
+type LineItem = {
+  id: string;
+  type: "labour" | "materials" | "extra";
+  description: string;
+  quantity: number;
+  unit: "m2" | "m" | "sheet" | "unit" | "flat";
+  unit_price: number;
+  total: number;
+};
+
+type RequestBody = {
+  conversation_id: string;
+  lines: LineItem[];
+};
+
+export async function POST(req: Request) {
+  try {
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    }
+
+    if (!customQuoteWebhook) {
+      return NextResponse.json({ error: "Custom quote webhook not configured" }, { status: 500 });
+    }
+
+    const user = await getUserFromCookies();
+    if (!user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = (await req.json()) as RequestBody;
+    const { conversation_id, lines } = body;
+
+    if (!conversation_id || !Array.isArray(lines) || lines.length === 0) {
+      return NextResponse.json({ error: "Missing conversation_id or lines" }, { status: 400 });
+    }
+
+    // Fetch pricing settings for VAT flag
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: pricing } = await supabase
+      .from("pricing_settings")
+      .select("vat_registered")
+      .eq("profile_id", user.id)
+      .maybeSingle();
+
+    const vatRegistered = pricing?.vat_registered ?? false;
+
+    // POST to N8N custom quote workflow
+    const n8nRes = await fetch(customQuoteWebhook, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-BillyBot-Secret": process.env.N8N_SHARED_SECRET ?? "",
+      },
+      body: JSON.stringify({
+        profile_id: user.id,
+        conversation_id,
+        lines,
+        vat_registered: vatRegistered,
+        business_name: user.business_name ?? "",
+      }),
+    });
+
+    if (!n8nRes.ok) {
+      const errText = await n8nRes.text();
+      console.error("N8N custom quote webhook failed:", n8nRes.status, errText);
+      return NextResponse.json({ error: "Failed to trigger quote generation" }, { status: 502 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err: unknown) {
+    console.error("CUSTOM QUOTE API ERROR:", err);
+    return NextResponse.json(
+      {
+        error:
+          err && typeof err === "object" && "message" in err
+            ? String((err as { message?: string }).message)
+            : "Server error",
+      },
+      { status: 500 }
+    );
+  }
+}

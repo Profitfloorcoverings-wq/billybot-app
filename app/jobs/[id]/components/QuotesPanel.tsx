@@ -5,6 +5,16 @@ import Link from "next/link";
 import { formatTimestamp } from "./helpers";
 import type { JobPageData } from "./types";
 
+function isBespoke(quoteJson?: string | null): boolean {
+  if (!quoteJson) return false;
+  try {
+    const parsed = JSON.parse(quoteJson) as { type?: string };
+    return parsed.type === "bespoke";
+  } catch {
+    return false;
+  }
+}
+
 export default function QuotesPanel({ quotes, jobId }: { quotes: JobPageData["quotes"]; jobId: string }) {
   if (!quotes.length) {
     return (
@@ -53,6 +63,15 @@ export default function QuotesPanel({ quotes, jobId }: { quotes: JobPageData["qu
                   background: "rgba(249,115,22,0.12)", color: "#fb923c", border: "1px solid rgba(249,115,22,0.25)",
                 }}>
                   Possible match
+                </span>
+              )}
+              {isBespoke(quote.quote) && (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", padding: "3px 8px",
+                  borderRadius: "999px", fontSize: "11px", fontWeight: 700,
+                  background: "rgba(168,85,247,0.12)", color: "#c084fc", border: "1px solid rgba(168,85,247,0.25)",
+                }}>
+                  Bespoke
                 </span>
               )}
             </div>

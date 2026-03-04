@@ -14,7 +14,18 @@ type Quote = {
   status?: string | null;
   customer_name?: string | null;
   job_ref?: string | null;
+  quote?: string | null;
 };
+
+function isBespoke(quoteJson?: string | null): boolean {
+  if (!quoteJson) return false;
+  try {
+    const parsed = JSON.parse(quoteJson) as { type?: string };
+    return parsed.type === "bespoke";
+  } catch {
+    return false;
+  }
+}
 
 type QuotesResponse = {
   quotes?: Quote[];
@@ -217,6 +228,21 @@ export default function QuotesPage() {
                                       textTransform: "uppercase" as const,
                                     }}>
                                       New
+                                    </span>
+                                  ) : null}
+                                  {isBespoke(quote.quote) ? (
+                                    <span style={{
+                                      fontSize: "10px",
+                                      fontWeight: 700,
+                                      letterSpacing: "0.06em",
+                                      padding: "2px 7px",
+                                      borderRadius: "999px",
+                                      background: "rgba(249,115,22,0.12)",
+                                      border: "1px solid rgba(249,115,22,0.25)",
+                                      color: "#fb923c",
+                                      textTransform: "uppercase" as const,
+                                    }}>
+                                      Bespoke
                                     </span>
                                   ) : null}
                                 </div>
