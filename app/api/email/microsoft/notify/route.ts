@@ -120,9 +120,11 @@ export async function POST(request: NextRequest) {
       }
 
       const payloadToSend = {
+        event_id: eventId,
         account_id: account.id,
         provider: "microsoft",
         provider_message_id: messageId,
+        provider_thread_id: message.threadId ?? null,
         from: message.from,
         to: message.to,
         cc: message.cc,
