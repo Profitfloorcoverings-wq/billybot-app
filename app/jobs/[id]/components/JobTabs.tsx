@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import AreasPanel from "./AreasPanel";
 import AttachmentsGallery from "./AttachmentsGallery";
 import EmailThread from "./EmailThread";
 import JobFilesPanel from "./JobFilesPanel";
@@ -19,7 +20,7 @@ type RamsSignature = {
   signed_at: string | null;
 };
 
-const TABS = ["overview", "emails", "attachments", "files", "documents", "updates"] as const;
+const TABS = ["overview", "areas", "emails", "attachments", "files", "documents", "updates"] as const;
 
 type Tab = (typeof TABS)[number];
 
@@ -278,6 +279,7 @@ export default function JobTabs({ data }: { data: JobPageData }) {
           <EmailThread emailThread={data.emailThread} />
         </div>
       ) : null}
+      {tab === "areas" ? <AreasPanel jobId={data.job.id} /> : null}
       {tab === "attachments" ? <AttachmentsGallery attachments={data.attachments} /> : null}
       {tab === "files" ? <JobFilesPanel jobId={data.job.id} /> : null}
       {tab === "documents" ? (

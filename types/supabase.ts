@@ -784,6 +784,91 @@ export type Database = {
         }
         Relationships: []
       }
+      job_areas: {
+        Row: {
+          building: string | null
+          client_id: string
+          created_at: string
+          dimension_expr: string | null
+          floor: string | null
+          flooring_type: string | null
+          id: string
+          job_file_id: string | null
+          job_id: string
+          m2_calculated: number | null
+          name: string
+          notes: string | null
+          prep_notes: string | null
+          product_spec: string | null
+          qty: number
+          sort_order: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          building?: string | null
+          client_id: string
+          created_at?: string
+          dimension_expr?: string | null
+          floor?: string | null
+          flooring_type?: string | null
+          id?: string
+          job_file_id?: string | null
+          job_id: string
+          m2_calculated?: number | null
+          name: string
+          notes?: string | null
+          prep_notes?: string | null
+          product_spec?: string | null
+          qty?: number
+          sort_order?: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          building?: string | null
+          client_id?: string
+          created_at?: string
+          dimension_expr?: string | null
+          floor?: string | null
+          flooring_type?: string | null
+          id?: string
+          job_file_id?: string | null
+          job_id?: string
+          m2_calculated?: number | null
+          name?: string
+          notes?: string | null
+          prep_notes?: string | null
+          product_spec?: string | null
+          qty?: number
+          sort_order?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_areas_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_areas_job_file_id_fkey"
+            columns: ["job_file_id"]
+            isOneToOne: false
+            referencedRelation: "job_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_areas_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_files: {
         Row: {
           ai_analysis: Json | null
