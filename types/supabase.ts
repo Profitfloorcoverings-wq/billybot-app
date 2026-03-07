@@ -649,6 +649,7 @@ export type Database = {
           error: string | null
           from_email: string | null
           id: string
+          job_id: string | null
           last_error: string | null
           meta: Json
           "meta.triage": Json | null
@@ -677,6 +678,7 @@ export type Database = {
           error?: string | null
           from_email?: string | null
           id?: string
+          job_id?: string | null
           last_error?: string | null
           meta?: Json
           "meta.triage"?: Json | null
@@ -705,6 +707,7 @@ export type Database = {
           error?: string | null
           from_email?: string | null
           id?: string
+          job_id?: string | null
           last_error?: string | null
           meta?: Json
           "meta.triage"?: Json | null
@@ -781,6 +784,66 @@ export type Database = {
         }
         Relationships: []
       }
+      job_files: {
+        Row: {
+          ai_analysis: Json | null
+          client_id: string
+          created_at: string
+          file_category: string
+          file_name: string
+          id: string
+          job_id: string
+          mime_type: string | null
+          size_bytes: number | null
+          storage_path: string
+          updated_at: string
+          uploaded_via: string
+        }
+        Insert: {
+          ai_analysis?: Json | null
+          client_id: string
+          created_at?: string
+          file_category?: string
+          file_name: string
+          id?: string
+          job_id: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path: string
+          updated_at?: string
+          uploaded_via?: string
+        }
+        Update: {
+          ai_analysis?: Json | null
+          client_id?: string
+          created_at?: string
+          file_category?: string
+          file_name?: string
+          id?: string
+          job_id?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          storage_path?: string
+          updated_at?: string
+          uploaded_via?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_files_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_files_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           client_id: string | null
@@ -805,6 +868,7 @@ export type Database = {
           job_sheet_url: string | null
           job_thread_id: string | null
           last_activity_at: string
+          last_inbound_email_event_id: string | null
           metadata: Json | null
           method_statement_ref: string | null
           method_statement_url: string | null
@@ -848,6 +912,7 @@ export type Database = {
           job_sheet_url?: string | null
           job_thread_id?: string | null
           last_activity_at?: string
+          last_inbound_email_event_id?: string | null
           metadata?: Json | null
           method_statement_ref?: string | null
           method_statement_url?: string | null
@@ -891,6 +956,7 @@ export type Database = {
           job_sheet_url?: string | null
           job_thread_id?: string | null
           last_activity_at?: string
+          last_inbound_email_event_id?: string | null
           metadata?: Json | null
           method_statement_ref?: string | null
           method_statement_url?: string | null
@@ -1354,6 +1420,7 @@ export type Database = {
           id: string
           job_details: string | null
           job_ref: string | null
+          lines: Json | null
           pdf_url: string | null
           quote: string | null
           quote_reference: string | null
@@ -1368,6 +1435,7 @@ export type Database = {
           id?: string
           job_details?: string | null
           job_ref?: string | null
+          lines?: Json | null
           pdf_url?: string | null
           quote?: string | null
           quote_reference?: string | null
@@ -1382,6 +1450,7 @@ export type Database = {
           id?: string
           job_details?: string | null
           job_ref?: string | null
+          lines?: Json | null
           pdf_url?: string | null
           quote?: string | null
           quote_reference?: string | null
@@ -1509,10 +1578,12 @@ export type Database = {
           created_at: string
           cut_price: number | null
           expense_account_id: string | null
+          format: string | null
           id: number
           income_account_id: string | null
           "ItemRef.value": string | null
           last_synced_at: string | null
+          length_m: number | null
           m2_price: number | null
           price: number | null
           price_per_m: number | null
@@ -1528,6 +1599,7 @@ export type Database = {
           type: string | null
           uom: string | null
           updated_at: string | null
+          width_m: number | null
         }
         Insert: {
           brand?: string | null
@@ -1536,10 +1608,12 @@ export type Database = {
           created_at?: string
           cut_price?: number | null
           expense_account_id?: string | null
+          format?: string | null
           id?: number
           income_account_id?: string | null
           "ItemRef.value"?: string | null
           last_synced_at?: string | null
+          length_m?: number | null
           m2_price?: number | null
           price?: number | null
           price_per_m?: number | null
@@ -1555,6 +1629,7 @@ export type Database = {
           type?: string | null
           uom?: string | null
           updated_at?: string | null
+          width_m?: number | null
         }
         Update: {
           brand?: string | null
@@ -1563,10 +1638,12 @@ export type Database = {
           created_at?: string
           cut_price?: number | null
           expense_account_id?: string | null
+          format?: string | null
           id?: number
           income_account_id?: string | null
           "ItemRef.value"?: string | null
           last_synced_at?: string | null
+          length_m?: number | null
           m2_price?: number | null
           price?: number | null
           price_per_m?: number | null
@@ -1582,6 +1659,7 @@ export type Database = {
           type?: string | null
           uom?: string | null
           updated_at?: string | null
+          width_m?: number | null
         }
         Relationships: []
       }
@@ -1801,6 +1879,7 @@ export type Database = {
           error: string | null
           from_email: string | null
           id: string
+          job_id: string | null
           last_error: string | null
           meta: Json
           "meta.triage": Json | null
@@ -1838,6 +1917,7 @@ export type Database = {
           error: string | null
           from_email: string | null
           id: string
+          job_id: string | null
           last_error: string | null
           meta: Json
           "meta.triage": Json | null

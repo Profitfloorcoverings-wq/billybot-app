@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { formatBytes, formatTimestamp, looksLikeImage } from "./helpers";
 import type { JobPageData } from "./types";
@@ -12,6 +12,18 @@ export default function AttachmentsGallery({ attachments }: { attachments: JobPa
     () => attachments.filter((file) => looksLikeImage(file.mimeType, file.name) && file.url),
     [attachments]
   );
+
+  // Keyboard navigation for lightbox
+  useEffect(() => {
+    if (activeIndex === null) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setActiveIndex(null);
+      if (e.key === "ArrowLeft") setActiveIndex((i) => (i !== null && i > 0 ? i - 1 : i));
+      if (e.key === "ArrowRight") setActiveIndex((i) => (i !== null && i < imageAttachments.length - 1 ? i + 1 : i));
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeIndex, imageAttachments.length]);
 
   if (!attachments.length) {
     return <div className="empty-state">No attachments were found in this email thread.</div>;
@@ -73,12 +85,17 @@ export default function AttachmentsGallery({ attachments }: { attachments: JobPa
       </div>
 
       {activeIndex !== null && imageAttachments[activeIndex] && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 50,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: "rgba(0,0,0,0.85)", padding: "16px",
-        }}>
-          <div style={{
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 50,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.9)", padding: "16px",
+          }}
+          onClick={() => setActiveIndex(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
             position: "relative", width: "100%", maxWidth: "1000px",
             borderRadius: "20px", border: "1px solid rgba(148,163,184,0.15)",
             background: "#020617", padding: "16px",

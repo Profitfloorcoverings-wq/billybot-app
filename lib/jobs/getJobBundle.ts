@@ -1,4 +1,5 @@
 import { createServerClient } from "@/utils/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import type { TenantJob } from "@/lib/jobs/jobQueries";
 
 export type JobRecord = {
@@ -105,6 +106,22 @@ export type NormalizedAttachment = {
   receivedAt: string | null;
 };
 
+export type JobFileRecord = {
+  id: string;
+  job_id: string;
+  client_id: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  storage_path: string;
+  file_category: string;
+  uploaded_via: string;
+  ai_analysis: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  signed_url?: string | null;
+};
+
 export type JobBundle = {
   job: JobRecord;
   customer: CustomerRecord | null;
@@ -112,6 +129,7 @@ export type JobBundle = {
   emailThread: EmailEventRecord[];
   latestEmail: EmailEventRecord | null;
   attachments: NormalizedAttachment[];
+  jobFiles: JobFileRecord[];
 };
 
 type GetJobBundleParams = {
@@ -193,6 +211,10 @@ function normalizeAttachment(
 
 export async function getJobBundle({ job, currentClientId }: GetJobBundleParams): Promise<JobBundle | null> {
   const supabase = await createServerClient();
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   if (!job || (job.client_id && job.client_id !== currentClientId)) {
     return null;
@@ -271,18 +293,27 @@ export async function getJobBundle({ job, currentClientId }: GetJobBundleParams)
         return query.limit(1);
       })();
 
+  const jobFilesQuery = supabaseAdmin
+    .from("job_files")
+    .select("*")
+    .eq("job_id", job.id)
+    .eq("client_id", clientScope)
+    .order("created_at", { ascending: false });
+
   const [
     { data: customerByEmail },
     { data: customerByName },
     directQuotesResult,
     { data: emailThread },
     { data: latestEmailList },
+    { data: jobFilesData },
   ] = await Promise.all([
     customerByEmailQuery,
     customerByNameQuery,
     directQuotesQuery,
     emailThreadQuery,
     latestEmailQuery,
+    jobFilesQuery,
   ]);
 
   const latestEmail = (latestEmailList?.[0] ?? null) as EmailEventRecord | null;
@@ -316,6 +347,16 @@ export async function getJobBundle({ job, currentClientId }: GetJobBundleParams)
     );
   });
 
+  // Generate signed URLs for job files
+  const jobFiles: JobFileRecord[] = await Promise.all(
+    ((jobFilesData ?? []) as JobFileRecord[]).map(async (file) => {
+      const { data: signedUrl } = await supabaseAdmin.storage
+        .from("job_files")
+        .createSignedUrl(file.storage_path, 3600);
+      return { ...file, signed_url: signedUrl?.signedUrl ?? null };
+    })
+  );
+
   return {
     job,
     customer: customerByEmail ?? customerByName ?? null,
@@ -323,5 +364,6 @@ export async function getJobBundle({ job, currentClientId }: GetJobBundleParams)
     emailThread: thread,
     latestEmail,
     attachments,
+    jobFiles,
   };
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import AttachmentsGallery from "./AttachmentsGallery";
 import EmailThread from "./EmailThread";
+import JobFilesPanel from "./JobFilesPanel";
 import OutboundDraftPanel from "./OutboundDraftPanel";
 import { formatRelativeTime, formatTimestamp, humanizeStatus } from "./helpers";
 import QuotesPanel from "./QuotesPanel";
@@ -18,7 +19,7 @@ type RamsSignature = {
   signed_at: string | null;
 };
 
-const TABS = ["overview", "emails", "attachments", "documents", "updates"] as const;
+const TABS = ["overview", "emails", "attachments", "files", "documents", "updates"] as const;
 
 type Tab = (typeof TABS)[number];
 
@@ -53,6 +54,7 @@ function nextStep(job: JobPageData["job"]) {
 const TAB_COUNTS: Record<string, (data: JobPageData) => number | null> = {
   emails: (d) => d.emailThread.length || null,
   attachments: (d) => d.attachments.length || null,
+  files: (d) => d.jobFiles?.length || null,
   documents: (d) => (d.quotes.length + (d.job.job_sheet_url ? 1 : 0) + (d.job.quote_url ? 1 : 0) + (d.job.risk_assessment_url ? 1 : 0) + (d.job.method_statement_url ? 1 : 0)) || null,
 };
 
@@ -277,6 +279,7 @@ export default function JobTabs({ data }: { data: JobPageData }) {
         </div>
       ) : null}
       {tab === "attachments" ? <AttachmentsGallery attachments={data.attachments} /> : null}
+      {tab === "files" ? <JobFilesPanel jobId={data.job.id} /> : null}
       {tab === "documents" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 

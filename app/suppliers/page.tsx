@@ -23,6 +23,9 @@ type SupplierPrice = {
   price_source: string | null;
   product_id: string | null;
   item_ref_value: string | null;
+  width_m: number | null;
+  length_m: number | null;
+  format: string | null;
 };
 
 type SupplierPricesResponse = {
@@ -35,6 +38,9 @@ type SupplierPriceUpdate = {
   cut_price: string;
   m2_price: string;
   price_per_m: string;
+  width_m: string;
+  length_m: string;
+  format: string;
 };
 
 const normalizeRealtime = (price: SupplierPrice | null) => {
@@ -256,6 +262,9 @@ export default function SuppliersPricingPage() {
       cut_price: price.cut_price?.toString() ?? "",
       m2_price: price.m2_price?.toString() ?? "",
       price_per_m: price.price_per_m?.toString() ?? "",
+      width_m: price.width_m?.toString() ?? "",
+      length_m: price.length_m?.toString() ?? "",
+      format: price.format ?? "",
     });
   };
 
@@ -288,6 +297,9 @@ export default function SuppliersPricingPage() {
       cut_price: toNumberOrNull(editValues.cut_price),
       m2_price: toNumberOrNull(editValues.m2_price),
       price_per_m: toNumberOrNull(editValues.price_per_m),
+      width_m: toNumberOrNull(editValues.width_m),
+      length_m: toNumberOrNull(editValues.length_m),
+      format: editValues.format.trim() || null,
     };
 
     setError(null);
@@ -587,6 +599,9 @@ export default function SuppliersPricingPage() {
                         <th>Cut £/m²</th>
                         <th>£/m²</th>
                         <th>£/m</th>
+                        <th>Width (m)</th>
+                        <th>Length (m)</th>
+                        <th>Format</th>
                         <th>Updated</th>
                         <th className="sticky-cell">Actions</th>
                       </tr>
@@ -684,6 +699,56 @@ export default function SuppliersPricingPage() {
                                 />
                               ) : (
                                 <span style={{ color: "#f1f5f9", fontWeight: 500 }}>{formatValue(price.price_per_m)}</span>
+                              )}
+                            </td>
+                            <td>
+                              {isEditing ? (
+                                <input
+                                  className="input-fluid supplierPriceInput"
+                                  style={{ color: "#f1f5f9", fontWeight: 500 }}
+                                  type="number"
+                                  min="0"
+                                  step="0.1"
+                                  value={editValues?.width_m ?? ""}
+                                  onChange={(e) => updateField("width_m", e.target.value)}
+                                  placeholder="e.g. 4"
+                                />
+                              ) : (
+                                <span style={{ color: "#f1f5f9", fontWeight: 500 }}>{formatValue(price.width_m)}</span>
+                              )}
+                            </td>
+                            <td>
+                              {isEditing ? (
+                                <input
+                                  className="input-fluid supplierPriceInput"
+                                  style={{ color: "#f1f5f9", fontWeight: 500 }}
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={editValues?.length_m ?? ""}
+                                  onChange={(e) => updateField("length_m", e.target.value)}
+                                  placeholder="e.g. 0.6"
+                                />
+                              ) : (
+                                <span style={{ color: "#f1f5f9", fontWeight: 500 }}>{formatValue(price.length_m)}</span>
+                              )}
+                            </td>
+                            <td>
+                              {isEditing ? (
+                                <select
+                                  className="input-fluid supplierPriceInput"
+                                  style={{ color: "#f1f5f9", fontWeight: 500, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(148,163,184,0.15)", borderRadius: "6px", padding: "4px 8px", fontSize: "13px" }}
+                                  value={editValues?.format ?? ""}
+                                  onChange={(e) => updateField("format", e.target.value)}
+                                >
+                                  <option value="">—</option>
+                                  <option value="roll">Roll</option>
+                                  <option value="tile">Tile</option>
+                                  <option value="plank">Plank</option>
+                                  <option value="sheet">Sheet</option>
+                                </select>
+                              ) : (
+                                <span style={{ color: "#f1f5f9", fontWeight: 500 }}>{price.format ? price.format.charAt(0).toUpperCase() + price.format.slice(1) : "—"}</span>
                               )}
                             </td>
                             <td style={{ color: "rgba(241,245,249,0.45)", fontSize: "12px" }}>{updatedLabel || "—"}</td>

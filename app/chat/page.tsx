@@ -525,9 +525,20 @@ function ChatPageContent() {
               reader.onload = () => {
                 const result = typeof reader.result === "string" ? reader.result : "";
                 const base64 = result.includes(",") ? result.split(",", 2)[1] ?? "" : result;
+                // Infer MIME type from extension if browser returns empty type (common with HEIC)
+                let mimeType = file.type;
+                if (!mimeType) {
+                  const ext = file.name.split(".").pop()?.toLowerCase();
+                  if (ext === "heic" || ext === "heif") mimeType = "image/heic";
+                  else if (ext === "jpg" || ext === "jpeg") mimeType = "image/jpeg";
+                  else if (ext === "png") mimeType = "image/png";
+                  else if (ext === "webp") mimeType = "image/webp";
+                  else if (ext === "pdf") mimeType = "application/pdf";
+                  else mimeType = "application/octet-stream";
+                }
                 resolve({
                   name: file.name,
-                  type: file.type,
+                  type: mimeType,
                   size: file.size,
                   base64,
                 });
@@ -960,7 +971,7 @@ function ChatPageContent() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*,application/pdf"
+              accept="image/*,application/pdf,.heic,.heif"
               multiple
               onChange={handleFileSelect}
               className="hidden"

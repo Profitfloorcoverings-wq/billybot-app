@@ -58,7 +58,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("supplier_prices")
       .select(
-        "id, created_at, updated_at, client_id, supplier_name, product_name, category, uom, roll_price, cut_price, m2_price, price, price_per_m, price_source, product_id, \"ItemRef.value\""
+        "id, created_at, updated_at, client_id, supplier_name, product_name, category, uom, roll_price, cut_price, m2_price, price, price_per_m, price_source, product_id, width_m, length_m, format, \"ItemRef.value\""
       )
       .eq("client_id", profileId)
       .order("updated_at", { ascending: false })

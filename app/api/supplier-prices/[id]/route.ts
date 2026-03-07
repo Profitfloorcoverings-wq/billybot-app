@@ -26,12 +26,18 @@ type SupplierPrice = Omit<RawSupplierPrice, "ItemRef.value"> & {
   item_ref_value: string | null;
 };
 
-type SupplierPriceUpdate = {
+type SupplierPriceNumericFields = {
   price: number | null;
   roll_price: number | null;
   cut_price: number | null;
   m2_price: number | null;
   price_per_m: number | null;
+  width_m: number | null;
+  length_m: number | null;
+};
+
+type SupplierPriceUpdate = SupplierPriceNumericFields & {
+  format: string | null;
 };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -74,7 +80,7 @@ export async function PATCH(
     const updatePayload: Partial<SupplierPriceUpdate> = {};
 
     const updateNumberField = (
-      key: keyof SupplierPriceUpdate,
+      key: keyof SupplierPriceNumericFields,
       label: string
     ) => {
       if (!Object.prototype.hasOwnProperty.call(body, key)) return;
@@ -99,6 +105,22 @@ export async function PATCH(
       updateNumberField("cut_price", "cut_price");
       updateNumberField("m2_price", "m2_price");
       updateNumberField("price_per_m", "price_per_m");
+      updateNumberField("width_m", "width_m");
+      updateNumberField("length_m", "length_m");
+
+      // Handle format (string field, not numeric)
+      if (Object.prototype.hasOwnProperty.call(body, "format")) {
+        const formatValue = (body as Record<string, unknown>).format;
+        if (formatValue === null) {
+          (updatePayload as Record<string, unknown>).format = null;
+        } else if (typeof formatValue === "string") {
+          const validFormats = ["roll", "tile", "plank", "sheet"];
+          if (formatValue && !validFormats.includes(formatValue)) {
+            throw new Error("format must be one of: roll, tile, plank, sheet");
+          }
+          (updatePayload as Record<string, unknown>).format = formatValue || null;
+        }
+      }
     } catch (err: unknown) {
       return NextResponse.json(
         {
@@ -123,7 +145,7 @@ export async function PATCH(
       .eq("id", id)
       .eq("client_id", profileId)
       .select(
-        "id, created_at, updated_at, client_id, supplier_name, product_name, category, uom, roll_price, cut_price, m2_price, price, price_per_m, price_source, product_id, \"ItemRef.value\""
+        "id, created_at, updated_at, client_id, supplier_name, product_name, category, uom, roll_price, cut_price, m2_price, price, price_per_m, price_source, product_id, width_m, length_m, format, \"ItemRef.value\""
       )
       .maybeSingle();
 
