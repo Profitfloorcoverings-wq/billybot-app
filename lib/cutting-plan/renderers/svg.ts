@@ -78,7 +78,7 @@ export function renderCuttingPlanSvg(
 
   // Title
   const title = options?.title ?? `${capitalize(flooring_type)} Cutting Plan`;
-  svg += `<text x="${svgWidth / 2}" y="30" text-anchor="middle" font-size="20" font-weight="bold" fill="${COLOURS.label}">${escapeXml(title)}</text>`;
+  svg += `<text x="${svgWidth / 2}" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#000000">${escapeXml(title)}</text>`;
 
   // Render each room
   let currentY = MARGIN + titleHeight;

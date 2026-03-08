@@ -11,10 +11,10 @@ export const COLOURS = {
   gripper: "#94a3b8",
   door: "#f97316",
   pileArrow: "#1e3a5f",
-  dimension: "#64748b",
+  dimension: "#475569",
   dimensionLine: "#94a3b8",
   waste: "#fef3c7",
-  label: "#1e293b",
+  label: "#0f172a",
   legend: "#f8fafc",
   legendBorder: "#e2e8f0",
 } as const;
