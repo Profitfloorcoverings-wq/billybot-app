@@ -169,7 +169,7 @@ export function renderGripperPerimeter(
   const points = walls
     .map((p) => `${mmToSvg(p.x_mm, scale) + offsetX},${mmToSvg(p.y_mm, scale) + offsetY}`)
     .join(" ");
-  return `<polygon points="${points}" fill="none" stroke="${COLOURS.gripper}" stroke-width="1" stroke-dasharray="4,4"/>`;
+  return `<polygon points="${points}" fill="none" stroke="${COLOURS.gripper}" stroke-width="1.5" stroke-dasharray="6,3" opacity="0.7"/>`;
 }
 
 export function renderLegend(
@@ -197,6 +197,56 @@ export function renderDropLabel(
   label: string
 ): string {
   return `<text x="${x}" y="${y}" text-anchor="middle" font-size="14" font-weight="bold" fill="${COLOURS.label}">${escapeXml(label)}</text>`;
+}
+
+export function renderDoor(
+  wallStart: Point,
+  wallEnd: Point,
+  positionMm: number,
+  widthMm: number,
+  scale: number,
+  offsetX: number,
+  offsetY: number
+): string {
+  // Position along the wall
+  const dx = wallEnd.x_mm - wallStart.x_mm;
+  const dy = wallEnd.y_mm - wallStart.y_mm;
+  const wallLen = Math.sqrt(dx * dx + dy * dy);
+  if (wallLen < 1) return "";
+
+  const ux = dx / wallLen;
+  const uy = dy / wallLen;
+  // Normal pointing inward (for clockwise polygon, inward is to the right)
+  const nx = -uy;
+  const ny = ux;
+
+  // Door hinge point
+  const hx = wallStart.x_mm + ux * positionMm;
+  const hy = wallStart.y_mm + uy * positionMm;
+
+  const sx = mmToSvg(hx, scale) + offsetX;
+  const sy = mmToSvg(hy, scale) + offsetY;
+  const r = mmToSvg(widthMm, scale);
+
+  // Door swing arc (quarter circle inward)
+  // Arc from along-wall direction to inward-normal direction
+  const endAlongX = sx + ux * r;
+  const endAlongY = sy + uy * r;
+  const endNormalX = sx + nx * r;
+  const endNormalY = sy + ny * r;
+
+  // Door opening gap on wall
+  const gapEndX = sx + ux * mmToSvg(widthMm, scale);
+  const gapEndY = sy + uy * mmToSvg(widthMm, scale);
+  const wallGap = `<line x1="${sx}" y1="${sy}" x2="${gapEndX}" y2="${gapEndY}" stroke="${COLOURS.door}" stroke-width="4"/>`;
+
+  // Quarter-circle arc
+  const arc = `<path d="M ${endAlongX} ${endAlongY} A ${r} ${r} 0 0 1 ${endNormalX} ${endNormalY}" fill="none" stroke="${COLOURS.door}" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+
+  // Small hinge dot
+  const hinge = `<circle cx="${sx}" cy="${sy}" r="3" fill="${COLOURS.door}"/>`;
+
+  return wallGap + arc + hinge;
 }
 
 export function renderArrowheadDef(): string {

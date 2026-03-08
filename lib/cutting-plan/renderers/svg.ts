@@ -19,6 +19,7 @@ import {
   renderWallDimension,
   renderPileArrow,
   renderGripperPerimeter,
+  renderDoor,
   renderLegend,
   renderArrowheadDef,
   escapeXml,
@@ -133,6 +134,26 @@ export function renderCuttingPlanSvg(
     wallSegs.forEach((seg) => {
       svg += renderWallDimension(seg, scale, offsetX, offsetY, true);
     });
+
+    // Doors
+    if (layout.room.doors && layout.room.doors.length > 0) {
+      const wallSegsForDoors = polygonWallSegments(layout.resolved_walls);
+      for (const door of layout.room.doors) {
+        const wallIdx = door.wall_index;
+        if (wallIdx >= 0 && wallIdx < wallSegsForDoors.length) {
+          const wall = wallSegsForDoors[wallIdx];
+          svg += renderDoor(
+            wall.start,
+            wall.end,
+            door.position_mm,
+            door.width_mm,
+            scale,
+            offsetX,
+            offsetY
+          );
+        }
+      }
+    }
 
     // Pile direction arrow
     const centreX = mmToSvg((bbox.min_x + bbox.max_x) / 2, scale) + offsetX;

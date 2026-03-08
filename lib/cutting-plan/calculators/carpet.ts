@@ -37,14 +37,25 @@ export function calculateCarpetLayout(input: CarpetLayoutInput): RoomLayout {
 
   const rollWidthMm = material.width_m * 1000;
 
-  // Determine pile direction: default along longest axis
-  // 0 = drops run left-to-right (pile runs along width, drops span height)
-  // We lay drops so they run along the LONGEST dimension to minimise seams
-  const pileDeg = room.pile_direction ?? (bbox.width_mm >= bbox.height_mm ? 0 : 90);
+  // Smart orientation: try both directions, pick the one with fewer drops/less waste
+  // 0 = drops laid across width (drop length = height)
+  // 90 = drops laid across height (drop length = width)
+  let pileDeg: number;
+  if (room.pile_direction != null) {
+    pileDeg = room.pile_direction;
+  } else {
+    const drops0 = Math.ceil(bbox.width_mm / rollWidthMm);
+    const drops90 = Math.ceil(bbox.height_mm / rollWidthMm);
+    const waste0 = drops0 * rollWidthMm * bbox.height_mm - roomAreaMm2;
+    const waste90 = drops90 * rollWidthMm * bbox.width_mm - roomAreaMm2;
 
-  // For pile direction 0: drops span the height, laid across the width
-  // For pile direction 90: drops span the width, laid across the height
-  // Drops cover the full room dimensions — gripper gap is visual only, carpet still covers it
+    if (drops0 <= drops90) {
+      pileDeg = waste0 <= waste90 ? 0 : (drops0 < drops90 ? 0 : 90);
+    } else {
+      pileDeg = waste90 <= waste0 ? 90 : (drops90 < drops0 ? 90 : 0);
+    }
+  }
+
   const isRotated = pileDeg === 90;
   const layWidth = isRotated ? bbox.height_mm : bbox.width_mm;
   const layLength = isRotated ? bbox.width_mm : bbox.height_mm;
