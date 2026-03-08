@@ -113,7 +113,10 @@ export async function POST(request: Request) {
     // SVG → PNG
     const resvg = new Resvg(result.svg, {
       fitTo: { mode: "width", value: 1200 },
-      font: { loadSystemFonts: false },
+      font: {
+        loadSystemFonts: true,
+        defaultFontFamily: "Arial",
+      },
     });
     const pngData = resvg.render();
     const pngBuffer = pngData.asPng();
