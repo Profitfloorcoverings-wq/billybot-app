@@ -74,10 +74,12 @@ export interface CuttingPlanOptions {
   expansion_gap_mm?: number;
   /** Additional waste % to add. Default 0. */
   waste_percent?: number;
-  /** Seam overlap for double-cutting (vinyl). Default 25mm. */
-  seam_overlap_mm?: number;
-  /** Scribe allowance at walls (vinyl). Default 50mm. */
-  scribe_allowance_mm?: number;
+  /** Length excess for vinyl drops. Default 100mm. */
+  length_excess_mm?: number;
+  /** Coved/running cove skirtings — vinyl goes up the wall. */
+  coved?: boolean;
+  /** Cove height up the wall. Default 100mm. */
+  cove_height_mm?: number;
 }
 
 export interface CuttingPlanRequest {
@@ -128,6 +130,15 @@ export interface TilePlacement {
   stagger_mm: number;
 }
 
+export interface CornerWeld {
+  type: "internal" | "external";
+  position: Point;
+  /** Total weld length for this corner (mm) */
+  weld_length_mm: number;
+  /** External corners have a patch */
+  patch_width_mm?: number;
+}
+
 export interface RoomLayout {
   room: RoomInput;
   /** Resolved polygon (from walls or bounding_box fallback) */
@@ -144,6 +155,10 @@ export interface RoomLayout {
   waste_m2: number;
   /** Waste as percentage */
   waste_percent: number;
+  /** Coved skirting: corner welds */
+  corner_welds?: CornerWeld[];
+  /** Whether this layout uses coved skirtings */
+  coved?: boolean;
 }
 
 export interface CuttingPlanTotals {

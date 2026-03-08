@@ -66,14 +66,24 @@ export function renderDrop(
 
   const rect = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="none"/>`;
 
+  // Skip label if drop is too narrow to fit text
+  const minLabelWidth = 60;
+  if (w < minLabelWidth && h < minLabelWidth) return rect;
+
   // Drop label centred
   const cx = x + w / 2;
   const cy = y + h / 2;
   const label = `Drop ${drop.index}`;
   const dims = `${(drop.width_mm / 1000).toFixed(2)}m × ${(drop.length_mm / 1000).toFixed(2)}m`;
 
-  const text = `<text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="14" font-weight="bold" fill="${COLOURS.label}">${label}</text>`;
-  const dimText = `<text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="11" fill="${COLOURS.dimension}">${dims}</text>`;
+  // Rotate text 90° if drop is taller than wide and narrow
+  const rotate = w < 80 && h > w;
+  const transform = rotate ? ` transform="rotate(-90,${cx},${cy})"` : "";
+
+  const text = `<text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="14" font-weight="bold" fill="${COLOURS.label}"${transform}>${label}</text>`;
+  const dimText = w > 100
+    ? `<text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="11" fill="${COLOURS.dimension}"${transform}>${dims}</text>`
+    : "";
 
   return rect + text + dimText;
 }

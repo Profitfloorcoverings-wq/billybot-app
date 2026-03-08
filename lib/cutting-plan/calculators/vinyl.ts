@@ -6,16 +6,18 @@ import type {
   Drop,
   Seam,
   Polygon,
+  CornerWeld,
 } from "../types";
 import {
   polygonArea,
   polygonBoundingBox,
   rectangleToPolygon,
   clipRectToPolygonArea,
+  polygonWallSegments,
 } from "../geometry/polygon";
 
-const DEFAULT_SEAM_OVERLAP_MM = 25;
-const DEFAULT_SCRIBE_ALLOWANCE_MM = 50;
+const DEFAULT_LENGTH_EXCESS_MM = 100;
+const DEFAULT_COVE_HEIGHT_MM = 100;
 
 interface VinylLayoutInput {
   room: RoomInput;
@@ -25,12 +27,15 @@ interface VinylLayoutInput {
 
 /**
  * Calculate vinyl sheet layout for a single room.
- * Similar to carpet but with seam overlap, weld lines, and scribe allowance.
+ * - Drops butt together (no overlap) — weld groove cut after fitting
+ * - 100mm excess on drop lengths
+ * - Optional coved skirtings: vinyl goes up walls, corner welds tracked
  */
 export function calculateVinylLayout(input: VinylLayoutInput): RoomLayout {
   const { room, material, options } = input;
-  const seamOverlap = options?.seam_overlap_mm ?? DEFAULT_SEAM_OVERLAP_MM;
-  const scribeAllowance = options?.scribe_allowance_mm ?? DEFAULT_SCRIBE_ALLOWANCE_MM;
+  const lengthExcess = options?.length_excess_mm ?? DEFAULT_LENGTH_EXCESS_MM;
+  const coved = options?.coved ?? false;
+  const coveHeight = options?.cove_height_mm ?? DEFAULT_COVE_HEIGHT_MM;
 
   // Resolve room polygon
   const resolved_walls = resolveWalls(room);
@@ -39,33 +44,36 @@ export function calculateVinylLayout(input: VinylLayoutInput): RoomLayout {
 
   const rollWidthMm = material.width_m * 1000;
 
-  // Vinyl: lay along longest dimension to minimise seams
-  const pileDeg = room.pile_direction ?? (bbox.width_mm >= bbox.height_mm ? 0 : 90);
-  const isRotated = pileDeg === 90;
+  // Smart orientation: try both directions, pick fewer drops
+  let pileDeg: number;
+  if (room.pile_direction != null) {
+    pileDeg = room.pile_direction;
+  } else {
+    const drops0 = Math.ceil(bbox.width_mm / rollWidthMm);
+    const drops90 = Math.ceil(bbox.height_mm / rollWidthMm);
+    const waste0 = drops0 * rollWidthMm * bbox.height_mm - roomAreaMm2;
+    const waste90 = drops90 * rollWidthMm * bbox.width_mm - roomAreaMm2;
 
-  // Effective dimensions — scribe allowance adds to cut length (not room dimension)
+    if (drops0 <= drops90) {
+      pileDeg = waste0 <= waste90 ? 0 : drops0 < drops90 ? 0 : 90;
+    } else {
+      pileDeg = waste90 <= waste0 ? 90 : drops90 < drops0 ? 90 : 0;
+    }
+  }
+
+  const isRotated = pileDeg === 90;
   const layWidth = isRotated ? bbox.height_mm : bbox.width_mm;
   const layLength = isRotated ? bbox.width_mm : bbox.height_mm;
 
-  // Calculate drops — account for seam overlap between adjacent drops
-  const numFullDrops = Math.floor(layWidth / rollWidthMm);
-  const coveredWidth = numFullDrops * rollWidthMm - (numFullDrops > 0 ? (numFullDrops - 1) * seamOverlap : 0);
-  const remainder = layWidth - coveredWidth;
-  const hasPartialDrop = remainder > 0;
-  const totalDrops = numFullDrops + (hasPartialDrop ? 1 : 0);
+  // Drops butt together — no overlap
+  const dropsNeeded = Math.ceil(layWidth / rollWidthMm);
 
-  // Recalculate with overlap: each subsequent drop overlaps by seamOverlap
-  // Actual number of drops needed
-  let dropsNeeded: number;
-  if (rollWidthMm >= layWidth) {
-    dropsNeeded = 1;
-  } else {
-    // Each drop after the first covers (rollWidth - seamOverlap) of new width
-    const effectiveWidth = rollWidthMm - seamOverlap;
-    dropsNeeded = 1 + Math.ceil((layWidth - rollWidthMm) / effectiveWidth);
-  }
+  // Cut length: room length + excess
+  // If coved: also add cove height on both ends (vinyl turns up both walls)
+  const coveExtra = coved ? coveHeight * 2 : 0;
+  const cutLength = layLength + lengthExcess + coveExtra;
 
-  // Build drops with scribe allowance on cut length
+  // Build drops
   const drops: Drop[] = [];
   let currentOffset = 0;
 
@@ -73,54 +81,61 @@ export function calculateVinylLayout(input: VinylLayoutInput): RoomLayout {
     const isLast = i === dropsNeeded - 1;
     let dropWidth: number;
 
-    if (dropsNeeded === 1) {
-      dropWidth = rollWidthMm;
-    } else if (isLast) {
-      // Last drop: remaining width + overlap
-      dropWidth = layWidth - currentOffset + seamOverlap;
-      if (dropWidth > rollWidthMm) dropWidth = rollWidthMm;
+    if (isLast && dropsNeeded > 1) {
+      // Last drop: remaining width
+      dropWidth = layWidth - currentOffset;
+    } else if (dropsNeeded === 1) {
+      // Single drop: full roll width or room width (whichever is larger for material calc)
+      dropWidth = Math.max(rollWidthMm, layWidth);
     } else {
       dropWidth = rollWidthMm;
     }
 
-    // Cut length includes scribe allowance on both ends
-    const cutLength = layLength + scribeAllowance * 2;
+    // If coved, first and last drops also need cove height on side walls
+    let actualWidth = dropWidth;
+    if (coved) {
+      if (i === 0) actualWidth += coveHeight; // first drop goes up left wall
+      if (isLast) actualWidth += coveHeight; // last drop goes up right wall
+    }
 
     let x_mm: number, y_mm: number, w_mm: number, h_mm: number;
     if (isRotated) {
-      x_mm = bbox.min_x;
-      y_mm = bbox.min_y + currentOffset;
+      x_mm = bbox.min_x - (coved ? coveHeight : 0);
+      y_mm = bbox.min_y + currentOffset - (i === 0 && coved ? coveHeight : 0);
       w_mm = cutLength;
-      h_mm = dropWidth;
+      h_mm = actualWidth;
     } else {
-      x_mm = bbox.min_x + currentOffset;
-      y_mm = bbox.min_y;
-      w_mm = dropWidth;
+      x_mm = bbox.min_x + currentOffset - (i === 0 && coved ? coveHeight : 0);
+      y_mm = bbox.min_y - (coved ? coveHeight : 0);
+      w_mm = actualWidth;
       h_mm = cutLength;
     }
 
-    const clippedArea = clipRectToPolygonArea(x_mm, y_mm, w_mm, h_mm, resolved_walls);
+    const clippedArea = clipRectToPolygonArea(
+      bbox.min_x + currentOffset,
+      bbox.min_y,
+      dropWidth,
+      layLength,
+      resolved_walls
+    );
 
     drops.push({
       index: i + 1,
-      x_mm,
-      y_mm,
-      width_mm: w_mm,
-      length_mm: h_mm,
+      x_mm: isRotated ? bbox.min_x : bbox.min_x + currentOffset,
+      y_mm: isRotated ? bbox.min_y + currentOffset : bbox.min_y,
+      width_mm: isRotated ? layLength : dropWidth,
+      length_mm: isRotated ? dropWidth : layLength,
       is_offcut: isLast && dropsNeeded > 1,
       clipped_area_mm2: clippedArea,
     });
 
-    // Next drop starts (rollWidth - seamOverlap) after this one
-    if (!isLast) {
-      currentOffset += rollWidthMm - seamOverlap;
-    }
+    currentOffset += rollWidthMm;
   }
 
-  // Seams at overlap positions (for weld line marking)
+  // Weld seam positions (butt joints between drops)
   const seams: Seam[] = [];
   for (let i = 0; i < dropsNeeded - 1; i++) {
-    const seamPos = (i + 1) * rollWidthMm - i * seamOverlap;
+    const seamPos = (i + 1) * rollWidthMm;
     if (isRotated) {
       seams.push({
         x_mm: bbox.min_x,
@@ -138,11 +153,32 @@ export function calculateVinylLayout(input: VinylLayoutInput): RoomLayout {
     }
   }
 
-  // Material totals — includes scribe allowance and overlap waste
-  const totalMaterialMm2 = drops.reduce(
+  // Corner welds (coved skirtings only)
+  let cornerWelds: CornerWeld[] | undefined;
+  if (coved) {
+    cornerWelds = calculateCornerWelds(resolved_walls, coveHeight);
+  }
+
+  // Material totals
+  // Floor material = sum of drop areas (full rectangles)
+  const floorMaterialMm2 = drops.reduce(
     (sum, d) => sum + d.width_mm * d.length_mm,
     0
   );
+
+  // If coved, add perimeter cove material
+  let coveMaterialMm2 = 0;
+  if (coved) {
+    const wallSegs = polygonWallSegments(resolved_walls);
+    for (const seg of wallSegs) {
+      coveMaterialMm2 += seg.length_mm * coveHeight;
+    }
+  }
+
+  // Excess material (length excess per drop)
+  const excessMm2 = drops.length * rollWidthMm * lengthExcess;
+
+  const totalMaterialMm2 = floorMaterialMm2 + excessMm2;
   const wasteMm2 = totalMaterialMm2 - roomAreaMm2;
 
   const roomAreaM2 = roomAreaMm2 / 1_000_000;
@@ -158,8 +194,57 @@ export function calculateVinylLayout(input: VinylLayoutInput): RoomLayout {
     room_area_m2: round2(roomAreaM2),
     total_material_m2: round2(totalMaterialM2),
     waste_m2: round2(wasteM2),
-    waste_percent: round1(totalMaterialM2 > 0 ? (wasteM2 / totalMaterialM2) * 100 : 0),
+    waste_percent: round1(
+      totalMaterialM2 > 0 ? (wasteM2 / totalMaterialM2) * 100 : 0
+    ),
+    coved,
+    corner_welds: cornerWelds,
   };
+}
+
+/**
+ * Calculate corner welds for coved skirtings.
+ * Internal corners: 100mm weld
+ * External corners: 200mm patch with welds (100mm + 200mm + 100mm = 400mm total weld)
+ */
+function calculateCornerWelds(
+  walls: Polygon,
+  coveHeight: number
+): CornerWeld[] {
+  const welds: CornerWeld[] = [];
+
+  for (let i = 0; i < walls.length; i++) {
+    const prev = walls[(i - 1 + walls.length) % walls.length];
+    const curr = walls[i];
+    const next = walls[(i + 1) % walls.length];
+
+    // Cross product to determine internal vs external corner (for clockwise polygon)
+    const dx1 = curr.x_mm - prev.x_mm;
+    const dy1 = curr.y_mm - prev.y_mm;
+    const dx2 = next.x_mm - curr.x_mm;
+    const dy2 = next.y_mm - curr.y_mm;
+    const cross = dx1 * dy2 - dy1 * dx2;
+
+    // For clockwise polygon: cross > 0 = internal (concave), cross < 0 = external (convex)
+    const isInternal = cross > 0;
+
+    if (isInternal) {
+      welds.push({
+        type: "internal",
+        position: curr,
+        weld_length_mm: coveHeight, // 100mm vertical weld
+      });
+    } else {
+      welds.push({
+        type: "external",
+        position: curr,
+        weld_length_mm: coveHeight + coveHeight * 2 + coveHeight, // corner + base + vertical
+        patch_width_mm: 200,
+      });
+    }
+  }
+
+  return welds;
 }
 
 function resolveWalls(room: RoomInput): Polygon {

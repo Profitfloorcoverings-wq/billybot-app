@@ -169,9 +169,10 @@ export function renderCuttingPlanSvg(
   svg += renderLegend(MARGIN, legendY, totalWidth, legendLines);
 
   // Seam legend indicator
+  const seamLabel = flooring_type === "vinyl" ? "Weld seam" : "Seam/join line";
   const seamLegendY = legendY + legendLines.length * 18 + 36;
   svg += `<line x1="${MARGIN + 12}" y1="${seamLegendY}" x2="${MARGIN + 40}" y2="${seamLegendY}" stroke="${COLOURS.seam}" stroke-width="2" stroke-dasharray="8,4"/>`;
-  svg += `<text x="${MARGIN + 50}" y="${seamLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">Seam/join line</text>`;
+  svg += `<text x="${MARGIN + 50}" y="${seamLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">${seamLabel}</text>`;
 
   if (showGripper) {
     svg += `<line x1="${MARGIN + 180}" y1="${seamLegendY}" x2="${MARGIN + 208}" y2="${seamLegendY}" stroke="${COLOURS.gripper}" stroke-width="1" stroke-dasharray="4,4"/>`;
@@ -183,7 +184,7 @@ export function renderCuttingPlanSvg(
 }
 
 function buildLegendLines(result: CuttingPlanResult): string[] {
-  const { material, totals, rooms } = result;
+  const { material, totals, rooms, flooring_type } = result;
   const lines: string[] = [];
 
   if (material.product_name) {
@@ -204,8 +205,21 @@ function buildLegendLines(result: CuttingPlanResult): string[] {
   if (rooms.length > 0 && rooms[0].drops) {
     lines.push(`Drops: ${rooms[0].drops.length}`);
     if (rooms[0].seams && rooms[0].seams.length > 0) {
-      lines.push(`Seams: ${rooms[0].seams.length}`);
+      const seamLabel = flooring_type === "vinyl" ? "Weld seams" : "Seams";
+      lines.push(`${seamLabel}: ${rooms[0].seams.length}`);
     }
+  }
+
+  // Coved skirtings info
+  if (rooms.length > 0 && rooms[0].coved && rooms[0].corner_welds) {
+    const welds = rooms[0].corner_welds;
+    const internal = welds.filter((w) => w.type === "internal").length;
+    const external = welds.filter((w) => w.type === "external").length;
+    lines.push(`Coved skirtings: Yes`);
+    if (internal > 0) lines.push(`  Internal corners: ${internal} (100mm weld each)`);
+    if (external > 0) lines.push(`  External corners: ${external} (200mm patch + welds)`);
+    const totalWeld = welds.reduce((s, w) => s + w.weld_length_mm, 0);
+    lines.push(`  Total weld: ${(totalWeld / 1000).toFixed(1)}m`);
   }
 
   return lines;
