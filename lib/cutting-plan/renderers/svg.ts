@@ -70,7 +70,7 @@ export function renderCuttingPlanSvg(
   const titleHeight = 40;
   const svgHeight = maxHeight + MARGIN * 2 + LEGEND_HEIGHT + titleHeight;
 
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" width="${svgWidth}" height="${svgHeight}" style="font-family: 'Segoe UI', Arial, sans-serif; background: white;">`;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" width="${svgWidth}" height="${svgHeight}" style="font-family: Inter, Arial, sans-serif; background: white;">`;
 
   // Arrow marker def
   svg += renderArrowheadDef();

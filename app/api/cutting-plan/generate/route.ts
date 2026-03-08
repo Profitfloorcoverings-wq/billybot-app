@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resvg } from "@resvg/resvg-js";
+import path from "path";
+import fs from "fs";
 import { getUserFromRequest } from "@/utils/supabase/auth";
 import { calculateCarpetLayout } from "@/lib/cutting-plan/calculators/carpet";
 import { calculateVinylLayout } from "@/lib/cutting-plan/calculators/vinyl";
@@ -111,11 +113,19 @@ export async function POST(request: Request) {
     result.summary_text = buildSummaryText(result);
 
     // SVG → PNG
+    // Load bundled font for serverless (Vercel has no system fonts)
+    const fontPath = path.join(
+      process.cwd(),
+      "lib/cutting-plan/fonts/Inter-Regular.ttf"
+    );
+    const fontFiles = fs.existsSync(fontPath) ? [fontPath] : [];
+
     const resvg = new Resvg(result.svg, {
       fitTo: { mode: "width", value: 1200 },
       font: {
         loadSystemFonts: true,
-        defaultFontFamily: "Arial",
+        fontFiles,
+        defaultFontFamily: "Inter",
       },
     });
     const pngData = resvg.render();
