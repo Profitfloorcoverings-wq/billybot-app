@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import CuttingPlanViewer from "./CuttingPlanViewer";
 
 type JobFile = {
   id: string;
@@ -54,12 +55,89 @@ export default function JobFilesPanel({ jobId }: { jobId: string }) {
   const [category, setCategory] = useState("document");
   const [expandedAnalysis, setExpandedAnalysis] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [generatingPlan, setGeneratingPlan] = useState(false);
+  const [cuttingPlanView, setCuttingPlanView] = useState<{
+    svg: string;
+    pngBase64: string;
+    summary: Record<string, unknown>;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const imageFiles = useMemo(
     () => files.filter((f) => isImage(f.mime_type) && f.signed_url),
     [files]
   );
+
+  /** Floor plan files that have ai_analysis with room data */
+  const floorPlanFiles = useMemo(
+    () =>
+      files.filter(
+        (f) =>
+          f.file_category === "floor_plan" &&
+          f.ai_analysis &&
+          Array.isArray((f.ai_analysis as Record<string, unknown>).rooms) &&
+          ((f.ai_analysis as Record<string, unknown>).rooms as unknown[]).length > 0
+      ),
+    [files]
+  );
+
+  const canGenerateCuttingPlan = floorPlanFiles.length > 0;
+
+  async function handleGenerateCuttingPlan() {
+    if (!canGenerateCuttingPlan) return;
+    setGeneratingPlan(true);
+    try {
+      // Build rooms from ai_analysis data
+      const rooms: Array<{
+        name: string;
+        walls?: Array<{ x_mm: number; y_mm: number }>;
+        bounding_box?: { w_m: number; l_m: number };
+      }> = [];
+
+      for (const file of floorPlanFiles) {
+        const analysis = file.ai_analysis as Record<string, unknown>;
+        const fileRooms = (analysis.rooms ?? []) as Array<Record<string, unknown>>;
+        for (const room of fileRooms) {
+          rooms.push({
+            name: (room.name as string) ?? "Room",
+            walls: room.walls as Array<{ x_mm: number; y_mm: number }> | undefined,
+            bounding_box: room.bounding_box as { w_m: number; l_m: number } | undefined,
+          });
+        }
+      }
+
+      if (rooms.length === 0) return;
+
+      const res = await fetch("/api/cutting-plan/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          job_id: jobId,
+          client_id: "", // Will be filled from auth
+          rooms,
+          flooring_type: "carpet",
+          material: { format: "roll", width_m: 4 },
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        console.error("Cutting plan generation failed:", err);
+        return;
+      }
+
+      const data = await res.json();
+      setCuttingPlanView({
+        svg: data.svg,
+        pngBase64: data.png_base64,
+        summary: data.summary,
+      });
+    } catch (err) {
+      console.error("Cutting plan generation failed:", err);
+    } finally {
+      setGeneratingPlan(false);
+    }
+  }
 
   const loadFiles = useCallback(async () => {
     try {
@@ -258,6 +336,22 @@ export default function JobFilesPanel({ jobId }: { jobId: string }) {
         >
           {uploading ? "Uploading..." : "+ Upload files"}
         </button>
+
+        {canGenerateCuttingPlan && (
+          <button
+            type="button"
+            onClick={() => void handleGenerateCuttingPlan()}
+            disabled={generatingPlan}
+            style={{
+              padding: "8px 16px", fontSize: "13px", fontWeight: 600,
+              borderRadius: "8px", cursor: generatingPlan ? "not-allowed" : "pointer",
+              background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.3)",
+              color: "#f97316",
+            }}
+          >
+            {generatingPlan ? "Generating..." : "Generate Cutting Plan"}
+          </button>
+        )}
       </div>
 
       {/* File grid */}
@@ -289,6 +383,8 @@ export default function JobFilesPanel({ jobId }: { jobId: string }) {
                   <button
                     type="button"
                     onClick={() => {
+                      // Cutting plan files with ai_analysis → open in CuttingPlanViewer
+                      // (If SVG data is stored, it would go here. For now, open in lightbox.)
                       const idx = imageFiles.findIndex((img) => img.id === file.id);
                       if (idx >= 0) setLightboxIndex(idx);
                     }}
@@ -378,6 +474,16 @@ export default function JobFilesPanel({ jobId }: { jobId: string }) {
             );
           })}
         </div>
+      )}
+
+      {/* Cutting plan viewer */}
+      {cuttingPlanView && (
+        <CuttingPlanViewer
+          svg={cuttingPlanView.svg}
+          pngBase64={cuttingPlanView.pngBase64}
+          summary={cuttingPlanView.summary as Parameters<typeof CuttingPlanViewer>[0]["summary"]}
+          onClose={() => setCuttingPlanView(null)}
+        />
       )}
 
       {/* Image lightbox */}

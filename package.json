@@ -11,6 +11,7 @@
     "types:generate": "npx supabase@latest gen types typescript --project-id snrknpsjcjefhiqmvnhe > types/supabase.ts"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.86.0",
     "date-fns": "^4.1.0",

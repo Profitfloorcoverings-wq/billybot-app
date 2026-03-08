@@ -1,0 +1,212 @@
+import type { Point, WallSegment, Drop, Seam, Polygon } from "../types";
+
+// ── Colours ──
+export const COLOURS = {
+  wall: "#1e3a5f",
+  wallFill: "#ffffff",
+  drop1: "#e8f0fe",
+  drop2: "#d1e4fd",
+  seam: "#ff6b6b",
+  seamWarning: "#ff0000",
+  gripper: "#94a3b8",
+  door: "#f97316",
+  pileArrow: "#1e3a5f",
+  dimension: "#64748b",
+  dimensionLine: "#94a3b8",
+  waste: "#fef3c7",
+  label: "#1e293b",
+  legend: "#f8fafc",
+  legendBorder: "#e2e8f0",
+} as const;
+
+// ── Scale helper ──
+export function mmToSvg(mm: number, scale: number): number {
+  return mm * scale;
+}
+
+// ── SVG element builders ──
+
+export function renderPolygonOutline(
+  walls: Polygon,
+  scale: number,
+  offsetX: number,
+  offsetY: number
+): string {
+  const points = walls
+    .map((p) => `${mmToSvg(p.x_mm, scale) + offsetX},${mmToSvg(p.y_mm, scale) + offsetY}`)
+    .join(" ");
+  return `<polygon points="${points}" fill="${COLOURS.wallFill}" stroke="${COLOURS.wall}" stroke-width="3" stroke-linejoin="round"/>`;
+}
+
+export function renderClipPath(
+  id: string,
+  walls: Polygon,
+  scale: number,
+  offsetX: number,
+  offsetY: number
+): string {
+  const points = walls
+    .map((p) => `${mmToSvg(p.x_mm, scale) + offsetX},${mmToSvg(p.y_mm, scale) + offsetY}`)
+    .join(" ");
+  return `<clipPath id="${id}"><polygon points="${points}"/></clipPath>`;
+}
+
+export function renderDrop(
+  drop: Drop,
+  scale: number,
+  offsetX: number,
+  offsetY: number,
+  isEven: boolean
+): string {
+  const x = mmToSvg(drop.x_mm, scale) + offsetX;
+  const y = mmToSvg(drop.y_mm, scale) + offsetY;
+  const w = mmToSvg(drop.width_mm, scale);
+  const h = mmToSvg(drop.length_mm, scale);
+  const fill = isEven ? COLOURS.drop1 : COLOURS.drop2;
+
+  const rect = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="none"/>`;
+
+  // Drop label centred
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const label = `Drop ${drop.index}`;
+  const dims = `${(drop.width_mm / 1000).toFixed(2)}m × ${(drop.length_mm / 1000).toFixed(2)}m`;
+
+  const text = `<text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="14" font-weight="bold" fill="${COLOURS.label}">${label}</text>`;
+  const dimText = `<text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="11" fill="${COLOURS.dimension}">${dims}</text>`;
+
+  return rect + text + dimText;
+}
+
+export function renderSeamLine(
+  seam: Seam,
+  scale: number,
+  offsetX: number,
+  offsetY: number
+): string {
+  const x = mmToSvg(seam.x_mm, scale) + offsetX;
+  const y1 = mmToSvg(seam.y_start_mm, scale) + offsetY;
+  const y2 = mmToSvg(seam.y_end_mm, scale) + offsetY;
+  const colour = seam.near_door ? COLOURS.seamWarning : COLOURS.seam;
+  return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${colour}" stroke-width="2" stroke-dasharray="8,4"/>`;
+}
+
+export function renderWallDimension(
+  seg: WallSegment,
+  scale: number,
+  offsetX: number,
+  offsetY: number,
+  outside: boolean
+): string {
+  const lengthM = (seg.length_mm / 1000).toFixed(2);
+  const mx = mmToSvg((seg.start.x_mm + seg.end.x_mm) / 2, scale) + offsetX;
+  const my = mmToSvg((seg.start.y_mm + seg.end.y_mm) / 2, scale) + offsetY;
+
+  // Determine offset direction for label placement outside room
+  const dx = seg.end.x_mm - seg.start.x_mm;
+  const dy = seg.end.y_mm - seg.start.y_mm;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 1) return "";
+
+  // Normal vector (pointing outward for clockwise polygon)
+  const nx = -dy / len;
+  const ny = dx / len;
+  const offset = outside ? 20 : -20;
+
+  const lx = mx + nx * offset;
+  const ly = my + ny * offset;
+
+  // Dimension line endpoints
+  const sx = mmToSvg(seg.start.x_mm, scale) + offsetX;
+  const sy = mmToSvg(seg.start.y_mm, scale) + offsetY;
+  const ex = mmToSvg(seg.end.x_mm, scale) + offsetX;
+  const ey = mmToSvg(seg.end.y_mm, scale) + offsetY;
+
+  const line = `<line x1="${sx + nx * offset * 0.6}" y1="${sy + ny * offset * 0.6}" x2="${ex + nx * offset * 0.6}" y2="${ey + ny * offset * 0.6}" stroke="${COLOURS.dimensionLine}" stroke-width="1"/>`;
+
+  // End ticks
+  const tickLen = 6;
+  const tick1 = `<line x1="${sx + nx * (offset * 0.6 - tickLen)}" y1="${sy + ny * (offset * 0.6 - tickLen)}" x2="${sx + nx * (offset * 0.6 + tickLen)}" y2="${sy + ny * (offset * 0.6 + tickLen)}" stroke="${COLOURS.dimensionLine}" stroke-width="1"/>`;
+  const tick2 = `<line x1="${ex + nx * (offset * 0.6 - tickLen)}" y1="${ey + ny * (offset * 0.6 - tickLen)}" x2="${ex + nx * (offset * 0.6 + tickLen)}" y2="${ey + ny * (offset * 0.6 + tickLen)}" stroke="${COLOURS.dimensionLine}" stroke-width="1"/>`;
+
+  // Rotation for angled walls
+  const angleDeg = (Math.atan2(ey - sy, ex - sx) * 180) / Math.PI;
+  const textRotate = angleDeg > 90 || angleDeg < -90 ? angleDeg + 180 : angleDeg;
+
+  const text = `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="600" fill="${COLOURS.dimension}" transform="rotate(${textRotate},${lx},${ly})">${lengthM}m</text>`;
+
+  return line + tick1 + tick2 + text;
+}
+
+export function renderPileArrow(
+  cx: number,
+  cy: number,
+  direction_deg: number,
+  scale: number
+): string {
+  const arrowLen = 40;
+  const rad = (direction_deg * Math.PI) / 180;
+  const dx = Math.cos(rad) * arrowLen;
+  const dy = Math.sin(rad) * arrowLen;
+
+  const x1 = cx - dx;
+  const y1 = cy - dy;
+  const x2 = cx + dx;
+  const y2 = cy + dy;
+
+  const line = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${COLOURS.pileArrow}" stroke-width="3" marker-end="url(#arrowhead)"/>`;
+  const label = `<text x="${cx}" y="${cy - 20}" text-anchor="middle" font-size="11" font-weight="bold" fill="${COLOURS.pileArrow}">PILE DIRECTION</text>`;
+
+  return line + label;
+}
+
+export function renderGripperPerimeter(
+  walls: Polygon,
+  scale: number,
+  offsetX: number,
+  offsetY: number
+): string {
+  const points = walls
+    .map((p) => `${mmToSvg(p.x_mm, scale) + offsetX},${mmToSvg(p.y_mm, scale) + offsetY}`)
+    .join(" ");
+  return `<polygon points="${points}" fill="none" stroke="${COLOURS.gripper}" stroke-width="1" stroke-dasharray="4,4"/>`;
+}
+
+export function renderLegend(
+  x: number,
+  y: number,
+  width: number,
+  lines: string[]
+): string {
+  const lineHeight = 18;
+  const padding = 12;
+  const height = lines.length * lineHeight + padding * 2;
+
+  let svg = `<rect x="${x}" y="${y}" width="${width}" height="${height}" rx="6" fill="${COLOURS.legend}" stroke="${COLOURS.legendBorder}" stroke-width="1"/>`;
+
+  lines.forEach((line, i) => {
+    svg += `<text x="${x + padding}" y="${y + padding + 14 + i * lineHeight}" font-size="12" fill="${COLOURS.label}">${escapeXml(line)}</text>`;
+  });
+
+  return svg;
+}
+
+export function renderDropLabel(
+  x: number,
+  y: number,
+  label: string
+): string {
+  return `<text x="${x}" y="${y}" text-anchor="middle" font-size="14" font-weight="bold" fill="${COLOURS.label}">${escapeXml(label)}</text>`;
+}
+
+export function renderArrowheadDef(): string {
+  return `<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="${COLOURS.pileArrow}"/></marker></defs>`;
+}
+
+export function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
