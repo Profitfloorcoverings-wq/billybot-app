@@ -17,8 +17,10 @@ import {
   renderDrop,
   renderSeamLine,
   renderWallDimension,
-  renderPileArrow,
+  renderDirectionArrow,
   renderGripperPerimeter,
+  renderCovePerimeter,
+  renderCornerWeld,
   renderDoor,
   renderLegend,
   renderArrowheadDef,
@@ -26,7 +28,7 @@ import {
 } from "./svg-helpers";
 
 const MARGIN = 80;
-const LEGEND_HEIGHT = 120;
+const LEGEND_HEIGHT = 180;
 const ROOM_GAP = 40;
 
 interface RenderOptions {
@@ -121,11 +123,24 @@ export function renderCuttingPlanSvg(
       .map((p) => `${mmToSvg(p.x_mm, scale) + offsetX},${mmToSvg(p.y_mm, scale) + offsetY}`)
       .join(" ")}" fill="none" stroke="${COLOURS.wall}" stroke-width="3" stroke-linejoin="round"/>`;
 
-    // Gripper perimeter
+    // Gripper perimeter (carpet only)
     if (showGripper) {
       const inset = insetPolygon(layout.resolved_walls, gripperGapMm);
       if (inset.length >= 3) {
         svg += renderGripperPerimeter(inset, scale, offsetX, offsetY);
+      }
+    }
+
+    // Coved skirtings perimeter strip (vinyl)
+    if (layout.coved) {
+      const coveH = options?.gripperGapMm ?? 100; // reuse option or default
+      svg += renderCovePerimeter(layout.resolved_walls, 100, scale, offsetX, offsetY);
+    }
+
+    // Corner welds (coved vinyl)
+    if (layout.corner_welds && layout.corner_welds.length > 0) {
+      for (const weld of layout.corner_welds) {
+        svg += renderCornerWeld(weld, scale, offsetX, offsetY);
       }
     }
 
@@ -155,10 +170,11 @@ export function renderCuttingPlanSvg(
       }
     }
 
-    // Pile direction arrow
+    // Direction arrow — carpet = "PILE DIRECTION", vinyl = "LAY DIRECTION"
+    const dirLabel = flooring_type === "carpet" ? "PILE DIRECTION" : "LAY DIRECTION";
     const centreX = mmToSvg((bbox.min_x + bbox.max_x) / 2, scale) + offsetX;
     const centreY = mmToSvg(bbox.min_y, scale) + offsetY - 35;
-    svg += renderPileArrow(centreX, centreY, layout.pile_direction_deg, scale);
+    svg += renderDirectionArrow(centreX, centreY, layout.pile_direction_deg, scale, dirLabel);
 
     currentY += svgH + ROOM_GAP;
   });
@@ -175,8 +191,29 @@ export function renderCuttingPlanSvg(
   svg += `<text x="${MARGIN + 50}" y="${seamLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">${seamLabel}</text>`;
 
   if (showGripper) {
-    svg += `<line x1="${MARGIN + 180}" y1="${seamLegendY}" x2="${MARGIN + 208}" y2="${seamLegendY}" stroke="${COLOURS.gripper}" stroke-width="1" stroke-dasharray="4,4"/>`;
+    svg += `<line x1="${MARGIN + 180}" y1="${seamLegendY}" x2="${MARGIN + 208}" y2="${seamLegendY}" stroke="${COLOURS.gripper}" stroke-width="1.5" stroke-dasharray="6,3" opacity="0.7"/>`;
     svg += `<text x="${MARGIN + 218}" y="${seamLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">Gripper rod perimeter</text>`;
+  }
+
+  // Cove legend indicators
+  const hasCove = rooms.some((r) => r.coved);
+  if (hasCove) {
+    const coveLegendY = seamLegendY + 20;
+    svg += `<rect x="${MARGIN + 12}" y="${coveLegendY - 5}" width="28" height="10" fill="${COLOURS.cove}" opacity="0.3" stroke="${COLOURS.coveStroke}" stroke-width="0.5"/>`;
+    svg += `<text x="${MARGIN + 50}" y="${coveLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">Coved skirting (100mm up wall)</text>`;
+
+    const weldLegendY = coveLegendY + 18;
+    // Internal weld marker
+    const ix = MARGIN + 26;
+    svg += `<polygon points="${ix},${weldLegendY - 5} ${ix + 5},${weldLegendY} ${ix},${weldLegendY + 5} ${ix - 5},${weldLegendY}" fill="${COLOURS.weldInternal}" opacity="0.8"/>`;
+    svg += `<text x="${MARGIN + 50}" y="${weldLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">Internal corner weld (100mm)</text>`;
+
+    const extLegendY = weldLegendY + 18;
+    // External weld marker
+    const ex = MARGIN + 26;
+    svg += `<rect x="${ex - 6}" y="${extLegendY - 6}" width="12" height="12" fill="${COLOURS.weldExternal}" opacity="0.8" rx="2"/>`;
+    svg += `<text x="${ex}" y="${extLegendY + 3}" text-anchor="middle" font-size="8" font-weight="bold" fill="white">P</text>`;
+    svg += `<text x="${MARGIN + 50}" y="${extLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">External corner patch (200mm + welds)</text>`;
   }
 
   svg += `</svg>`;

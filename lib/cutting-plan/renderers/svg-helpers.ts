@@ -1,4 +1,4 @@
-import type { Point, WallSegment, Drop, Seam, Polygon } from "../types";
+import type { Point, WallSegment, Drop, Seam, Polygon, CornerWeld } from "../types";
 
 // ── Colours ──
 export const COLOURS = {
@@ -17,6 +17,10 @@ export const COLOURS = {
   label: "#0f172a",
   legend: "#f8fafc",
   legendBorder: "#e2e8f0",
+  cove: "#a78bfa",
+  coveStroke: "#7c3aed",
+  weldInternal: "#059669",
+  weldExternal: "#dc2626",
 } as const;
 
 // ── Scale helper ──
@@ -148,11 +152,12 @@ export function renderWallDimension(
   return line + tick1 + tick2 + text;
 }
 
-export function renderPileArrow(
+export function renderDirectionArrow(
   cx: number,
   cy: number,
   direction_deg: number,
-  scale: number
+  scale: number,
+  labelText: string
 ): string {
   const arrowLen = 40;
   const rad = (direction_deg * Math.PI) / 180;
@@ -165,9 +170,72 @@ export function renderPileArrow(
   const y2 = cy + dy;
 
   const line = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${COLOURS.pileArrow}" stroke-width="3" marker-end="url(#arrowhead)"/>`;
-  const label = `<text x="${cx}" y="${cy - 20}" text-anchor="middle" font-size="11" font-weight="bold" fill="${COLOURS.pileArrow}">PILE DIRECTION</text>`;
+  const label = `<text x="${cx}" y="${cy - 20}" text-anchor="middle" font-size="11" font-weight="bold" fill="${COLOURS.pileArrow}">${escapeXml(labelText)}</text>`;
 
   return line + label;
+}
+
+export function renderCovePerimeter(
+  walls: Polygon,
+  coveHeightMm: number,
+  scale: number,
+  offsetX: number,
+  offsetY: number
+): string {
+  // Draw a coloured strip along the inside of each wall representing the cove
+  let svg = "";
+  const stripWidth = mmToSvg(coveHeightMm, scale);
+
+  for (let i = 0; i < walls.length; i++) {
+    const p1 = walls[i];
+    const p2 = walls[(i + 1) % walls.length];
+
+    const x1 = mmToSvg(p1.x_mm, scale) + offsetX;
+    const y1 = mmToSvg(p1.y_mm, scale) + offsetY;
+    const x2 = mmToSvg(p2.x_mm, scale) + offsetX;
+    const y2 = mmToSvg(p2.y_mm, scale) + offsetY;
+
+    // Wall direction
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len < 1) continue;
+
+    // Inward normal (for clockwise polygon)
+    const nx = dy / len;
+    const ny = -dx / len;
+
+    // Draw strip as a polygon (wall edge + inward offset)
+    const ix1 = x1 + nx * stripWidth;
+    const iy1 = y1 + ny * stripWidth;
+    const ix2 = x2 + nx * stripWidth;
+    const iy2 = y2 + ny * stripWidth;
+
+    svg += `<polygon points="${x1},${y1} ${x2},${y2} ${ix2},${iy2} ${ix1},${iy1}" fill="${COLOURS.cove}" opacity="0.3" stroke="${COLOURS.coveStroke}" stroke-width="0.5"/>`;
+  }
+
+  return svg;
+}
+
+export function renderCornerWeld(
+  weld: CornerWeld,
+  scale: number,
+  offsetX: number,
+  offsetY: number
+): string {
+  const x = mmToSvg(weld.position.x_mm, scale) + offsetX;
+  const y = mmToSvg(weld.position.y_mm, scale) + offsetY;
+
+  if (weld.type === "internal") {
+    // Small green diamond marker
+    const s = 6;
+    return `<polygon points="${x},${y - s} ${x + s},${y} ${x},${y + s} ${x - s},${y}" fill="${COLOURS.weldInternal}" opacity="0.8"/>`;
+  } else {
+    // Red square marker for external corner patch
+    const s = 7;
+    return `<rect x="${x - s}" y="${y - s}" width="${s * 2}" height="${s * 2}" fill="${COLOURS.weldExternal}" opacity="0.8" rx="2"/>` +
+      `<text x="${x}" y="${y + 3}" text-anchor="middle" font-size="8" font-weight="bold" fill="white">P</text>`;
+  }
 }
 
 export function renderGripperPerimeter(
