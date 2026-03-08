@@ -35,10 +35,6 @@ export function calculateCarpetLayout(input: CarpetLayoutInput): RoomLayout {
   const bbox = polygonBoundingBox(resolved_walls);
   const roomAreaMm2 = polygonArea(resolved_walls);
 
-  // Effective room dimensions (inside gripper rods)
-  const effectiveWidth = bbox.width_mm - gripperGap * 2;
-  const effectiveHeight = bbox.height_mm - gripperGap * 2;
-
   const rollWidthMm = material.width_m * 1000;
 
   // Determine pile direction: default along longest axis
@@ -48,9 +44,10 @@ export function calculateCarpetLayout(input: CarpetLayoutInput): RoomLayout {
 
   // For pile direction 0: drops span the height, laid across the width
   // For pile direction 90: drops span the width, laid across the height
+  // Drops cover the full room dimensions — gripper gap is visual only, carpet still covers it
   const isRotated = pileDeg === 90;
-  const layWidth = isRotated ? effectiveHeight : effectiveWidth;
-  const layLength = isRotated ? effectiveWidth : effectiveHeight;
+  const layWidth = isRotated ? bbox.height_mm : bbox.width_mm;
+  const layLength = isRotated ? bbox.width_mm : bbox.height_mm;
 
   // Calculate number of drops
   const numFullDrops = Math.floor(layWidth / rollWidthMm);
@@ -70,13 +67,13 @@ export function calculateCarpetLayout(input: CarpetLayoutInput): RoomLayout {
     // Position in room coordinates
     let x_mm: number, y_mm: number, w_mm: number, h_mm: number;
     if (isRotated) {
-      x_mm = bbox.min_x + gripperGap;
-      y_mm = bbox.min_y + gripperGap + i * rollWidthMm;
+      x_mm = bbox.min_x;
+      y_mm = bbox.min_y + i * rollWidthMm;
       w_mm = layLength;
       h_mm = dropWidth;
     } else {
-      x_mm = bbox.min_x + gripperGap + i * rollWidthMm;
-      y_mm = bbox.min_y + gripperGap;
+      x_mm = bbox.min_x + i * rollWidthMm;
+      y_mm = bbox.min_y;
       w_mm = dropWidth;
       h_mm = layLength;
     }
@@ -115,8 +112,8 @@ export function calculateCarpetLayout(input: CarpetLayoutInput): RoomLayout {
       });
     } else {
       seamX = drop.x_mm + drop.width_mm;
-      seamYStart = bbox.min_y + gripperGap;
-      seamYEnd = bbox.min_y + gripperGap + layLength;
+      seamYStart = bbox.min_y;
+      seamYEnd = bbox.min_y + layLength;
       seams.push({
         x_mm: seamX,
         y_start_mm: seamYStart,

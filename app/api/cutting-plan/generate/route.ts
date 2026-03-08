@@ -254,7 +254,7 @@ async function saveToStorage(
 
   // Upload to storage
   const { error: uploadError } = await supabase.storage
-    .from("job-files")
+    .from("job_files")
     .upload(storagePath, pngBuffer, {
       contentType: "image/png",
       upsert: false,
@@ -267,7 +267,7 @@ async function saveToStorage(
 
   // Get signed URL (7 days)
   const { data: signedUrlData } = await supabase.storage
-    .from("job-files")
+    .from("job_files")
     .createSignedUrl(storagePath, 60 * 60 * 24 * 7);
 
   const fileUrl = signedUrlData?.signedUrl ?? null;
@@ -278,8 +278,8 @@ async function saveToStorage(
     job_id: jobId,
     client_id: clientId,
     file_name: fileName,
-    file_type: "image/png",
-    file_size: pngBuffer.length,
+    mime_type: "image/png",
+    size_bytes: pngBuffer.length,
     storage_path: storagePath,
     file_category: "cutting_plan",
     ai_analysis: { summary: summaryText },
