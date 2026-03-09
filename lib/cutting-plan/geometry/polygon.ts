@@ -118,8 +118,10 @@ export function rectangleToPolygon(w_m: number, l_m: number): Polygon {
 
 /**
  * Compute the intersection area of an axis-aligned rectangle with a polygon.
- * Uses the Sutherland-Hodgman algorithm to clip the polygon to the rectangle,
- * then computes the area of the clipped polygon.
+ *
+ * Uses Sutherland-Hodgman: clips the room polygon (subject, can be concave)
+ * against the rectangle (clip, always convex). SH requires the CLIP polygon
+ * to be convex — so the rectangle must be the clip, not the room.
  */
 export function clipRectToPolygonArea(
   rect_x: number,
@@ -128,16 +130,21 @@ export function clipRectToPolygonArea(
   rect_h: number,
   walls: Polygon
 ): number {
-  // Clip the rectangle (as a polygon) against the room polygon
-  let subject: Point[] = [
+  // Subject = room polygon (may be concave — L-shapes, T-shapes, etc.)
+  let subject: Point[] = walls.map((p) => ({ ...p }));
+
+  // Clip = rectangle (always convex) — SH requires convex clip polygon
+  const clip: Point[] = [
     { x_mm: rect_x, y_mm: rect_y },
     { x_mm: rect_x + rect_w, y_mm: rect_y },
     { x_mm: rect_x + rect_w, y_mm: rect_y + rect_h },
     { x_mm: rect_x, y_mm: rect_y + rect_h },
   ];
 
-  // Sutherland-Hodgman: clip subject polygon against each edge of the clip polygon
-  const clip = walls;
+  // Determine winding of the clip rectangle (always CCW for our construction)
+  const clipArea = rawSignedArea(clip);
+  const clipCCW = clipArea > 0;
+
   const n = clip.length;
 
   for (let i = 0; i < n; i++) {
@@ -151,8 +158,12 @@ export function clipRectToPolygonArea(
       const current = subject[j];
       const prev = subject[(j + subject.length - 1) % subject.length];
 
-      const currInside = isInside(current, edgeStart, edgeEnd);
-      const prevInside = isInside(prev, edgeStart, edgeEnd);
+      const currInside = clipCCW
+        ? isInside(current, edgeStart, edgeEnd)
+        : isInsideCW(current, edgeStart, edgeEnd);
+      const prevInside = clipCCW
+        ? isInside(prev, edgeStart, edgeEnd)
+        : isInsideCW(prev, edgeStart, edgeEnd);
 
       if (currInside) {
         if (!prevInside) {
@@ -173,11 +184,31 @@ export function clipRectToPolygonArea(
   return polygonArea(subject);
 }
 
-/** Check if point is on the inside (left side) of edge from a to b */
+/** Signed area (positive = CCW, negative = CW) */
+function rawSignedArea(poly: Point[]): number {
+  let area = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const j = (i + 1) % poly.length;
+    area += poly[i].x_mm * poly[j].y_mm;
+    area -= poly[j].x_mm * poly[i].y_mm;
+  }
+  return area / 2;
+}
+
+/** Check if point is on the inside (left side) of edge from a to b — for CCW polygons */
 function isInside(point: Point, a: Point, b: Point): boolean {
   return (
     (b.x_mm - a.x_mm) * (point.y_mm - a.y_mm) -
       (b.y_mm - a.y_mm) * (point.x_mm - a.x_mm) >=
+    0
+  );
+}
+
+/** Check if point is on the inside (right side) of edge from a to b — for CW polygons */
+function isInsideCW(point: Point, a: Point, b: Point): boolean {
+  return (
+    (b.x_mm - a.x_mm) * (point.y_mm - a.y_mm) -
+      (b.y_mm - a.y_mm) * (point.x_mm - a.x_mm) <=
     0
   );
 }
