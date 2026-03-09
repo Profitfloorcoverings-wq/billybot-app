@@ -27,10 +27,36 @@ export interface WallSegment {
 // ── Input types ──
 
 export interface DoorInput {
-  /** Position along the wall (mm from wall start) */
-  wall_index: number;
-  position_mm: number;
-  width_mm: number;
+  /** Legacy: wall index (0-based) for position along wall */
+  wall_index?: number;
+  /** Position: mm offset along wall (legacy) OR {x_mm, y_mm} / {x, y} coordinate (from vision AI) */
+  position_mm?: number | Point | { x: number; y: number };
+  /** Door width in mm */
+  width_mm?: number;
+  /** Door width in metres (from vision AI — auto-converted to mm) */
+  width_m?: number;
+  /** Wall segment vertex indices [start, end] from vision AI */
+  wall_segment?: [number, number];
+  /** Which room this door connects to */
+  connects_to?: string;
+  /** Door opening direction */
+  opens?: string;
+}
+
+export interface WindowInput {
+  /** Centre position as {x_mm, y_mm} or {x, y} coordinate */
+  position_mm?: Point | { x: number; y: number };
+  /** Wall segment vertex indices [start, end] */
+  wall_segment?: [number, number];
+  /** Window width in metres */
+  width_m?: number;
+}
+
+export interface ObstacleInput {
+  /** e.g. "chimney_breast", "radiator", "hearth", "fitted_furniture" */
+  type: string;
+  /** Bounding rectangle in room coordinate space (mm) */
+  rect_mm?: { x: number; y: number; w: number; h: number };
 }
 
 export interface RoomInput {
@@ -40,8 +66,20 @@ export interface RoomInput {
   /** Fallback for legacy ai_analysis data without walls */
   bounding_box?: { w_m: number; l_m: number };
   doors?: DoorInput[];
+  windows?: WindowInput[];
+  obstacles?: ObstacleInput[];
   /** Override pile/lay direction in degrees (0 = left-to-right, 90 = top-to-bottom) */
   pile_direction?: number;
+  /** Primary light source direction (e.g. "north", "front_wall", "east") */
+  main_light_source?: string;
+  /** Flooring finish for this room (from vision AI) */
+  finish?: string;
+  /** Room shape description */
+  shape?: string;
+  /** Pre-calculated area from vision AI */
+  area_m2?: number;
+  /** Textual features from vision AI */
+  features?: string[];
 }
 
 export type FlooringType =
@@ -72,6 +110,8 @@ export interface CuttingPlanOptions {
   gripper_gap_mm?: number;
   /** Expansion gap from wall (laminate/LVT). Default 10mm. */
   expansion_gap_mm?: number;
+  /** Minimum stagger offset between rows (plank). Default 300mm. */
+  stagger_min_mm?: number;
   /** Additional waste % to add. Default 0. */
   waste_percent?: number;
   /** Length excess for vinyl drops. Default 100mm. */
@@ -91,6 +131,17 @@ export interface CuttingPlanRequest {
   options?: CuttingPlanOptions;
 }
 
+// ── Accessory types ──
+
+export interface Accessory {
+  /** e.g. "gripper_rod", "underlay", "door_bar", "threshold_strip", "adhesive", "expansion_beading" */
+  type: string;
+  description: string;
+  quantity: number;
+  /** "lm" (linear metres), "m2", "units", "tubs", "rolls" */
+  unit: string;
+}
+
 // ── Output types ──
 
 export interface Drop {
@@ -99,10 +150,14 @@ export interface Drop {
   x_mm: number;
   /** Top edge position in mm */
   y_mm: number;
-  /** Full width of this drop (roll width or remainder) */
+  /** Floor coverage width (mm) */
   width_mm: number;
-  /** Full length of this drop */
+  /** Floor coverage length (mm) */
   length_mm: number;
+  /** Actual cut width including cove (mm) — for label display */
+  cut_width_mm?: number;
+  /** Actual cut length including excess + cove (mm) — for label display */
+  cut_length_mm?: number;
   /** True if this is a partial-width drop */
   is_offcut: boolean;
   /** Actual material area after polygon clipping (mm²) */
@@ -110,8 +165,10 @@ export interface Drop {
 }
 
 export interface Seam {
-  /** X position of seam line */
+  /** X start position of seam line */
   x_mm: number;
+  /** X end position (for horizontal seams; defaults to x_mm for vertical) */
+  x_end_mm?: number;
   y_start_mm: number;
   y_end_mm: number;
   /** True if seam falls within 300mm of a door */
@@ -159,6 +216,8 @@ export interface RoomLayout {
   corner_welds?: CornerWeld[];
   /** Whether this layout uses coved skirtings */
   coved?: boolean;
+  /** Accessory quantities (gripper, underlay, door bars, etc.) */
+  accessories?: Accessory[];
 }
 
 export interface CuttingPlanTotals {
@@ -175,6 +234,8 @@ export interface CuttingPlanResult {
   totals: CuttingPlanTotals;
   /** For roll goods: total linear metres of roll needed */
   roll_length_required_m?: number;
+  /** Combined accessories across all rooms */
+  accessories: Accessory[];
   /** SVG string */
   svg: string;
   /** Human-readable summary */

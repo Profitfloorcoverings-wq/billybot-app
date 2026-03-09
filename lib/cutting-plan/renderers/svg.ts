@@ -22,14 +22,14 @@ import {
   renderCovePerimeter,
   renderCornerWeld,
   renderDoor,
-  renderLegend,
   renderArrowheadDef,
+  renderTile,
   escapeXml,
 } from "./svg-helpers";
 
 const MARGIN = 80;
-const LEGEND_HEIGHT = 180;
 const ROOM_GAP = 40;
+const LINE_H = 18;
 
 interface RenderOptions {
   title?: string;
@@ -47,16 +47,15 @@ export function renderCuttingPlanSvg(
   const { rooms, material, flooring_type, totals } = result;
   const showGripper = options?.showGripper ?? flooring_type === "carpet";
   const gripperGapMm = options?.gripperGapMm ?? 6;
+  const hasCove = rooms.some((r) => r.coved);
 
-  // Calculate total SVG dimensions
-  // For now: single room (Phase 1). Multi-room in Phase 4.
+  // Calculate room SVG metrics
   const layouts = rooms;
   let totalWidth = 0;
-  let maxHeight = 0;
+  let roomsHeight = 0;
 
   const roomMetrics = layouts.map((layout) => {
     const bbox = polygonBoundingBox(layout.resolved_walls);
-    // Scale: fit largest dimension to ~600px
     const maxDim = Math.max(bbox.width_mm, bbox.height_mm);
     const scale = maxDim > 0 ? 500 / maxDim : 1;
     const svgW = mmToSvg(bbox.width_mm, scale);
@@ -66,16 +65,22 @@ export function renderCuttingPlanSvg(
 
   roomMetrics.forEach((m) => {
     totalWidth = Math.max(totalWidth, m.svgW);
-    maxHeight += m.svgH + ROOM_GAP;
+    roomsHeight += m.svgH + ROOM_GAP;
   });
+
+  // Build legend content to calculate exact height needed
+  const legendLines = buildLegendLines(result);
+  const keyLines = buildKeyLines(flooring_type, showGripper, hasCove);
+  const totalLegendLines = legendLines.length + 1 + keyLines.length; // +1 for "Key:" header
+  const legendPadding = 12;
+  const legendHeight = totalLegendLines * LINE_H + legendPadding * 2 + 8;
 
   const svgWidth = totalWidth + MARGIN * 2;
   const titleHeight = 40;
-  const svgHeight = maxHeight + MARGIN * 2 + LEGEND_HEIGHT + titleHeight;
+  const svgHeight = roomsHeight + MARGIN * 2 + legendHeight + titleHeight + 20;
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${svgWidth} ${svgHeight}" width="${svgWidth}" height="${svgHeight}" style="font-family: Inter, Arial, sans-serif; background: white;">`;
 
-  // Arrow marker def
   svg += renderArrowheadDef();
 
   // Title
@@ -93,14 +98,14 @@ export function renderCuttingPlanSvg(
     // Room name
     svg += `<text x="${MARGIN}" y="${currentY - 10}" font-size="15" font-weight="600" fill="${COLOURS.label}">${escapeXml(layout.room.name)}</text>`;
 
-    // Clip path for room polygon
+    // Clip path
     const clipId = `room-clip-${roomIdx}`;
     svg += renderClipPath(clipId, layout.resolved_walls, scale, offsetX, offsetY);
 
     // Room outline (background)
     svg += renderPolygonOutline(layout.resolved_walls, scale, offsetX, offsetY);
 
-    // Drops (clipped to room polygon)
+    // Drops (clipped) — roll goods
     if (layout.drops && layout.drops.length > 0) {
       svg += `<g clip-path="url(#${clipId})">`;
       layout.drops.forEach((drop, i) => {
@@ -109,7 +114,16 @@ export function renderCuttingPlanSvg(
       svg += `</g>`;
     }
 
-    // Seams (on top, also clipped)
+    // Tiles (clipped) — plank/tile goods
+    if (layout.tiles && layout.tiles.length > 0) {
+      svg += `<g clip-path="url(#${clipId})">`;
+      layout.tiles.forEach((tile) => {
+        svg += renderTile(tile, scale, offsetX, offsetY);
+      });
+      svg += `</g>`;
+    }
+
+    // Seams (clipped)
     if (layout.seams && layout.seams.length > 0) {
       svg += `<g clip-path="url(#${clipId})">`;
       layout.seams.forEach((seam) => {
@@ -118,12 +132,12 @@ export function renderCuttingPlanSvg(
       svg += `</g>`;
     }
 
-    // Room outline (on top of drops)
+    // Room outline (on top)
     svg += `<polygon points="${layout.resolved_walls
       .map((p) => `${mmToSvg(p.x_mm, scale) + offsetX},${mmToSvg(p.y_mm, scale) + offsetY}`)
       .join(" ")}" fill="none" stroke="${COLOURS.wall}" stroke-width="3" stroke-linejoin="round"/>`;
 
-    // Gripper perimeter (carpet only)
+    // Gripper perimeter (carpet)
     if (showGripper) {
       const inset = insetPolygon(layout.resolved_walls, gripperGapMm);
       if (inset.length >= 3) {
@@ -131,13 +145,12 @@ export function renderCuttingPlanSvg(
       }
     }
 
-    // Coved skirtings perimeter strip (vinyl)
+    // Coved skirtings (vinyl) — hatched strip inside walls
     if (layout.coved) {
-      const coveH = options?.gripperGapMm ?? 100; // reuse option or default
       svg += renderCovePerimeter(layout.resolved_walls, 100, scale, offsetX, offsetY);
     }
 
-    // Corner welds (coved vinyl)
+    // Corner welds
     if (layout.corner_welds && layout.corner_welds.length > 0) {
       for (const weld of layout.corner_welds) {
         svg += renderCornerWeld(weld, scale, offsetX, offsetY);
@@ -150,78 +163,160 @@ export function renderCuttingPlanSvg(
       svg += renderWallDimension(seg, scale, offsetX, offsetY, true);
     });
 
-    // Doors
+    // Doors — handle both legacy (wall_index + offset) and new (position_mm/wall_segment) formats
     if (layout.room.doors && layout.room.doors.length > 0) {
-      const wallSegsForDoors = polygonWallSegments(layout.resolved_walls);
       for (const door of layout.room.doors) {
-        const wallIdx = door.wall_index;
-        if (wallIdx >= 0 && wallIdx < wallSegsForDoors.length) {
-          const wall = wallSegsForDoors[wallIdx];
-          svg += renderDoor(
-            wall.start,
-            wall.end,
-            door.position_mm,
-            door.width_mm,
-            scale,
-            offsetX,
-            offsetY
-          );
+        const widthMm = door.width_mm ?? (door.width_m ? door.width_m * 1000 : 830);
+
+        // New format: wall_segment [startIdx, endIdx]
+        if (door.wall_segment && door.wall_segment.length === 2) {
+          const [si, ei] = door.wall_segment;
+          if (si >= 0 && si < wallSegs.length) {
+            const wall = wallSegs[si];
+            // Position along wall — if we have position_mm as Point, project onto wall
+            const pos = door.position_mm;
+            let posMm = wall.length_mm / 2; // default: middle of wall
+            if (pos && typeof pos === "object") {
+              const px = "x_mm" in pos ? (pos as { x_mm: number }).x_mm : (pos as { x: number }).x;
+              const py = "x_mm" in pos ? (pos as { y_mm: number }).y_mm : (pos as { y: number }).y;
+              // Project point onto wall segment
+              const dx = wall.end.x_mm - wall.start.x_mm;
+              const dy = wall.end.y_mm - wall.start.y_mm;
+              const len2 = dx * dx + dy * dy;
+              if (len2 > 0) {
+                const t = Math.max(0, Math.min(1, ((px - wall.start.x_mm) * dx + (py - wall.start.y_mm) * dy) / len2));
+                posMm = t * wall.length_mm;
+              }
+            }
+            svg += renderDoor(wall.start, wall.end, posMm, widthMm, scale, offsetX, offsetY);
+            continue;
+          }
+        }
+
+        // Legacy format: wall_index + position_mm as number
+        if (door.wall_index != null && typeof door.position_mm === "number") {
+          const wallIdx = door.wall_index;
+          if (wallIdx >= 0 && wallIdx < wallSegs.length) {
+            const wall = wallSegs[wallIdx];
+            svg += renderDoor(wall.start, wall.end, door.position_mm, widthMm, scale, offsetX, offsetY);
+          }
         }
       }
     }
 
-    // Direction arrow — carpet = "PILE DIRECTION", vinyl = "LAY DIRECTION"
+    // Direction arrow
+    // Carpet: "PILE DIRECTION" runs down the drop length
+    // Vinyl: "LAY DIRECTION" runs down the drop length (all drops same direction)
     const dirLabel = flooring_type === "carpet" ? "PILE DIRECTION" : "LAY DIRECTION";
     const centreX = mmToSvg((bbox.min_x + bbox.max_x) / 2, scale) + offsetX;
     const centreY = mmToSvg(bbox.min_y, scale) + offsetY - 35;
-    svg += renderDirectionArrow(centreX, centreY, layout.pile_direction_deg, scale, dirLabel);
+    // Direction is along the drop length (perpendicular to lay width)
+    const dirDeg = layout.pile_direction_deg === 90 ? 0 : 90;
+    svg += renderDirectionArrow(centreX, centreY, dirDeg, scale, dirLabel);
 
     currentY += svgH + ROOM_GAP;
   });
 
-  // Legend
+  // ── Legend box with all info + key ──
   const legendY = currentY + 10;
-  const legendLines = buildLegendLines(result);
-  svg += renderLegend(MARGIN, legendY, totalWidth, legendLines);
+  const legendX = MARGIN;
+  const legendW = totalWidth;
 
-  // Seam legend indicator
-  const seamLabel = flooring_type === "vinyl" ? "Weld seam" : "Seam/join line";
-  const seamLegendY = legendY + legendLines.length * 18 + 36;
-  svg += `<line x1="${MARGIN + 12}" y1="${seamLegendY}" x2="${MARGIN + 40}" y2="${seamLegendY}" stroke="${COLOURS.seam}" stroke-width="2" stroke-dasharray="8,4"/>`;
-  svg += `<text x="${MARGIN + 50}" y="${seamLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">${seamLabel}</text>`;
+  svg += `<rect x="${legendX}" y="${legendY}" width="${legendW}" height="${legendHeight}" rx="6" fill="${COLOURS.legend}" stroke="${COLOURS.legendBorder}" stroke-width="1"/>`;
 
-  if (showGripper) {
-    svg += `<line x1="${MARGIN + 180}" y1="${seamLegendY}" x2="${MARGIN + 208}" y2="${seamLegendY}" stroke="${COLOURS.gripper}" stroke-width="1.5" stroke-dasharray="6,3" opacity="0.7"/>`;
-    svg += `<text x="${MARGIN + 218}" y="${seamLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">Gripper rod perimeter</text>`;
+  let lineY = legendY + legendPadding + 14;
+
+  // Info lines
+  for (const line of legendLines) {
+    svg += `<text x="${legendX + legendPadding}" y="${lineY}" font-size="12" fill="${COLOURS.label}">${escapeXml(line)}</text>`;
+    lineY += LINE_H;
   }
 
-  // Cove legend indicators
-  const hasCove = rooms.some((r) => r.coved);
-  if (hasCove) {
-    const coveLegendY = seamLegendY + 20;
-    svg += `<rect x="${MARGIN + 12}" y="${coveLegendY - 5}" width="28" height="10" fill="${COLOURS.cove}" opacity="0.3" stroke="${COLOURS.coveStroke}" stroke-width="0.5"/>`;
-    svg += `<text x="${MARGIN + 50}" y="${coveLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">Coved skirting (100mm up wall)</text>`;
+  // Key header
+  lineY += 4;
+  svg += `<text x="${legendX + legendPadding}" y="${lineY}" font-size="12" font-weight="bold" fill="${COLOURS.label}">Key:</text>`;
+  lineY += LINE_H;
 
-    const weldLegendY = coveLegendY + 18;
-    // Internal weld marker
-    const ix = MARGIN + 26;
-    svg += `<polygon points="${ix},${weldLegendY - 5} ${ix + 5},${weldLegendY} ${ix},${weldLegendY + 5} ${ix - 5},${weldLegendY}" fill="${COLOURS.weldInternal}" opacity="0.8"/>`;
-    svg += `<text x="${MARGIN + 50}" y="${weldLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">Internal corner weld (100mm)</text>`;
-
-    const extLegendY = weldLegendY + 18;
-    // External weld marker
-    const ex = MARGIN + 26;
-    svg += `<rect x="${ex - 6}" y="${extLegendY - 6}" width="12" height="12" fill="${COLOURS.weldExternal}" opacity="0.8" rx="2"/>`;
-    svg += `<text x="${ex}" y="${extLegendY + 3}" text-anchor="middle" font-size="8" font-weight="bold" fill="white">P</text>`;
-    svg += `<text x="${MARGIN + 50}" y="${extLegendY + 4}" font-size="11" fill="${COLOURS.dimension}">External corner patch (200mm + welds)</text>`;
+  // Key items with inline markers
+  for (const key of keyLines) {
+    svg += renderKeyItem(legendX + legendPadding, lineY, key);
+    lineY += LINE_H;
   }
 
   svg += `</svg>`;
   return svg;
 }
 
+interface KeyItem {
+  type: "seam" | "gripper" | "cove" | "weld-internal" | "weld-external" | "door";
+  label: string;
+}
+
+function buildKeyLines(
+  flooringType: FlooringType,
+  showGripper: boolean,
+  hasCove: boolean
+): KeyItem[] {
+  const keys: KeyItem[] = [];
+
+  keys.push({
+    type: "seam",
+    label: flooringType === "vinyl" ? "Weld seam (butt joint)" : "Seam/join line",
+  });
+
+  if (showGripper) {
+    keys.push({ type: "gripper", label: "Gripper rod perimeter" });
+  }
+
+  keys.push({ type: "door", label: "Doorway" });
+
+  if (hasCove) {
+    keys.push({ type: "cove", label: "Coved skirting (100mm up wall)" });
+    keys.push({ type: "weld-internal", label: "Internal corner weld (100mm)" });
+    keys.push({ type: "weld-external", label: "External corner — 200mm patch + welds" });
+  }
+
+  return keys;
+}
+
+function renderKeyItem(x: number, y: number, key: KeyItem): string {
+  const markerX = x + 14;
+  const textX = x + 36;
+  let marker = "";
+
+  switch (key.type) {
+    case "seam":
+      marker = `<line x1="${x}" y1="${y - 4}" x2="${x + 28}" y2="${y - 4}" stroke="${COLOURS.seam}" stroke-width="2" stroke-dasharray="8,4"/>`;
+      break;
+    case "gripper":
+      marker = `<line x1="${x}" y1="${y - 4}" x2="${x + 28}" y2="${y - 4}" stroke="${COLOURS.gripper}" stroke-width="1.5" stroke-dasharray="6,3" opacity="0.7"/>`;
+      break;
+    case "door":
+      marker = `<line x1="${x}" y1="${y - 4}" x2="${x + 20}" y2="${y - 4}" stroke="${COLOURS.door}" stroke-width="4"/>`;
+      marker += `<circle cx="${x}" cy="${y - 4}" r="3" fill="${COLOURS.door}"/>`;
+      break;
+    case "cove":
+      marker = `<rect x="${x}" y="${y - 9}" width="28" height="10" fill="${COLOURS.cove}" opacity="0.35" stroke="${COLOURS.coveStroke}" stroke-width="1"/>`;
+      break;
+    case "weld-internal": {
+      const ix = markerX;
+      marker = `<polygon points="${ix},${y - 9} ${ix + 6},${y - 4} ${ix},${y + 1} ${ix - 6},${y - 4}" fill="${COLOURS.weldInternal}" opacity="0.9"/>`;
+      break;
+    }
+    case "weld-external": {
+      const ex = markerX;
+      marker = `<rect x="${ex - 7}" y="${y - 10}" width="14" height="14" fill="${COLOURS.weldExternal}" opacity="0.9" rx="2"/>`;
+      marker += `<text x="${ex}" y="${y - 1}" text-anchor="middle" font-size="9" font-weight="bold" fill="white">P</text>`;
+      break;
+    }
+  }
+
+  const text = `<text x="${textX}" y="${y}" font-size="11" fill="${COLOURS.dimension}">${escapeXml(key.label)}</text>`;
+  return marker + text;
+}
+
 function buildLegendLines(result: CuttingPlanResult): string[] {
-  const { material, totals, rooms, flooring_type } = result;
+  const { material, totals, rooms, flooring_type, accessories } = result;
   const lines: string[] = [];
 
   if (material.product_name) {
@@ -247,16 +342,33 @@ function buildLegendLines(result: CuttingPlanResult): string[] {
     }
   }
 
-  // Coved skirtings info
+  if (rooms.length > 0 && rooms[0].tiles) {
+    const totalTiles = rooms.reduce((s, r) => s + (r.tiles?.length ?? 0), 0);
+    const cutTiles = rooms.reduce(
+      (s, r) => s + (r.tiles?.filter((t) => t.is_cut).length ?? 0),
+      0
+    );
+    lines.push(`Planks/tiles: ${totalTiles} (${cutTiles} cut)`);
+  }
+
   if (rooms.length > 0 && rooms[0].coved && rooms[0].corner_welds) {
     const welds = rooms[0].corner_welds;
     const internal = welds.filter((w) => w.type === "internal").length;
     const external = welds.filter((w) => w.type === "external").length;
     lines.push(`Coved skirtings: Yes`);
-    if (internal > 0) lines.push(`  Internal corners: ${internal} (100mm weld each)`);
-    if (external > 0) lines.push(`  External corners: ${external} (200mm patch + welds)`);
+    if (internal > 0) lines.push(`  Internal corners: ${internal}`);
+    if (external > 0) lines.push(`  External corners: ${external}`);
     const totalWeld = welds.reduce((s, w) => s + w.weld_length_mm, 0);
-    lines.push(`  Total weld: ${(totalWeld / 1000).toFixed(1)}m`);
+    lines.push(`  Total corner weld: ${(totalWeld / 1000).toFixed(1)}m`);
+  }
+
+  // Accessories
+  if (accessories && accessories.length > 0) {
+    lines.push("");
+    lines.push("Accessories needed:");
+    for (const acc of accessories) {
+      lines.push(`  ${acc.quantity} ${acc.unit} — ${acc.description}`);
+    }
   }
 
   return lines;

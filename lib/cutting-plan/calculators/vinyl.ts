@@ -14,7 +14,10 @@ import {
   rectangleToPolygon,
   clipRectToPolygonArea,
   polygonWallSegments,
+  polygonExtentInYBand,
+  polygonExtentInXBand,
 } from "../geometry/polygon";
+import { isDoorNearSeam } from "./doors";
 
 const DEFAULT_LENGTH_EXCESS_MM = 100;
 const DEFAULT_COVE_HEIGHT_MM = 100;
@@ -27,9 +30,15 @@ interface VinylLayoutInput {
 
 /**
  * Calculate vinyl sheet layout for a single room.
- * - Drops butt together (no overlap) — weld groove cut after fitting
- * - 100mm excess on drop lengths
- * - Optional coved skirtings: vinyl goes up walls, corner welds tracked
+ *
+ * Coved skirtings: the vinyl itself turns up the wall (100mm default).
+ * - Edge drops lose floor coverage because part of the roll goes up the side wall.
+ *   Drop 1 covers rollWidth − coveHeight of floor (left edge goes up wall).
+ *   Last drop: remaining floor + coveHeight up right wall.
+ * - ALL drops get coveHeight added to BOTH ends of cut length (turns up end walls).
+ * - Filler optimisation (trade practice):
+ *   Filler ≤ 500mm → turned 90° (2m widths × filler width), noted on plan.
+ *   Filler 500mm–1000mm → order half length, split in two with T-weld.
  */
 export function calculateVinylLayout(input: VinylLayoutInput): RoomLayout {
   const { room, material, options } = input;
@@ -45,110 +54,137 @@ export function calculateVinylLayout(input: VinylLayoutInput): RoomLayout {
   const rollWidthMm = material.width_m * 1000;
 
   // Smart orientation: try both directions, pick fewer drops
+  // When coved, account for cove reducing effective floor coverage
   let pileDeg: number;
   if (room.pile_direction != null) {
     pileDeg = room.pile_direction;
   } else {
-    const drops0 = Math.ceil(bbox.width_mm / rollWidthMm);
-    const drops90 = Math.ceil(bbox.height_mm / rollWidthMm);
-    const waste0 = drops0 * rollWidthMm * bbox.height_mm - roomAreaMm2;
-    const waste90 = drops90 * rollWidthMm * bbox.width_mm - roomAreaMm2;
+    const eff0 = calcDropCount(bbox.width_mm, rollWidthMm, coved ? coveHeight : 0);
+    const eff90 = calcDropCount(bbox.height_mm, rollWidthMm, coved ? coveHeight : 0);
+    const waste0 = eff0.totalRollWidth * bbox.height_mm - roomAreaMm2;
+    const waste90 = eff90.totalRollWidth * bbox.width_mm - roomAreaMm2;
 
-    if (drops0 <= drops90) {
-      pileDeg = waste0 <= waste90 ? 0 : drops0 < drops90 ? 0 : 90;
+    if (eff0.count <= eff90.count) {
+      pileDeg = waste0 <= waste90 ? 0 : eff0.count < eff90.count ? 0 : 90;
     } else {
-      pileDeg = waste90 <= waste0 ? 90 : drops90 < drops0 ? 90 : 0;
+      pileDeg = waste90 <= waste0 ? 90 : eff90.count < eff0.count ? 90 : 0;
     }
   }
 
   const isRotated = pileDeg === 90;
   const layWidth = isRotated ? bbox.height_mm : bbox.width_mm;
-  const layLength = isRotated ? bbox.width_mm : bbox.height_mm;
 
-  // Drops butt together — no overlap
-  const dropsNeeded = Math.ceil(layWidth / rollWidthMm);
+  // Calculate drops with cove-aware floor coverage
+  const dropPlan = calcDropCount(layWidth, rollWidthMm, coved ? coveHeight : 0);
 
-  // Cut length: room length + excess
-  // If coved: also add cove height on both ends (vinyl turns up both walls)
-  const coveExtra = coved ? coveHeight * 2 : 0;
-  const cutLength = layLength + lengthExcess + coveExtra;
-
-  // Build drops
+  // Build drops — each gets its own length based on polygon extent
   const drops: Drop[] = [];
-  let currentOffset = 0;
+  let floorOffset = 0; // tracks floor coverage position
 
-  for (let i = 0; i < dropsNeeded; i++) {
-    const isLast = i === dropsNeeded - 1;
-    let dropWidth: number;
+  for (let i = 0; i < dropPlan.count; i++) {
+    const isFirst = i === 0;
+    const isLast = i === dropPlan.count - 1;
 
-    if (isLast && dropsNeeded > 1) {
-      // Last drop: remaining width
-      dropWidth = layWidth - currentOffset;
-    } else if (dropsNeeded === 1) {
-      // Single drop: full roll width or room width (whichever is larger for material calc)
-      dropWidth = Math.max(rollWidthMm, layWidth);
-    } else {
-      dropWidth = rollWidthMm;
-    }
+    // Floor coverage width for this drop
+    const floorCoverage = dropPlan.floorWidths[i];
 
-    // If coved, first and last drops also need cove height on side walls
-    let actualWidth = dropWidth;
-    if (coved) {
-      if (i === 0) actualWidth += coveHeight; // first drop goes up left wall
-      if (isLast) actualWidth += coveHeight; // last drop goes up right wall
-    }
+    // Find actual polygon extent for this drop's band
+    let dropLength: number;
+    let dropX: number;
+    let dropY: number;
 
-    let x_mm: number, y_mm: number, w_mm: number, h_mm: number;
     if (isRotated) {
-      x_mm = bbox.min_x - (coved ? coveHeight : 0);
-      y_mm = bbox.min_y + currentOffset - (i === 0 && coved ? coveHeight : 0);
-      w_mm = cutLength;
-      h_mm = actualWidth;
+      const bandYMin = bbox.min_y + floorOffset + (i > 0 ? 1 : 0);
+      const bandYMax = bbox.min_y + floorOffset + floorCoverage;
+      const extent = polygonExtentInYBand(resolved_walls, bandYMin, bandYMax);
+      dropLength = extent ? extent.max_x - extent.min_x : bbox.width_mm;
+      dropX = extent ? extent.min_x : bbox.min_x;
+      dropY = bbox.min_y + floorOffset;
     } else {
-      x_mm = bbox.min_x + currentOffset - (i === 0 && coved ? coveHeight : 0);
-      y_mm = bbox.min_y - (coved ? coveHeight : 0);
-      w_mm = actualWidth;
-      h_mm = cutLength;
+      const bandXMin = bbox.min_x + floorOffset + (i > 0 ? 1 : 0);
+      const bandXMax = bbox.min_x + floorOffset + floorCoverage;
+      const extent = polygonExtentInXBand(resolved_walls, bandXMin, bandXMax);
+      dropLength = extent ? extent.max_y - extent.min_y : bbox.height_mm;
+      dropX = bbox.min_x + floorOffset;
+      dropY = extent ? extent.min_y : bbox.min_y;
     }
 
     const clippedArea = clipRectToPolygonArea(
-      bbox.min_x + currentOffset,
-      bbox.min_y,
-      dropWidth,
-      layLength,
+      isRotated ? dropX : bbox.min_x + floorOffset,
+      isRotated ? bbox.min_y + floorOffset : dropY,
+      isRotated ? dropLength : floorCoverage,
+      isRotated ? floorCoverage : dropLength,
       resolved_walls
     );
 
+    // Cut dimensions — what the fitter actually orders/cuts from the roll
+    // Vinyl comes in fixed roll widths — you always order full roll width.
+    // Length: floor extent + excess + cove on both ends (vinyl turns up end walls)
+    const coveLengthExtra = coved ? coveHeight * 2 : 0;
+    const fillerWidth = floorCoverage + (coved ? coveHeight : 0);
+    let cutWidthMm: number;
+    let cutLengthMm: number;
+
+    if (!isLast || floorCoverage >= rollWidthMm) {
+      // Full drop — always roll width × cut length
+      cutWidthMm = rollWidthMm;
+      cutLengthMm = dropLength + lengthExcess + coveLengthExtra;
+    } else if (fillerWidth <= 500) {
+      // Tiny filler (≤500mm): turn 90° — cut roll width × filler width
+      cutWidthMm = rollWidthMm;
+      cutLengthMm = fillerWidth;
+    } else if (fillerWidth <= 1000) {
+      // Medium filler (500mm–1m): order half the length, split with T-weld
+      cutWidthMm = rollWidthMm;
+      cutLengthMm = Math.ceil((dropLength + lengthExcess + coveLengthExtra) / 2);
+    } else {
+      // Large filler (>1m): full roll width × full length
+      cutWidthMm = rollWidthMm;
+      cutLengthMm = dropLength + lengthExcess + coveLengthExtra;
+    }
+
     drops.push({
       index: i + 1,
-      x_mm: isRotated ? bbox.min_x : bbox.min_x + currentOffset,
-      y_mm: isRotated ? bbox.min_y + currentOffset : bbox.min_y,
-      width_mm: isRotated ? layLength : dropWidth,
-      length_mm: isRotated ? dropWidth : layLength,
-      is_offcut: isLast && dropsNeeded > 1,
+      x_mm: isRotated ? dropX : bbox.min_x + floorOffset,
+      y_mm: isRotated ? bbox.min_y + floorOffset : dropY,
+      width_mm: isRotated ? dropLength : floorCoverage,
+      length_mm: isRotated ? floorCoverage : dropLength,
+      cut_width_mm: isRotated ? cutLengthMm : cutWidthMm,
+      cut_length_mm: isRotated ? cutWidthMm : cutLengthMm,
+      is_offcut: isLast && floorCoverage < rollWidthMm,
       clipped_area_mm2: clippedArea,
     });
 
-    currentOffset += rollWidthMm;
+    floorOffset += floorCoverage;
   }
 
   // Weld seam positions (butt joints between drops)
   const seams: Seam[] = [];
-  for (let i = 0; i < dropsNeeded - 1; i++) {
-    const seamPos = (i + 1) * rollWidthMm;
+  let seamFloorOffset = 0;
+  for (let i = 0; i < dropPlan.count - 1; i++) {
+    seamFloorOffset += dropPlan.floorWidths[i];
     if (isRotated) {
+      const seamY = bbox.min_y + seamFloorOffset;
+      const extent = polygonExtentInYBand(resolved_walls, seamY + 1, seamY + 2);
+      const xStart = extent ? extent.min_x : bbox.min_x;
+      const xEnd = extent ? extent.max_x : bbox.min_x + bbox.width_mm;
       seams.push({
-        x_mm: bbox.min_x,
-        y_start_mm: bbox.min_y + seamPos,
-        y_end_mm: bbox.min_y + seamPos,
-        near_door: false,
+        x_mm: xStart,
+        x_end_mm: xEnd,
+        y_start_mm: seamY,
+        y_end_mm: seamY,
+        near_door: isDoorNearSeam(room.doors, resolved_walls, seamY, true),
       });
     } else {
+      const seamX = bbox.min_x + seamFloorOffset;
+      const extent = polygonExtentInXBand(resolved_walls, seamX - 1, seamX + 1);
+      const yStart = extent ? extent.min_y : bbox.min_y;
+      const yEnd = extent ? extent.max_y : bbox.min_y + bbox.height_mm;
       seams.push({
-        x_mm: bbox.min_x + seamPos,
-        y_start_mm: bbox.min_y,
-        y_end_mm: bbox.min_y + layLength,
-        near_door: false,
+        x_mm: seamX,
+        y_start_mm: yStart,
+        y_end_mm: yEnd,
+        near_door: isDoorNearSeam(room.doors, resolved_walls, seamX, false),
       });
     }
   }
@@ -159,26 +195,14 @@ export function calculateVinylLayout(input: VinylLayoutInput): RoomLayout {
     cornerWelds = calculateCornerWelds(resolved_walls, coveHeight);
   }
 
-  // Material totals
-  // Floor material = sum of drop areas (full rectangles)
-  const floorMaterialMm2 = drops.reduce(
-    (sum, d) => sum + d.width_mm * d.length_mm,
-    0
-  );
-
-  // If coved, add perimeter cove material
-  let coveMaterialMm2 = 0;
-  if (coved) {
-    const wallSegs = polygonWallSegments(resolved_walls);
-    for (const seg of wallSegs) {
-      coveMaterialMm2 += seg.length_mm * coveHeight;
-    }
+  // Material totals — use actual cut dimensions from each drop
+  let totalMaterialMm2 = 0;
+  for (const drop of drops) {
+    const cutW = drop.cut_width_mm ?? (isRotated ? drop.length_mm : drop.width_mm);
+    const cutL = drop.cut_length_mm ?? (isRotated ? drop.width_mm : drop.length_mm);
+    totalMaterialMm2 += cutW * cutL;
   }
 
-  // Excess material (length excess per drop)
-  const excessMm2 = drops.length * rollWidthMm * lengthExcess;
-
-  const totalMaterialMm2 = floorMaterialMm2 + excessMm2;
   const wasteMm2 = totalMaterialMm2 - roomAreaMm2;
 
   const roomAreaM2 = roomAreaMm2 / 1_000_000;
@@ -200,6 +224,61 @@ export function calculateVinylLayout(input: VinylLayoutInput): RoomLayout {
     coved,
     corner_welds: cornerWelds,
   };
+}
+
+/**
+ * Calculate how many drops are needed and their floor coverage widths.
+ *
+ * When coved:
+ * - First drop: floor coverage = rollWidth − coveHeight (edge goes up left wall)
+ * - Middle drops: full rollWidth floor coverage
+ * - Last drop: whatever remains (+ coveHeight goes up right wall, cut from roll)
+ *
+ * When NOT coved:
+ * - Standard: ceil(layWidth / rollWidth) drops
+ */
+function calcDropCount(
+  layWidth: number,
+  rollWidth: number,
+  coveHeight: number
+): { count: number; floorWidths: number[]; totalRollWidth: number } {
+  if (coveHeight === 0) {
+    // Standard (non-coved)
+    const count = Math.ceil(layWidth / rollWidth);
+    const widths: number[] = [];
+    let remaining = layWidth;
+    for (let i = 0; i < count; i++) {
+      widths.push(Math.min(rollWidth, remaining));
+      remaining -= rollWidth;
+    }
+    return { count, floorWidths: widths, totalRollWidth: count * rollWidth };
+  }
+
+  // Coved layout
+  const widths: number[] = [];
+
+  // First drop: coveHeight goes up left wall, rest is floor
+  const firstFloor = rollWidth - coveHeight;
+  widths.push(firstFloor);
+  let remaining = layWidth - firstFloor;
+
+  // Middle drops: full roll width on floor
+  while (remaining > rollWidth) {
+    widths.push(rollWidth);
+    remaining -= rollWidth;
+  }
+
+  // Last drop: remaining floor + coveHeight up right wall
+  // The fitter needs (remaining + coveHeight) from the roll
+  if (remaining > 0) {
+    widths.push(remaining);
+  }
+
+  const count = widths.length;
+  // Total roll width used (for waste calculation)
+  const totalRollWidth = count * rollWidth;
+
+  return { count, floorWidths: widths, totalRollWidth };
 }
 
 /**

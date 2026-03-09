@@ -6,13 +6,20 @@ import fs from "fs";
 import { getUserFromRequest } from "@/utils/supabase/auth";
 import { calculateCarpetLayout } from "@/lib/cutting-plan/calculators/carpet";
 import { calculateVinylLayout } from "@/lib/cutting-plan/calculators/vinyl";
+import { calculatePlankLayout } from "@/lib/cutting-plan/calculators/plank";
+import {
+  calculateAccessories,
+  mergeAccessories,
+} from "@/lib/cutting-plan/calculators/accessories";
 import { renderCuttingPlanSvg } from "@/lib/cutting-plan/renderers/svg";
 import type {
   CuttingPlanRequest,
   CuttingPlanResult,
   CuttingPlanTotals,
   RoomLayout,
+  RoomInput,
   FlooringType,
+  Accessory,
 } from "@/lib/cutting-plan/types";
 
 export const maxDuration = 30;
@@ -22,7 +29,7 @@ export const maxDuration = 30;
  *
  * Auth: getUserFromRequest() (cookies/Bearer) OR X-BillyBot-Secret (N8N)
  * Body: CuttingPlanRequest
- * Returns: { svg, png_base64, summary, summary_text }
+ * Returns: { svg, png_base64, summary, summary_text, accessories }
  */
 export async function POST(request: Request) {
   try {
@@ -72,16 +79,33 @@ export async function POST(request: Request) {
       );
     }
 
+    // Step 4: Multi-room pile direction consistency
+    // Propagate pile direction through connected rooms via doorways
+    const rooms = propagatePileDirection(body.rooms, body.flooring_type);
+
     // Calculate layouts per room
     const roomLayouts: RoomLayout[] = [];
+    const allRoomAccessories: Accessory[][] = [];
 
-    for (const room of body.rooms) {
+    for (const room of rooms) {
       const layout = calculateRoom(room, body);
+
+      // Step 3: Calculate accessories per room
+      const accessories = calculateAccessories(
+        room,
+        layout.resolved_walls,
+        body.flooring_type,
+        layout.coved
+      );
+      layout.accessories = accessories;
+      allRoomAccessories.push(accessories);
+
       roomLayouts.push(layout);
     }
 
     // Compute totals
     const totals = computeTotals(roomLayouts);
+    const combinedAccessories = mergeAccessories(allRoomAccessories);
 
     // Roll length (for roll goods)
     let rollLengthM: number | undefined;
@@ -99,6 +123,7 @@ export async function POST(request: Request) {
       flooring_type: body.flooring_type,
       totals,
       roll_length_required_m: rollLengthM,
+      accessories: combinedAccessories,
       svg: "",
       summary_text: "",
     };
@@ -113,7 +138,6 @@ export async function POST(request: Request) {
     result.summary_text = buildSummaryText(result);
 
     // SVG → PNG
-    // Load bundled font for serverless (Vercel has no system fonts)
     const fontPath = path.join(
       process.cwd(),
       "lib/cutting-plan/fonts/Inter-Regular.ttf"
@@ -155,9 +179,11 @@ export async function POST(request: Request) {
           waste_percent: r.waste_percent,
           drops: r.drops?.length ?? 0,
           seams: r.seams?.length ?? 0,
+          tiles: r.tiles?.length ?? 0,
         })),
         totals,
         roll_length_required_m: rollLengthM,
+        accessories: combinedAccessories,
       },
       summary_text: result.summary_text,
       file_url: savedFileUrl,
@@ -168,6 +194,146 @@ export async function POST(request: Request) {
       error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+/**
+ * Step 4: Multi-room pile direction consistency.
+ *
+ * When rooms connect via doorways, the pile/lay direction must match
+ * through the connecting doorway — otherwise the join looks terrible.
+ *
+ * Algorithm:
+ * 1. Build adjacency graph from doors' connects_to fields
+ * 2. Find the "anchor" room (has exterior door, or the largest room)
+ * 3. BFS from anchor — once a room's direction is set, propagate to neighbors
+ */
+function propagatePileDirection(
+  rooms: RoomInput[],
+  flooringType: FlooringType
+): RoomInput[] {
+  if (rooms.length <= 1) return rooms;
+
+  // Build name → index map
+  const nameToIdx = new Map<string, number>();
+  rooms.forEach((r, i) => nameToIdx.set(r.name.toLowerCase(), i));
+
+  // Build adjacency: which rooms connect to which
+  const adjacency: Map<number, Set<number>> = new Map();
+  for (let i = 0; i < rooms.length; i++) {
+    adjacency.set(i, new Set());
+  }
+
+  for (let i = 0; i < rooms.length; i++) {
+    const room = rooms[i];
+    if (!room.doors) continue;
+    for (const door of room.doors) {
+      if (!door.connects_to) continue;
+      const targetIdx = nameToIdx.get(door.connects_to.toLowerCase());
+      if (targetIdx != null && targetIdx !== i) {
+        adjacency.get(i)!.add(targetIdx);
+        adjacency.get(targetIdx)!.add(i);
+      }
+    }
+  }
+
+  // Find anchor room: prefer room with exterior door, else largest room
+  let anchorIdx = 0;
+  let anchorHasExterior = false;
+  let largestArea = 0;
+
+  for (let i = 0; i < rooms.length; i++) {
+    const room = rooms[i];
+    const hasExterior = room.doors?.some((d) => {
+      const ct = (d.connects_to || "").toLowerCase();
+      return ct === "exterior" || ct === "outside";
+    });
+    const area =
+      room.area_m2 ??
+      (room.bounding_box
+        ? room.bounding_box.w_m * room.bounding_box.l_m
+        : 0);
+
+    if (hasExterior && !anchorHasExterior) {
+      anchorIdx = i;
+      anchorHasExterior = true;
+      largestArea = area;
+    } else if (!anchorHasExterior && area > largestArea) {
+      anchorIdx = i;
+      largestArea = area;
+    }
+  }
+
+  // If anchor room already has a pile_direction set, use it
+  // Otherwise let the calculator decide (it will be set on the first pass)
+  // We only force consistency on rooms that DON'T already have pile_direction set
+  const anchorRoom = rooms[anchorIdx];
+
+  // BFS from anchor
+  const visited = new Set<number>();
+  const queue: number[] = [anchorIdx];
+  visited.add(anchorIdx);
+
+  // Clone rooms so we can modify pile_direction
+  const result = rooms.map((r) => ({ ...r }));
+
+  // The anchor's direction (if set) propagates; if not, we let it be auto-calculated
+  // After the anchor is calculated, we can read its pile_direction_deg from the layout
+  // But we don't have layouts yet — we're just setting up inputs.
+  // So: if the anchor has a pile_direction, propagate it. Otherwise, skip propagation
+  // (each room gets auto-calculated, which is fine for the first iteration)
+  const anchorDir = anchorRoom.pile_direction;
+
+  if (anchorDir != null) {
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const neighbors = adjacency.get(current) || new Set();
+
+      for (const neighbor of neighbors) {
+        if (visited.has(neighbor)) continue;
+        visited.add(neighbor);
+
+        // Propagate pile direction if the neighbor doesn't have one set
+        if (result[neighbor].pile_direction == null) {
+          result[neighbor].pile_direction = anchorDir;
+        }
+
+        queue.push(neighbor);
+      }
+    }
+  } else {
+    // No explicit anchor direction — use a two-pass approach:
+    // Set all connected rooms to the same "auto" direction by finding
+    // what the anchor WOULD choose, then forcing that on neighbors.
+    // We do this by checking if rooms are connected — if so, they should
+    // share a direction. We flag them with a special marker and let
+    // the first room's auto-calculated direction be used for all.
+
+    // Simple approach: if rooms are connected, give them all the same
+    // main_light_source (if the anchor has one) so they auto-calculate the same way
+    if (anchorRoom.main_light_source) {
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        const neighbors = adjacency.get(current) || new Set();
+
+        for (const neighbor of neighbors) {
+          if (visited.has(neighbor)) continue;
+          visited.add(neighbor);
+
+          if (
+            result[neighbor].pile_direction == null &&
+            !result[neighbor].main_light_source
+          ) {
+            result[neighbor].main_light_source =
+              anchorRoom.main_light_source;
+          }
+
+          queue.push(neighbor);
+        }
+      }
+    }
+  }
+
+  return result;
 }
 
 function calculateRoom(
@@ -189,8 +355,17 @@ function calculateRoom(
         options: req.options,
       });
 
+    case "lvt":
+    case "laminate":
+    case "wood":
+    case "engineered":
+      return calculatePlankLayout({
+        room,
+        material: req.material,
+        options: req.options,
+      });
+
     default:
-      // Phase 3: tiles/planks — fallback to carpet layout
       return calculateCarpetLayout({
         room,
         material: req.material,
@@ -216,7 +391,7 @@ function computeTotals(layouts: RoomLayout[]): CuttingPlanTotals {
 
 function buildSummaryText(result: CuttingPlanResult): string {
   const lines: string[] = [];
-  const { totals, material, flooring_type } = result;
+  const { totals, material, flooring_type, accessories } = result;
 
   lines.push(
     `${capitalize(flooring_type)} Cutting Plan — ${material.product_name ?? `${material.width_m}m wide roll`}`
@@ -231,6 +406,10 @@ function buildSummaryText(result: CuttingPlanResult): string {
     if (room.drops) lines.push(`  Drops: ${room.drops.length}`);
     if (room.seams && room.seams.length > 0)
       lines.push(`  Seams: ${room.seams.length}`);
+    if (room.tiles) {
+      const cutCount = room.tiles.filter((t) => t.is_cut).length;
+      lines.push(`  Planks: ${room.tiles.length} (${cutCount} cut)`);
+    }
     lines.push("");
   }
 
@@ -242,6 +421,15 @@ function buildSummaryText(result: CuttingPlanResult): string {
 
   if (result.roll_length_required_m) {
     lines.push(`Roll length required: ${result.roll_length_required_m}m`);
+  }
+
+  // Accessories
+  if (accessories.length > 0) {
+    lines.push("");
+    lines.push("Accessories:");
+    for (const acc of accessories) {
+      lines.push(`  ${acc.description}: ${acc.quantity} ${acc.unit}`);
+    }
   }
 
   return lines.join("\n");

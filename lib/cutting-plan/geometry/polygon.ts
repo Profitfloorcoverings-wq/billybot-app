@@ -210,6 +210,104 @@ function lineIntersection(
 }
 
 /**
+ * Find the extent of a polygon within a horizontal band (y range).
+ * Returns the min/max x of the polygon clipped to the band.
+ */
+export function polygonExtentInYBand(
+  polygon: Polygon,
+  yMin: number,
+  yMax: number
+): { min_x: number; max_x: number } | null {
+  let minX = Infinity;
+  let maxX = -Infinity;
+
+  for (let i = 0; i < polygon.length; i++) {
+    const p1 = polygon[i];
+    const p2 = polygon[(i + 1) % polygon.length];
+
+    const edgeYMin = Math.min(p1.y_mm, p2.y_mm);
+    const edgeYMax = Math.max(p1.y_mm, p2.y_mm);
+
+    // Skip edges entirely outside the band
+    if (edgeYMax < yMin || edgeYMin > yMax) continue;
+
+    // Vertices within the band
+    if (p1.y_mm >= yMin && p1.y_mm <= yMax) {
+      minX = Math.min(minX, p1.x_mm);
+      maxX = Math.max(maxX, p1.x_mm);
+    }
+
+    if (Math.abs(p2.y_mm - p1.y_mm) < 0.001) {
+      // Horizontal edge — include both x if within band
+      if (p1.y_mm >= yMin && p1.y_mm <= yMax) {
+        minX = Math.min(minX, p1.x_mm, p2.x_mm);
+        maxX = Math.max(maxX, p1.x_mm, p2.x_mm);
+      }
+    } else {
+      // Intersect edge with band boundaries
+      for (const yClip of [yMin, yMax]) {
+        if (yClip >= edgeYMin && yClip <= edgeYMax) {
+          const t = (yClip - p1.y_mm) / (p2.y_mm - p1.y_mm);
+          const xAt = p1.x_mm + t * (p2.x_mm - p1.x_mm);
+          minX = Math.min(minX, xAt);
+          maxX = Math.max(maxX, xAt);
+        }
+      }
+    }
+  }
+
+  if (minX === Infinity) return null;
+  return { min_x: minX, max_x: maxX };
+}
+
+/**
+ * Find the extent of a polygon within a vertical band (x range).
+ * Returns the min/max y of the polygon clipped to the band.
+ */
+export function polygonExtentInXBand(
+  polygon: Polygon,
+  xMin: number,
+  xMax: number
+): { min_y: number; max_y: number } | null {
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (let i = 0; i < polygon.length; i++) {
+    const p1 = polygon[i];
+    const p2 = polygon[(i + 1) % polygon.length];
+
+    const edgeXMin = Math.min(p1.x_mm, p2.x_mm);
+    const edgeXMax = Math.max(p1.x_mm, p2.x_mm);
+
+    if (edgeXMax < xMin || edgeXMin > xMax) continue;
+
+    if (p1.x_mm >= xMin && p1.x_mm <= xMax) {
+      minY = Math.min(minY, p1.y_mm);
+      maxY = Math.max(maxY, p1.y_mm);
+    }
+
+    if (Math.abs(p2.x_mm - p1.x_mm) < 0.001) {
+      if (p1.x_mm >= xMin && p1.x_mm <= xMax) {
+        minY = Math.min(minY, p1.y_mm, p2.y_mm);
+        maxY = Math.max(maxY, p1.y_mm, p2.y_mm);
+      }
+    } else {
+      for (const xClip of [xMin, xMax]) {
+        if (xClip >= edgeXMin && xClip <= edgeXMax) {
+          const t = (xClip - p1.x_mm) / (p2.x_mm - p1.x_mm);
+          const yAt = p1.y_mm + t * (p2.y_mm - p1.y_mm);
+          minY = Math.min(minY, yAt);
+          maxY = Math.max(maxY, yAt);
+        }
+      }
+    }
+  }
+
+  if (minY === Infinity) return null;
+  return { min_y: minY, max_y: maxY };
+}
+
+/**
  * Inset a polygon by a given distance (mm) for gripper/expansion gap perimeter.
  * Simple approach: move each edge inward by the offset, intersect adjacent edges.
  */

@@ -1,4 +1,4 @@
-import type { Point, WallSegment, Drop, Seam, Polygon, CornerWeld } from "../types";
+import type { Point, WallSegment, Drop, Seam, Polygon, CornerWeld, TilePlacement } from "../types";
 
 // ── Colours ──
 export const COLOURS = {
@@ -78,7 +78,10 @@ export function renderDrop(
   const cx = x + w / 2;
   const cy = y + h / 2;
   const label = `Drop ${drop.index}`;
-  const dims = `${(drop.width_mm / 1000).toFixed(2)}m × ${(drop.length_mm / 1000).toFixed(2)}m`;
+  // Show actual cut size (includes excess + cove), not floor coverage
+  const cutW = drop.cut_width_mm ?? drop.width_mm;
+  const cutL = drop.cut_length_mm ?? drop.length_mm;
+  const dims = `Cut: ${(cutW / 1000).toFixed(2)}m × ${(cutL / 1000).toFixed(2)}m`;
 
   // Rotate text 90° if drop is taller than wide and narrow
   const rotate = w < 80 && h > w;
@@ -98,11 +101,12 @@ export function renderSeamLine(
   offsetX: number,
   offsetY: number
 ): string {
-  const x = mmToSvg(seam.x_mm, scale) + offsetX;
+  const x1 = mmToSvg(seam.x_mm, scale) + offsetX;
+  const x2 = mmToSvg(seam.x_end_mm ?? seam.x_mm, scale) + offsetX;
   const y1 = mmToSvg(seam.y_start_mm, scale) + offsetY;
   const y2 = mmToSvg(seam.y_end_mm, scale) + offsetY;
   const colour = seam.near_door ? COLOURS.seamWarning : COLOURS.seam;
-  return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${colour}" stroke-width="2" stroke-dasharray="8,4"/>`;
+  return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${colour}" stroke-width="2" stroke-dasharray="8,4"/>`;
 }
 
 export function renderWallDimension(
@@ -325,6 +329,30 @@ export function renderDoor(
   const hinge = `<circle cx="${sx}" cy="${sy}" r="3" fill="${COLOURS.door}"/>`;
 
   return wallGap + arc + hinge;
+}
+
+export function renderTile(
+  tile: TilePlacement,
+  scale: number,
+  offsetX: number,
+  offsetY: number
+): string {
+  const x = mmToSvg(tile.x_mm, scale) + offsetX;
+  const y = mmToSvg(tile.y_mm, scale) + offsetY;
+  const w = mmToSvg(tile.width_mm, scale);
+  const h = mmToSvg(tile.height_mm, scale);
+
+  // Alternating colours by row for visual clarity
+  const fill = tile.row % 2 === 0 ? COLOURS.drop1 : COLOURS.drop2;
+  // Cut planks get a subtle border highlight
+  const stroke = tile.is_cut ? "#94a3b8" : "#cbd5e1";
+
+  const rect = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" stroke="${stroke}" stroke-width="0.5"/>`;
+
+  // Only label planks that are large enough
+  if (w < 30 || h < 15) return rect;
+
+  return rect;
 }
 
 export function renderArrowheadDef(): string {
