@@ -94,7 +94,6 @@ export function calculatePlankLayout(input: PlankLayoutInput): RoomLayout {
 
   // Build tile placements
   const tiles: TilePlacement[] = [];
-  let totalPlanksMm2 = 0;
   let staggerOffset = 0;
 
   for (let row = 0; row < totalRows; row++) {
@@ -182,9 +181,6 @@ export function calculatePlankLayout(input: PlankLayoutInput): RoomLayout {
           is_cut: isCut,
           stagger_mm: staggerOffset,
         });
-
-        // Count full plank used (even if cut — offcut is waste)
-        totalPlanksMm2 += plankWidthMm * plankLengthMm;
       }
 
       xPos += plankLengthMm;
@@ -192,13 +188,29 @@ export function calculatePlankLayout(input: PlankLayoutInput): RoomLayout {
     }
   }
 
-  // Material totals
-  const additionalWaste = options?.waste_percent
-    ? (roomAreaMm2 * options.waste_percent) / 100
-    : 0;
+  // Material totals — for plank goods, count planks per row.
+  // End-of-row offcuts are reused as next row's stagger start (trade practice),
+  // so material = planks consumed per row, not per visible tile.
+  let totalPlanksNeeded = 0;
+  const rowLengths = new Map<number, number>();
 
+  for (const tile of tiles) {
+    const len = isRotated ? tile.width_mm : tile.height_mm;
+    const current = rowLengths.get(tile.row) ?? 0;
+    rowLengths.set(tile.row, current + len);
+  }
+
+  for (const [, rowLen] of rowLengths) {
+    totalPlanksNeeded += Math.ceil(rowLen / plankLengthMm);
+  }
+
+  const totalPlanksMm2 = totalPlanksNeeded * plankWidthMm * plankLengthMm;
+
+  // Add waste % for unusable offcuts, edge trim, breakage
+  const wastePercent = options?.waste_percent ?? 5;
   const roomAreaM2 = roomAreaMm2 / 1_000_000;
-  const totalMaterialM2 = (totalPlanksMm2 + additionalWaste) / 1_000_000;
+  const rawMaterialM2 = totalPlanksMm2 / 1_000_000;
+  const totalMaterialM2 = rawMaterialM2 * (1 + wastePercent / 100);
   const wasteM2 = totalMaterialM2 - roomAreaM2;
 
   return {
@@ -207,7 +219,7 @@ export function calculatePlankLayout(input: PlankLayoutInput): RoomLayout {
     tiles,
     pile_direction_deg: layDeg,
     room_area_m2: round2(roomAreaM2),
-    total_material_m2: round2(Math.max(totalMaterialM2, roomAreaM2)),
+    total_material_m2: round2(totalMaterialM2),
     waste_m2: round2(Math.max(wasteM2, 0)),
     waste_percent: round1(
       totalMaterialM2 > 0
