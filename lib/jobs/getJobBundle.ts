@@ -122,6 +122,31 @@ export type JobFileRecord = {
   signed_url?: string | null;
 };
 
+export type ReceiptRecord = {
+  id: string;
+  client_id: string;
+  job_id: string | null;
+  supplier_name: string | null;
+  description: string | null;
+  amount_net: number | null;
+  amount_vat: number | null;
+  amount_total: number | null;
+  currency: string;
+  receipt_date: string | null;
+  category: string;
+  storage_path: string | null;
+  file_name: string | null;
+  mime_type: string | null;
+  uploaded_via: string;
+  ai_extracted: Record<string, unknown> | null;
+  accounting_bill_id: string | null;
+  accounting_synced_at: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  signed_url?: string | null;
+};
+
 export type JobBundle = {
   job: JobRecord;
   customer: CustomerRecord | null;
@@ -130,6 +155,7 @@ export type JobBundle = {
   latestEmail: EmailEventRecord | null;
   attachments: NormalizedAttachment[];
   jobFiles: JobFileRecord[];
+  receipts: ReceiptRecord[];
 };
 
 type GetJobBundleParams = {
@@ -300,6 +326,13 @@ export async function getJobBundle({ job, currentClientId }: GetJobBundleParams)
     .eq("client_id", clientScope)
     .order("created_at", { ascending: false });
 
+  const receiptsQuery = supabaseAdmin
+    .from("receipts")
+    .select("*")
+    .eq("job_id", job.id)
+    .eq("client_id", clientScope)
+    .order("created_at", { ascending: false });
+
   const [
     { data: customerByEmail },
     { data: customerByName },
@@ -307,6 +340,7 @@ export async function getJobBundle({ job, currentClientId }: GetJobBundleParams)
     { data: emailThread },
     { data: latestEmailList },
     { data: jobFilesData },
+    { data: receiptsData },
   ] = await Promise.all([
     customerByEmailQuery,
     customerByNameQuery,
@@ -314,6 +348,7 @@ export async function getJobBundle({ job, currentClientId }: GetJobBundleParams)
     emailThreadQuery,
     latestEmailQuery,
     jobFilesQuery,
+    receiptsQuery,
   ]);
 
   const latestEmail = (latestEmailList?.[0] ?? null) as EmailEventRecord | null;
@@ -357,6 +392,17 @@ export async function getJobBundle({ job, currentClientId }: GetJobBundleParams)
     })
   );
 
+  // Generate signed URLs for receipts
+  const receipts: ReceiptRecord[] = await Promise.all(
+    ((receiptsData ?? []) as ReceiptRecord[]).map(async (receipt) => {
+      if (!receipt.storage_path) return receipt;
+      const { data: signedUrl } = await supabaseAdmin.storage
+        .from("job_files")
+        .createSignedUrl(receipt.storage_path, 3600);
+      return { ...receipt, signed_url: signedUrl?.signedUrl ?? null };
+    })
+  );
+
   return {
     job,
     customer: customerByEmail ?? customerByName ?? null,
@@ -365,5 +411,6 @@ export async function getJobBundle({ job, currentClientId }: GetJobBundleParams)
     latestEmail,
     attachments,
     jobFiles,
+    receipts,
   };
 }

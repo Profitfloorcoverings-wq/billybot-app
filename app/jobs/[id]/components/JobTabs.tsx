@@ -7,6 +7,7 @@ import AttachmentsGallery from "./AttachmentsGallery";
 import EmailThread from "./EmailThread";
 import JobFilesPanel from "./JobFilesPanel";
 import OutboundDraftPanel from "./OutboundDraftPanel";
+import ReceiptsPanel from "./ReceiptsPanel";
 import { formatRelativeTime, formatTimestamp, humanizeStatus } from "./helpers";
 import QuotesPanel from "./QuotesPanel";
 import { createClient } from "@/utils/supabase/client";
@@ -20,7 +21,7 @@ type RamsSignature = {
   signed_at: string | null;
 };
 
-const TABS = ["overview", "areas", "emails", "attachments", "files", "documents", "updates"] as const;
+const TABS = ["overview", "areas", "emails", "attachments", "files", "receipts", "documents", "updates"] as const;
 
 type Tab = (typeof TABS)[number];
 
@@ -56,6 +57,7 @@ const TAB_COUNTS: Record<string, (data: JobPageData) => number | null> = {
   emails: (d) => d.emailThread.length || null,
   attachments: (d) => d.attachments.length || null,
   files: (d) => d.jobFiles?.length || null,
+  receipts: (d) => d.receipts?.length || null,
   documents: (d) => (d.quotes.length + (d.job.job_sheet_url ? 1 : 0) + (d.job.quote_url ? 1 : 0) + (d.job.risk_assessment_url ? 1 : 0) + (d.job.method_statement_url ? 1 : 0)) || null,
 };
 
@@ -282,6 +284,7 @@ export default function JobTabs({ data }: { data: JobPageData }) {
       {tab === "areas" ? <AreasPanel jobId={data.job.id} /> : null}
       {tab === "attachments" ? <AttachmentsGallery attachments={data.attachments} /> : null}
       {tab === "files" ? <JobFilesPanel jobId={data.job.id} /> : null}
+      {tab === "receipts" ? <ReceiptsPanel jobId={data.job.id} /> : null}
       {tab === "documents" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
 

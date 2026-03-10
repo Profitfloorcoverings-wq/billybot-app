@@ -1,4 +1,4 @@
-import type { CustomerRecord, EmailEventRecord, JobFileRecord, JobRecord, NormalizedAttachment, QuoteRecord } from "@/lib/jobs/getJobBundle";
+import type { CustomerRecord, EmailEventRecord, JobFileRecord, JobRecord, NormalizedAttachment, QuoteRecord, ReceiptRecord } from "@/lib/jobs/getJobBundle";
 
 export type JobPageData = {
   job: JobRecord;
@@ -8,4 +8,5 @@ export type JobPageData = {
   latestEmail: EmailEventRecord | null;
   attachments: NormalizedAttachment[];
   jobFiles: JobFileRecord[];
+  receipts: ReceiptRecord[];
 };

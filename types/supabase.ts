@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_audit_log: {
+        Row: {
+          conversation_id: string | null
+          created_at: string | null
+          id: string
+          operation: string
+          payload: Json
+          profile_id: string
+          row_id: string | null
+          table_name: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          operation: string
+          payload: Json
+          profile_id: string
+          row_id?: string | null
+          table_name: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string | null
+          id?: string
+          operation?: string
+          payload?: Json
+          profile_id?: string
+          row_id?: string | null
+          table_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_audit_log_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_audit_log_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_file_analysis: {
         Row: {
           chat_file_id: string
@@ -158,6 +206,7 @@ export type Database = {
           terms_accepted_at: string | null
           terms_version: string | null
           updated_at: string | null
+          use_v2_quoting: boolean | null
           user_role: string
         }
         Insert: {
@@ -201,6 +250,7 @@ export type Database = {
           terms_accepted_at?: string | null
           terms_version?: string | null
           updated_at?: string | null
+          use_v2_quoting?: boolean | null
           user_role?: string
         }
         Update: {
@@ -244,6 +294,7 @@ export type Database = {
           terms_accepted_at?: string | null
           terms_version?: string | null
           updated_at?: string | null
+          use_v2_quoting?: boolean | null
           user_role?: string
         }
         Relationships: [
@@ -1430,6 +1481,69 @@ export type Database = {
         }
         Relationships: []
       }
+      product_match_alerts: {
+        Row: {
+          client_id: string
+          confidence: number | null
+          created_at: string
+          id: string
+          job_id: string | null
+          match_reason: string | null
+          matched_to: string
+          original_context: string | null
+          original_name: string
+          resolved_at: string | null
+          resolved_to: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          client_id: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          match_reason?: string | null
+          matched_to: string
+          original_context?: string | null
+          original_name: string
+          resolved_at?: string | null
+          resolved_to?: string | null
+          source?: string
+          status?: string
+        }
+        Update: {
+          client_id?: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          job_id?: string | null
+          match_reason?: string | null
+          matched_to?: string
+          original_context?: string | null
+          original_name?: string
+          resolved_at?: string | null
+          resolved_to?: string | null
+          source?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_match_alerts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_match_alerts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_tokens: {
         Row: {
           created_at: string
@@ -1591,6 +1705,93 @@ export type Database = {
             columns: ["signer_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipts: {
+        Row: {
+          accounting_bill_id: string | null
+          accounting_synced_at: string | null
+          ai_extracted: Json | null
+          amount_net: number | null
+          amount_total: number | null
+          amount_vat: number | null
+          category: string
+          client_id: string
+          created_at: string
+          currency: string
+          description: string | null
+          file_name: string | null
+          id: string
+          job_id: string | null
+          mime_type: string | null
+          receipt_date: string | null
+          status: string
+          storage_path: string | null
+          supplier_name: string | null
+          updated_at: string
+          uploaded_via: string
+        }
+        Insert: {
+          accounting_bill_id?: string | null
+          accounting_synced_at?: string | null
+          ai_extracted?: Json | null
+          amount_net?: number | null
+          amount_total?: number | null
+          amount_vat?: number | null
+          category?: string
+          client_id: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          file_name?: string | null
+          id?: string
+          job_id?: string | null
+          mime_type?: string | null
+          receipt_date?: string | null
+          status?: string
+          storage_path?: string | null
+          supplier_name?: string | null
+          updated_at?: string
+          uploaded_via?: string
+        }
+        Update: {
+          accounting_bill_id?: string | null
+          accounting_synced_at?: string | null
+          ai_extracted?: Json | null
+          amount_net?: number | null
+          amount_total?: number | null
+          amount_vat?: number | null
+          category?: string
+          client_id?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          file_name?: string | null
+          id?: string
+          job_id?: string | null
+          mime_type?: string | null
+          receipt_date?: string | null
+          status?: string
+          storage_path?: string | null
+          supplier_name?: string | null
+          updated_at?: string
+          uploaded_via?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]
