@@ -37,8 +37,8 @@ export async function POST(
     .eq("id", user.id)
     .single();
 
-  if (!client?.accounting_system) {
-    return NextResponse.json({ error: "No accounting system connected" }, { status: 400 });
+  if (!client?.accounting_system || client.accounting_system === "none") {
+    return NextResponse.json({ error: "No accounting system connected. Go to Account to connect Sage, Xero or QuickBooks." }, { status: 400 });
   }
 
   let imageUrl: string | null = null;
@@ -76,11 +76,12 @@ export async function POST(
     });
 
     if (!response.ok) {
+      const errBody = await response.json().catch(() => null);
       await supabaseAdmin
         .from("receipts")
         .update({ status: "error", updated_at: new Date().toISOString() })
         .eq("id", id);
-      return NextResponse.json({ error: "Accounting sync failed" }, { status: 502 });
+      return NextResponse.json({ error: errBody?.error_message || errBody?.error || "Accounting sync failed" }, { status: 502 });
     }
 
     const result = await response.json();
@@ -102,6 +103,6 @@ export async function POST(
       .from("receipts")
       .update({ status: "error", updated_at: new Date().toISOString() })
       .eq("id", id);
-    return NextResponse.json({ error: "Accounting sync failed" }, { status: 502 });
+    return NextResponse.json({ error: "Accounting sync failed — please try again" }, { status: 502 });
   }
 }
