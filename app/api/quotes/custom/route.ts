@@ -22,6 +22,7 @@ type LineItem = {
 type RequestBody = {
   conversation_id: string;
   lines: LineItem[];
+  job_id?: string;
 };
 
 export async function POST(req: Request) {
@@ -40,7 +41,7 @@ export async function POST(req: Request) {
     }
 
     const body = (await req.json()) as RequestBody;
-    const { conversation_id, lines } = body;
+    const { conversation_id, lines, job_id } = body;
 
     if (!conversation_id || !Array.isArray(lines) || lines.length === 0) {
       return NextResponse.json({ error: "Missing conversation_id or lines" }, { status: 400 });
@@ -66,6 +67,39 @@ export async function POST(req: Request) {
     const businessName = clientResult.data?.business_name ?? "";
     const accountingSystem = clientResult.data?.accounting_system ?? "none";
 
+    // Look up the job associated with this conversation for customer details
+    let jobData: {
+      id: string;
+      customer_name: string | null;
+      customer_email: string | null;
+      customer_phone: string | null;
+      site_address: string | null;
+      postcode: string | null;
+    } | null = null;
+
+    if (job_id) {
+      const jobResult = await supabase
+        .from("jobs")
+        .select("id, customer_name, customer_email, customer_phone, site_address, postcode")
+        .eq("id", job_id)
+        .eq("client_id", user.id)
+        .maybeSingle();
+      jobData = jobResult.data;
+    }
+
+    if (!jobData) {
+      // Fall back: find the most recent job linked to this conversation
+      const jobResult = await supabase
+        .from("jobs")
+        .select("id, customer_name, customer_email, customer_phone, site_address, postcode")
+        .eq("conversation_id", conversation_id)
+        .eq("client_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      jobData = jobResult.data;
+    }
+
     // POST to N8N custom quote workflow
     const n8nRes = await fetch(customQuoteWebhook, {
       method: "POST",
@@ -80,6 +114,12 @@ export async function POST(req: Request) {
         vat_registered: vatRegistered,
         business_name: businessName,
         accounting_system: accountingSystem,
+        job_id: jobData?.id ?? null,
+        customer_name: jobData?.customer_name ?? null,
+        customer_email: jobData?.customer_email ?? null,
+        customer_phone: jobData?.customer_phone ?? null,
+        site_address: jobData?.site_address ?? null,
+        postcode: jobData?.postcode ?? null,
       }),
     });
 
