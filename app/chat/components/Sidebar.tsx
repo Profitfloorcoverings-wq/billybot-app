@@ -21,6 +21,7 @@ const navItems: NavItem[] = [
   { label: "Jobs", href: "/jobs" },
   { label: "Conversations", href: "/conversations" },
   { label: "Quotes", href: "/quotes", watchQuotes: true },
+  { label: "Receipts", href: "/receipts" },
   { label: "Suppliers", href: "/suppliers" },
   { label: "Customers", href: "/customers" },
   { label: "Pricing", href: "/pricing" },
