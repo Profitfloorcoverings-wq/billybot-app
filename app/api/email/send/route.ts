@@ -282,11 +282,13 @@ export async function POST(request: NextRequest) {
         sendResult = await sendGmailCompose({
           accessToken,
           fromName,
+          fromEmail: mailbox,
           toEmail,
           subject,
           body,
           html: payload.html,
           replyTo: replyToEmail,
+          bcc: replyToEmail,
           attachments,
         });
       } else {
@@ -297,6 +299,7 @@ export async function POST(request: NextRequest) {
           subject,
           body,
           html: payload.html,
+          bcc: replyToEmail,
           attachments,
         });
       }

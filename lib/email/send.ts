@@ -15,11 +15,13 @@ export type GmailReplyPayload = {
 export type GmailComposePayload = {
   accessToken: string;
   fromName: string;
+  fromEmail: string;
   toEmail: string;
   subject: string;
   body: string;
   html?: string;
   replyTo?: string;
+  bcc?: string;
   attachments?: Attachment[];
 };
 
@@ -37,6 +39,7 @@ export type MicrosoftComposePayload = {
   subject: string;
   body: string;
   html?: string;
+  bcc?: string;
   attachments?: Attachment[];
 };
 
@@ -82,6 +85,7 @@ function buildMimeMessage(opts: {
   body: string;
   html?: string;
   replyTo?: string;
+  bcc?: string;
   attachments?: Attachment[];
 }) {
   const mixedBoundary = `----bb_mixed_${Date.now()}_${Math.random().toString(36).slice(2)}`;
@@ -98,6 +102,10 @@ function buildMimeMessage(opts: {
 
   if (opts.replyTo) {
     lines.push(`Reply-To: ${opts.replyTo}`);
+  }
+
+  if (opts.bcc) {
+    lines.push(`Bcc: ${opts.bcc}`);
   }
 
   if (hasAttachments) {
@@ -178,12 +186,13 @@ export async function sendGmailCompose(
 ): Promise<ProviderSendResult> {
   const mime = buildMimeMessage({
     fromName: payload.fromName,
-    fromEmail: "me",
+    fromEmail: payload.fromEmail,
     toEmail: payload.toEmail,
     subject: payload.subject,
     body: payload.body,
     html: payload.html,
     replyTo: payload.replyTo,
+    bcc: payload.bcc,
     attachments: payload.attachments,
   });
 
@@ -261,6 +270,13 @@ export async function sendMicrosoftCompose(
       toRecipients: [
         { emailAddress: { address: payload.toEmail } },
       ],
+      ...(payload.bcc
+        ? {
+            bccRecipients: [
+              { emailAddress: { address: payload.bcc } },
+            ],
+          }
+        : {}),
       attachments:
         payload.attachments?.map((att) => ({
           "@odata.type": "#microsoft.graph.fileAttachment",
