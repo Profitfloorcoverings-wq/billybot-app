@@ -34,7 +34,19 @@ export default function ReceiptsPanel({ jobId }: { jobId: string }) {
   const [syncing, setSyncing] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [canApprove, setCanApprove] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("clients").select("user_role").eq("id", user.id).maybeSingle().then(({ data }) => {
+        const role = data?.user_role ?? "owner";
+        setCanApprove(role === "owner" || role === "manager");
+      });
+    });
+  }, []);
 
   const loadReceipts = useCallback(async () => {
     try {
@@ -440,7 +452,7 @@ export default function ReceiptsPanel({ jobId }: { jobId: string }) {
                           >
                             Edit
                           </button>
-                          {receipt.status === "extracted" ? (
+                          {canApprove && receipt.status === "extracted" ? (
                             <button
                               type="button"
                               onClick={() => void handleApprove(receipt.id)}
@@ -449,7 +461,7 @@ export default function ReceiptsPanel({ jobId }: { jobId: string }) {
                               Approve
                             </button>
                           ) : null}
-                          {receipt.status === "approved" ? (
+                          {canApprove && receipt.status === "approved" ? (
                             <button
                               type="button"
                               onClick={() => void handleSync(receipt.id)}

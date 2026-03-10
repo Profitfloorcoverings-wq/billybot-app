@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getUserFromCookies } from "@/utils/supabase/auth";
+import { getUserFromRequest } from "@/utils/supabase/auth";
+import { resolveReceiptUser, canApproveOrSync } from "@/lib/receipts/auth";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,11 +9,18 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromCookies();
+  const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { businessId, role } = await resolveReceiptUser(supabaseAdmin, user.id);
+
+  // Hard gate: only owner/manager can sync to accounting
+  if (!canApproveOrSync(role)) {
+    return NextResponse.json({ error: "Only owners and managers can sync receipts to accounting" }, { status: 403 });
+  }
 
   const { id } = await params;
 
@@ -20,7 +28,7 @@ export async function POST(
     .from("receipts")
     .select("*")
     .eq("id", id)
-    .eq("client_id", user.id)
+    .eq("client_id", businessId)
     .single();
 
   if (receiptError || !receipt) {
@@ -31,10 +39,11 @@ export async function POST(
     return NextResponse.json({ error: "Receipt must be approved before syncing" }, { status: 400 });
   }
 
+  // Fetch accounting system from the business owner's row
   const { data: client } = await supabaseAdmin
     .from("clients")
     .select("accounting_system")
-    .eq("id", user.id)
+    .eq("id", businessId)
     .single();
 
   if (!client?.accounting_system || client.accounting_system === "none") {
@@ -61,7 +70,7 @@ export async function POST(
       body: JSON.stringify({
         action: "sync_to_accounting",
         receipt_id: receipt.id,
-        client_id: user.id,
+        client_id: businessId,
         accounting_system: client.accounting_system,
         supplier_name: receipt.supplier_name,
         description: receipt.description,

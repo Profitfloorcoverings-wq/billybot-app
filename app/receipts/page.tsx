@@ -57,7 +57,19 @@ export default function ReceiptsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
+  const [canApprove, setCanApprove] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      supabase.from("clients").select("user_role").eq("id", user.id).maybeSingle().then(({ data }) => {
+        const role = data?.user_role ?? "owner";
+        setCanApprove(role === "owner" || role === "manager");
+      });
+    });
+  }, []);
 
   const loadReceipts = useCallback(async () => {
     try {
@@ -299,20 +311,24 @@ export default function ReceiptsPage() {
         {selected.size > 0 ? (
           <div style={{ display: "flex", gap: "8px", marginLeft: "auto" }}>
             <span style={{ fontSize: "12px", color: "#94a3b8", alignSelf: "center" }}>{selected.size} selected</span>
-            <button
-              type="button"
-              onClick={() => void handleBulkApprove()}
-              style={{ padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 700, background: "#34d399", color: "#0f172a", border: "none", cursor: "pointer" }}
-            >
-              Approve Selected
-            </button>
-            <button
-              type="button"
-              onClick={() => void handleBulkSync()}
-              style={{ padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 700, background: "#a78bfa", color: "#0f172a", border: "none", cursor: "pointer" }}
-            >
-              Sync Selected
-            </button>
+            {canApprove ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleBulkApprove()}
+                  style={{ padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 700, background: "#34d399", color: "#0f172a", border: "none", cursor: "pointer" }}
+                >
+                  Approve Selected
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleBulkSync()}
+                  style={{ padding: "6px 12px", borderRadius: "8px", fontSize: "12px", fontWeight: 700, background: "#a78bfa", color: "#0f172a", border: "none", cursor: "pointer" }}
+                >
+                  Sync Selected
+                </button>
+              </>
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -413,7 +429,7 @@ export default function ReceiptsPage() {
                   </span>
                 </div>
                 <div style={{ display: "flex", gap: "4px", justifyContent: "flex-end" }}>
-                  {receipt.status === "extracted" ? (
+                  {canApprove && receipt.status === "extracted" ? (
                     <button
                       type="button"
                       onClick={() => void handleApprove(receipt.id)}
@@ -423,7 +439,7 @@ export default function ReceiptsPage() {
                       ✓
                     </button>
                   ) : null}
-                  {receipt.status === "approved" ? (
+                  {canApprove && receipt.status === "approved" ? (
                     <button
                       type="button"
                       onClick={() => void handleSync(receipt.id)}

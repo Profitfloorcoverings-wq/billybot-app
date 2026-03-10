@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getUserFromCookies } from "@/utils/supabase/auth";
+import { getUserFromRequest } from "@/utils/supabase/auth";
+import { resolveReceiptUser, canApproveOrSync } from "@/lib/receipts/auth";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,11 +12,17 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromCookies();
+  const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { businessId, role } = await resolveReceiptUser(supabaseAdmin, user.id);
   const { id } = await params;
   const body = await request.json();
+
+  // Gate: only owner/manager can approve
+  if (body.status === "approved" && !canApproveOrSync(role)) {
+    return NextResponse.json({ error: "Only owners and managers can approve receipts" }, { status: 403 });
+  }
 
   const allowedFields = [
     "supplier_name",
@@ -38,7 +45,7 @@ export async function PUT(
     .from("receipts")
     .update(updates)
     .eq("id", id)
-    .eq("client_id", user.id)
+    .eq("client_id", businessId)
     .select()
     .single();
 
@@ -49,19 +56,20 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const user = await getUserFromCookies();
+  const user = await getUserFromRequest(request);
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { businessId } = await resolveReceiptUser(supabaseAdmin, user.id);
   const { id } = await params;
 
   const { data: receipt } = await supabaseAdmin
     .from("receipts")
     .select("storage_path")
     .eq("id", id)
-    .eq("client_id", user.id)
+    .eq("client_id", businessId)
     .maybeSingle();
 
   if (!receipt) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -77,7 +85,7 @@ export async function DELETE(
     .from("receipts")
     .delete()
     .eq("id", id)
-    .eq("client_id", user.id);
+    .eq("client_id", businessId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
