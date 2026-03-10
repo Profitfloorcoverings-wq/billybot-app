@@ -276,6 +276,18 @@ export default function AccountPage() {
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
 
+  // Invoice settings
+  const [invoiceVatNumber, setInvoiceVatNumber] = useState("");
+  const [invoiceCompanyReg, setInvoiceCompanyReg] = useState("");
+  const [invoiceBankName, setInvoiceBankName] = useState("");
+  const [invoiceSortCode, setInvoiceSortCode] = useState("");
+  const [invoiceAccountNumber, setInvoiceAccountNumber] = useState("");
+  const [invoicePaymentTerms, setInvoicePaymentTerms] = useState("Payment due within 30 days");
+  const [invoiceNotes, setInvoiceNotes] = useState("");
+  const [invoiceSaving, setInvoiceSaving] = useState(false);
+  const [invoiceError, setInvoiceError] = useState<string | null>(null);
+  const [invoiceSuccess, setInvoiceSuccess] = useState<string | null>(null);
+
   const loadProfile = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -304,7 +316,7 @@ export default function AccountPage() {
       const { data: clientData, error: clientError } = await supabase
         .from("clients")
         .select(
-          "accounting_system, stripe_status, stripe_plan_tier, stripe_plan_billing, stripe_subscription_id, stripe_price_id, stripe_id, business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded, user_role"
+          "accounting_system, stripe_status, stripe_plan_tier, stripe_plan_billing, stripe_subscription_id, stripe_price_id, stripe_id, business_name, contact_name, phone, address_line1, address_line2, city, postcode, country, is_onboarded, user_role, invoice_vat_number, invoice_company_reg, invoice_bank_name, invoice_sort_code, invoice_account_number, invoice_payment_terms, invoice_notes"
         )
         .eq("id", userData.user.id)
         .maybeSingle();
@@ -337,6 +349,16 @@ export default function AccountPage() {
         country: clientData.country ?? "",
         is_onboarded: clientData.is_onboarded ?? false,
       });
+
+      // Invoice settings
+      const cd = clientData as Record<string, unknown>;
+      setInvoiceVatNumber((cd.invoice_vat_number as string) ?? "");
+      setInvoiceCompanyReg((cd.invoice_company_reg as string) ?? "");
+      setInvoiceBankName((cd.invoice_bank_name as string) ?? "");
+      setInvoiceSortCode((cd.invoice_sort_code as string) ?? "");
+      setInvoiceAccountNumber((cd.invoice_account_number as string) ?? "");
+      setInvoicePaymentTerms((cd.invoice_payment_terms as string) ?? "Payment due within 30 days");
+      setInvoiceNotes((cd.invoice_notes as string) ?? "");
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
@@ -448,6 +470,45 @@ export default function AccountPage() {
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleInvoiceSettingsSave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setInvoiceError(null);
+    setInvoiceSuccess(null);
+    setInvoiceSaving(true);
+
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData?.user) {
+        router.push("/auth/login");
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from("clients")
+        .update({
+          invoice_vat_number: invoiceVatNumber || null,
+          invoice_company_reg: invoiceCompanyReg || null,
+          invoice_bank_name: invoiceBankName || null,
+          invoice_sort_code: invoiceSortCode || null,
+          invoice_account_number: invoiceAccountNumber || null,
+          invoice_payment_terms: invoicePaymentTerms || null,
+          invoice_notes: invoiceNotes || null,
+        } as Record<string, unknown>)
+        .eq("id", userData.user.id);
+
+      if (updateError) throw updateError;
+      setInvoiceSuccess("Invoice settings saved.");
+    } catch (err) {
+      setInvoiceError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to save invoice settings"
+      );
+    } finally {
+      setInvoiceSaving(false);
     }
   }
 
@@ -836,6 +897,123 @@ export default function AccountPage() {
             <div className="form-actions">
               <button type="submit" className="btn btn-primary" disabled={saving || loading}>
                 {saving ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </form>
+        ) : null}
+      </div>
+
+      {/* ── Invoice Settings ──────────────────────────────────────── */}
+      <div className="card" style={{ padding: "24px 28px" }}>
+        <div style={{ marginBottom: "20px" }}>
+          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Invoice Settings</h2>
+          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>These details appear on your PDF invoices.</p>
+        </div>
+
+        {!loading && !error ? (
+          <form onSubmit={handleInvoiceSettingsSave} className="form-stack">
+            {invoiceSuccess && (
+              <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+                {invoiceSuccess}
+              </p>
+            )}
+            {invoiceError && (
+              <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+                {invoiceError}
+              </p>
+            )}
+
+            <div className="form-row">
+              <div className="form-field">
+                <label className="form-label" htmlFor="invoice_vat_number">VAT number</label>
+                <input
+                  id="invoice_vat_number"
+                  className="chat-input"
+                  value={invoiceVatNumber}
+                  onChange={(e) => setInvoiceVatNumber(e.target.value)}
+                  placeholder="e.g. GB 123 4567 89"
+                  disabled={invoiceSaving || loading}
+                />
+              </div>
+              <div className="form-field">
+                <label className="form-label" htmlFor="invoice_company_reg">Company reg number</label>
+                <input
+                  id="invoice_company_reg"
+                  className="chat-input"
+                  value={invoiceCompanyReg}
+                  onChange={(e) => setInvoiceCompanyReg(e.target.value)}
+                  placeholder="e.g. 12345678"
+                  disabled={invoiceSaving || loading}
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-field">
+                <label className="form-label" htmlFor="invoice_bank_name">Bank name</label>
+                <input
+                  id="invoice_bank_name"
+                  className="chat-input"
+                  value={invoiceBankName}
+                  onChange={(e) => setInvoiceBankName(e.target.value)}
+                  placeholder="e.g. Barclays"
+                  disabled={invoiceSaving || loading}
+                />
+              </div>
+              <div className="form-field">
+                <label className="form-label" htmlFor="invoice_sort_code">Sort code</label>
+                <input
+                  id="invoice_sort_code"
+                  className="chat-input"
+                  value={invoiceSortCode}
+                  onChange={(e) => setInvoiceSortCode(e.target.value)}
+                  placeholder="e.g. 20-00-00"
+                  disabled={invoiceSaving || loading}
+                />
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label" htmlFor="invoice_account_number">Account number</label>
+              <input
+                id="invoice_account_number"
+                className="chat-input"
+                value={invoiceAccountNumber}
+                onChange={(e) => setInvoiceAccountNumber(e.target.value)}
+                placeholder="e.g. 12345678"
+                disabled={invoiceSaving || loading}
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label" htmlFor="invoice_payment_terms">Payment terms</label>
+              <input
+                id="invoice_payment_terms"
+                className="chat-input"
+                value={invoicePaymentTerms}
+                onChange={(e) => setInvoicePaymentTerms(e.target.value)}
+                placeholder="Payment due within 30 days"
+                disabled={invoiceSaving || loading}
+              />
+            </div>
+
+            <div className="form-field">
+              <label className="form-label" htmlFor="invoice_notes">Invoice footer notes</label>
+              <textarea
+                id="invoice_notes"
+                className="chat-input"
+                value={invoiceNotes}
+                onChange={(e) => setInvoiceNotes(e.target.value)}
+                placeholder="e.g. Thank you for your business"
+                rows={3}
+                style={{ resize: "vertical", minHeight: "60px" }}
+                disabled={invoiceSaving || loading}
+              />
+            </div>
+
+            <div className="form-actions">
+              <button type="submit" className="btn btn-primary" disabled={invoiceSaving || loading}>
+                {invoiceSaving ? "Saving…" : "Save invoice settings"}
               </button>
             </div>
           </form>

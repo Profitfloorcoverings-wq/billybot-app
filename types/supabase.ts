@@ -184,6 +184,13 @@ export type Database = {
           has_mobile_app: boolean
           has_uploaded_price_list: boolean
           id: string
+          invoice_account_number: string | null
+          invoice_bank_name: string | null
+          invoice_company_reg: string | null
+          invoice_notes: string | null
+          invoice_payment_terms: string | null
+          invoice_sort_code: string | null
+          invoice_vat_number: string | null
           is_onboarded: boolean | null
           onboarding_last_step: string | null
           onboarding_stopped: boolean
@@ -228,6 +235,13 @@ export type Database = {
           has_mobile_app?: boolean
           has_uploaded_price_list?: boolean
           id?: string
+          invoice_account_number?: string | null
+          invoice_bank_name?: string | null
+          invoice_company_reg?: string | null
+          invoice_notes?: string | null
+          invoice_payment_terms?: string | null
+          invoice_sort_code?: string | null
+          invoice_vat_number?: string | null
           is_onboarded?: boolean | null
           onboarding_last_step?: string | null
           onboarding_stopped?: boolean
@@ -272,6 +286,13 @@ export type Database = {
           has_mobile_app?: boolean
           has_uploaded_price_list?: boolean
           id?: string
+          invoice_account_number?: string | null
+          invoice_bank_name?: string | null
+          invoice_company_reg?: string | null
+          invoice_notes?: string | null
+          invoice_payment_terms?: string | null
+          invoice_sort_code?: string | null
+          invoice_vat_number?: string | null
           is_onboarded?: boolean | null
           onboarding_last_step?: string | null
           onboarding_stopped?: boolean
@@ -834,6 +855,91 @@ export type Database = {
           ts?: string | null
         }
         Relationships: []
+      }
+      invoices: {
+        Row: {
+          accounting_invoice_id: string | null
+          amount_net: number | null
+          amount_total: number | null
+          amount_vat: number | null
+          client_id: string
+          created_at: string | null
+          customer_email: string | null
+          customer_name: string | null
+          due_date: string | null
+          id: string
+          invoice_reference: string | null
+          job_id: string | null
+          lines: Json | null
+          paid_at: string | null
+          pdf_url: string | null
+          quote_id: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          accounting_invoice_id?: string | null
+          amount_net?: number | null
+          amount_total?: number | null
+          amount_vat?: number | null
+          client_id: string
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_reference?: string | null
+          job_id?: string | null
+          lines?: Json | null
+          paid_at?: string | null
+          pdf_url?: string | null
+          quote_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          accounting_invoice_id?: string | null
+          amount_net?: number | null
+          amount_total?: number | null
+          amount_vat?: number | null
+          client_id?: string
+          created_at?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          due_date?: string | null
+          id?: string
+          invoice_reference?: string | null
+          job_id?: string | null
+          lines?: Json | null
+          paid_at?: string | null
+          pdf_url?: string | null
+          quote_id?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "quotes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_areas: {
         Row: {
@@ -1618,6 +1724,7 @@ export type Database = {
           follow_up_status: string | null
           id: string
           job_details: string | null
+          job_id: string | null
           job_ref: string | null
           lines: Json | null
           pdf_url: string | null
@@ -1633,6 +1740,7 @@ export type Database = {
           follow_up_status?: string | null
           id?: string
           job_details?: string | null
+          job_id?: string | null
           job_ref?: string | null
           lines?: Json | null
           pdf_url?: string | null
@@ -1648,6 +1756,7 @@ export type Database = {
           follow_up_status?: string | null
           id?: string
           job_details?: string | null
+          job_id?: string | null
           job_ref?: string | null
           lines?: Json | null
           pdf_url?: string | null
@@ -1656,7 +1765,15 @@ export type Database = {
           quote_status?: string | null
           version?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quotes_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rams_signatures: {
         Row: {
@@ -1731,6 +1848,7 @@ export type Database = {
           storage_path: string | null
           supplier_name: string | null
           updated_at: string
+          uploaded_by: string | null
           uploaded_via: string
         }
         Insert: {
@@ -1754,6 +1872,7 @@ export type Database = {
           storage_path?: string | null
           supplier_name?: string | null
           updated_at?: string
+          uploaded_by?: string | null
           uploaded_via?: string
         }
         Update: {
@@ -1777,6 +1896,7 @@ export type Database = {
           storage_path?: string | null
           supplier_name?: string | null
           updated_at?: string
+          uploaded_by?: string | null
           uploaded_via?: string
         }
         Relationships: [
@@ -1792,6 +1912,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipts_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
