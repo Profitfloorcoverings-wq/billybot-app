@@ -2,25 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-
-const CATEGORIES = ["materials", "labour", "equipment", "fuel", "other"] as const;
-const STATUSES = ["pending", "extracted", "approved", "synced", "error"] as const;
-
-const STATUS_STYLES: Record<string, { bg: string; border: string; color: string; label: string }> = {
-  pending: { bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.25)", color: "#fbbf24", label: "Pending" },
-  extracted: { bg: "rgba(56,189,248,0.1)", border: "rgba(56,189,248,0.25)", color: "#38bdf8", label: "Extracted" },
-  approved: { bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.25)", color: "#34d399", label: "Approved" },
-  synced: { bg: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.25)", color: "#a78bfa", label: "Synced" },
-  error: { bg: "rgba(239,68,68,0.1)", border: "rgba(239,68,68,0.25)", color: "#f87171", label: "Error" },
-};
-
-const CATEGORY_STYLES: Record<string, { bg: string; border: string; color: string; label: string }> = {
-  materials: { bg: "rgba(249,115,22,0.1)", border: "rgba(249,115,22,0.25)", color: "#fb923c", label: "Materials" },
-  labour: { bg: "rgba(56,189,248,0.1)", border: "rgba(56,189,248,0.25)", color: "#38bdf8", label: "Labour" },
-  equipment: { bg: "rgba(139,92,246,0.1)", border: "rgba(139,92,246,0.25)", color: "#a78bfa", label: "Equipment" },
-  fuel: { bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.25)", color: "#fbbf24", label: "Fuel" },
-  other: { bg: "rgba(148,163,184,0.1)", border: "rgba(148,163,184,0.25)", color: "#94a3b8", label: "Other" },
-};
+import { CATEGORIES, STATUSES, STATUS_STYLES, CATEGORY_STYLES } from "@/lib/receipts/constants";
+import ReceiptDetailModal from "@/components/receipts/ReceiptDetailModal";
 
 type Receipt = {
   id: string;
@@ -58,6 +41,7 @@ export default function ReceiptsPage() {
   const [syncing, setSyncing] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
   const [canApprove, setCanApprove] = useState(true);
+  const [detailReceipt, setDetailReceipt] = useState<Receipt | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -98,11 +82,19 @@ export default function ReceiptsPage() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "receipts" },
-        () => void loadReceipts()
+        () => {
+          void loadReceipts().then(() => {
+            setDetailReceipt((prev) => {
+              if (!prev) return null;
+              const updated = receipts.find((r) => r.id === prev.id);
+              return updated ?? null;
+            });
+          });
+        }
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [loadReceipts]);
+  }, [loadReceipts, receipts]);
 
   const filtered = filterCategory
     ? receipts.filter((r) => r.category === filterCategory)
@@ -375,10 +367,11 @@ export default function ReceiptsPage() {
                 style={{
                   display: "grid", gridTemplateColumns: "32px 1fr 100px 100px 100px 80px 80px",
                   gap: "12px", padding: "12px 16px", background: "rgba(255,255,255,0.02)",
-                  alignItems: "center", fontSize: "13px",
+                  alignItems: "center", fontSize: "13px", cursor: "pointer",
                 }}
+                onClick={() => setDetailReceipt(receipt)}
               >
-                <div>
+                <div onClick={(e) => e.stopPropagation()}>
                   <input type="checkbox" checked={selected.has(receipt.id)} onChange={() => toggleSelect(receipt.id)} style={{ cursor: "pointer" }} />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
@@ -428,7 +421,7 @@ export default function ReceiptsPage() {
                     {statusStyle.label}
                   </span>
                 </div>
-                <div style={{ display: "flex", gap: "4px", justifyContent: "flex-end" }}>
+                <div style={{ display: "flex", gap: "4px", justifyContent: "flex-end" }} onClick={(e) => e.stopPropagation()}>
                   {canApprove && receipt.status === "extracted" ? (
                     <button
                       type="button"
@@ -464,6 +457,17 @@ export default function ReceiptsPage() {
           })}
         </div>
       )}
+      {detailReceipt ? (
+        <ReceiptDetailModal
+          receipt={detailReceipt}
+          canApprove={canApprove}
+          syncing={syncing}
+          onClose={() => setDetailReceipt(null)}
+          onApprove={(id) => { void handleApprove(id); setDetailReceipt((prev) => prev ? { ...prev, status: "approved" } : null); }}
+          onSync={(id) => void handleSync(id)}
+          onDelete={(id) => { void handleDelete(id); setDetailReceipt(null); }}
+        />
+      ) : null}
       {toast ? (
         <div
           style={{
