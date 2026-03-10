@@ -49,7 +49,7 @@ export async function POST(
     imageUrl = signedUrl?.signedUrl ?? null;
   }
 
-  const webhookUrl = process.env.N8N_RECEIPT_WEBHOOK_URL;
+  const webhookUrl = process.env.N8N_RECEIPT_SYNC_WEBHOOK_URL;
   if (!webhookUrl) {
     return NextResponse.json({ error: "Receipt sync webhook not configured" }, { status: 500 });
   }
