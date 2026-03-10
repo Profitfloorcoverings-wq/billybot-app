@@ -15,6 +15,8 @@ type LineItem = {
   unit: "m2" | "m" | "sheet" | "unit" | "flat";
   unit_price: number;
   total: number;
+  product_ref?: string;
+  price_source?: "mid_range" | "supplier" | "manual";
 };
 
 type RequestBody = {
@@ -46,14 +48,23 @@ export async function POST(req: Request) {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Fetch pricing settings for VAT flag
-    const { data: pricing } = await supabase
-      .from("pricing_settings")
-      .select("vat_registered")
-      .eq("profile_id", user.id)
-      .maybeSingle();
+    // Fetch pricing settings and client profile in parallel
+    const [pricingResult, clientResult] = await Promise.all([
+      supabase
+        .from("pricing_settings")
+        .select("vat_registered")
+        .eq("profile_id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("clients")
+        .select("business_name, accounting_system")
+        .eq("id", user.id)
+        .maybeSingle(),
+    ]);
 
-    const vatRegistered = pricing?.vat_registered ?? false;
+    const vatRegistered = pricingResult.data?.vat_registered ?? false;
+    const businessName = clientResult.data?.business_name ?? "";
+    const accountingSystem = clientResult.data?.accounting_system ?? "none";
 
     // POST to N8N custom quote workflow
     const n8nRes = await fetch(customQuoteWebhook, {
@@ -67,7 +78,8 @@ export async function POST(req: Request) {
         conversation_id,
         lines,
         vat_registered: vatRegistered,
-        business_name: "",
+        business_name: businessName,
+        accounting_system: accountingSystem,
       }),
     });
 

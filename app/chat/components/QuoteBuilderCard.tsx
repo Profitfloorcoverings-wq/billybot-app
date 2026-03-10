@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 export type LineItemType = "labour" | "materials" | "extra";
 export type LineItemUnit = "m2" | "m" | "sheet" | "unit" | "flat";
@@ -13,6 +13,22 @@ export type LineItem = {
   unit: LineItemUnit;
   unit_price: number;
   total: number;
+  product_ref?: string;
+  price_source?: "mid_range" | "supplier" | "manual";
+  item_ref_value?: string;
+  sales_account_code?: string;
+  sales_ledger_account_id?: string;
+};
+
+type MidRangeProduct = {
+  product_name: string | null;
+  category: string | null;
+  m2_price: number | null;
+  price: number | null;
+  uom: string | null;
+  item_ref_value: string | null;
+  sales_account_code: string | null;
+  sales_ledger_account_id: string | null;
 };
 
 type Props = {
@@ -27,7 +43,7 @@ const TYPE_OPTIONS: { value: LineItemType; label: string }[] = [
 ];
 
 const UNIT_OPTIONS: { value: LineItemUnit; label: string }[] = [
-  { value: "m2", label: "m²" },
+  { value: "m2", label: "m\u00b2" },
   { value: "m", label: "m" },
   { value: "sheet", label: "Sheet" },
   { value: "unit", label: "Unit" },
@@ -73,6 +89,147 @@ const INPUT_STYLE: React.CSSProperties = {
   width: "100%",
 };
 
+/* ── Product Picker Combobox ── */
+
+function ProductPicker({
+  products,
+  value,
+  onSelect,
+}: {
+  products: MidRangeProduct[];
+  value: string;
+  onSelect: (product: MidRangeProduct) => void;
+}) {
+  const [search, setSearch] = useState(value);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Sync external value changes
+  useEffect(() => {
+    setSearch(value);
+  }, [value]);
+
+  // Close on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = products.filter(
+    (p) =>
+      p.product_name &&
+      p.product_name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Group by category
+  const grouped = new Map<string, MidRangeProduct[]>();
+  for (const p of filtered) {
+    const cat = p.category ?? "Other";
+    if (!grouped.has(cat)) grouped.set(cat, []);
+    grouped.get(cat)!.push(p);
+  }
+
+  return (
+    <div ref={ref} style={{ position: "relative", width: "100%" }}>
+      <input
+        style={INPUT_STYLE}
+        type="text"
+        placeholder="Search products…"
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && filtered.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            maxHeight: "240px",
+            overflowY: "auto",
+            background: "#1a2237",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: "8px",
+            marginTop: "2px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+          }}
+        >
+          {[...grouped.entries()].map(([cat, items]) => (
+            <div key={cat}>
+              <div
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: "#475569",
+                  background: "rgba(255,255,255,0.03)",
+                  borderBottom: "1px solid rgba(255,255,255,0.05)",
+                }}
+              >
+                {cat}
+              </div>
+              {items.map((p, i) => (
+                <button
+                  key={`${p.product_name}-${i}`}
+                  type="button"
+                  onClick={() => {
+                    onSelect(p);
+                    setSearch(p.product_name ?? "");
+                    setOpen(false);
+                  }}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "6px 10px",
+                    background: "none",
+                    border: "none",
+                    color: "#e2e8f0",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    borderBottom: "1px solid rgba(255,255,255,0.03)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(249,115,22,0.1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "none";
+                  }}
+                >
+                  <span>{p.product_name}</span>
+                  <span style={{ color: "#64748b", fontSize: "11px" }}>
+                    {p.m2_price != null
+                      ? `£${p.m2_price}/m²`
+                      : p.price != null
+                        ? `£${p.price}`
+                        : ""}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Main Component ── */
+
 export default function QuoteBuilderCard({ conversationId, initialLines = [] }: Props) {
   const [lines, setLines] = useState<LineItem[]>(
     initialLines.length > 0 ? initialLines : [emptyLine()]
@@ -80,6 +237,32 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
   const [generating, setGenerating] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Product picker state
+  const [midRangeProducts, setMidRangeProducts] = useState<MidRangeProduct[]>([]);
+  const [accountingSystem, setAccountingSystem] = useState<string | null>(null);
+  const hasFetched = useRef(false);
+
+  useEffect(() => {
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
+    fetch("/api/supplier-prices/mid-range")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((res) => {
+        if (res?.products) {
+          setMidRangeProducts(res.products as MidRangeProduct[]);
+        }
+        if (res?.accounting_system) {
+          setAccountingSystem(res.accounting_system as string);
+        }
+      });
+  }, []);
+
+  const hasAccounting =
+    accountingSystem === "xero" ||
+    accountingSystem === "quickbooks" ||
+    accountingSystem === "sage";
 
   const updateLine = useCallback((id: string, patch: Partial<LineItem>) => {
     setLines((prev) =>
@@ -136,6 +319,25 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
     }
   }
 
+  function handleProductSelect(lineId: string, product: MidRangeProduct) {
+    const refBySystem =
+      accountingSystem === "quickbooks" ? product.item_ref_value
+      : accountingSystem === "xero" ? product.sales_account_code
+      : accountingSystem === "sage" ? product.sales_ledger_account_id
+      : product.item_ref_value ?? product.sales_account_code ?? product.sales_ledger_account_id;
+
+    updateLine(lineId, {
+      description: product.product_name ?? "",
+      unit_price: product.m2_price ?? product.price ?? 0,
+      unit: (product.uom as LineItemUnit) ?? "m2",
+      product_ref: refBySystem ?? undefined,
+      item_ref_value: product.item_ref_value ?? undefined,
+      sales_account_code: product.sales_account_code ?? undefined,
+      sales_ledger_account_id: product.sales_ledger_account_id ?? undefined,
+      price_source: "mid_range",
+    });
+  }
+
   if (done) {
     return (
       <div style={{
@@ -177,7 +379,11 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
         <span style={{ fontSize: "16px" }}>🔧</span>
         <div>
           <p style={{ margin: 0, fontWeight: 700, color: "#f1f5f9", fontSize: "14px" }}>Custom Quote Builder</p>
-          <p style={{ margin: 0, color: "#64748b", fontSize: "11px", marginTop: "1px" }}>Add line items, then click Generate Quote</p>
+          <p style={{ margin: 0, color: "#64748b", fontSize: "11px", marginTop: "1px" }}>
+            {hasAccounting
+              ? "Select products from your price list, then click Generate Quote"
+              : "Add line items, then click Generate Quote"}
+          </p>
         </div>
       </div>
 
@@ -219,14 +425,22 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
               ))}
             </select>
 
-            {/* Description */}
-            <input
-              style={INPUT_STYLE}
-              type="text"
-              placeholder="e.g. Vinyl patch repair"
-              value={line.description}
-              onChange={(e) => updateLine(line.id, { description: e.target.value })}
-            />
+            {/* Description — product picker or free text */}
+            {hasAccounting && line.type === "materials" && midRangeProducts.length > 0 ? (
+              <ProductPicker
+                products={midRangeProducts}
+                value={line.description}
+                onSelect={(p) => handleProductSelect(line.id, p)}
+              />
+            ) : (
+              <input
+                style={INPUT_STYLE}
+                type="text"
+                placeholder="e.g. Vinyl patch repair"
+                value={line.description}
+                onChange={(e) => updateLine(line.id, { description: e.target.value })}
+              />
+            )}
 
             {/* Qty */}
             <input
@@ -257,7 +471,7 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
               step={0.01}
               placeholder="0.00"
               value={line.unit_price === 0 ? "" : line.unit_price}
-              onChange={(e) => updateLine(line.id, { unit_price: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => updateLine(line.id, { unit_price: parseFloat(e.target.value) || 0, price_source: "manual" })}
             />
 
             {/* Remove */}
