@@ -56,6 +56,7 @@ export default function ReceiptsPage() {
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [syncing, setSyncing] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "error" | "success" } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadReceipts = useCallback(async () => {
@@ -131,11 +132,26 @@ export default function ReceiptsPage() {
     if (res.ok) setReceipts((prev) => prev.map((r) => r.id === receiptId ? { ...r, status: "approved" } : r));
   }
 
+  function showToast(message: string, type: "error" | "success" = "error") {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  }
+
   async function handleSync(receiptId: string) {
     setSyncing(receiptId);
     try {
       const res = await fetch(`/api/receipts/${receiptId}/sync`, { method: "POST" });
-      if (res.ok) setReceipts((prev) => prev.map((r) => r.id === receiptId ? { ...r, status: "synced" } : r));
+      if (res.ok) {
+        const data = await res.json();
+        setReceipts((prev) => prev.map((r) => r.id === receiptId ? { ...r, status: "synced", accounting_bill_id: data.bill_id } : r));
+        showToast("Receipt synced to accounting", "success");
+      } else {
+        const err = await res.json().catch(() => ({ error: "Sync failed" }));
+        setReceipts((prev) => prev.map((r) => r.id === receiptId ? { ...r, status: "error" } : r));
+        showToast(err.error || "Sync failed");
+      }
+    } catch {
+      showToast("Network error — could not reach sync service");
     } finally {
       setSyncing(null);
     }
@@ -155,6 +171,10 @@ export default function ReceiptsPage() {
       const r = receipts.find((rec) => rec.id === id);
       return r?.status === "approved";
     });
+    if (ids.length === 0) {
+      showToast("No approved receipts selected. Approve receipts before syncing.");
+      return;
+    }
     for (const id of ids) {
       await handleSync(id);
     }
@@ -428,6 +448,20 @@ export default function ReceiptsPage() {
           })}
         </div>
       )}
+      {toast ? (
+        <div
+          style={{
+            position: "fixed", bottom: "24px", right: "24px", zIndex: 9999,
+            padding: "12px 20px", borderRadius: "10px", fontSize: "13px", fontWeight: 600,
+            background: toast.type === "error" ? "rgba(239,68,68,0.95)" : "rgba(34,197,94,0.95)",
+            color: "#fff", boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+            cursor: "pointer",
+          }}
+          onClick={() => setToast(null)}
+        >
+          {toast.message}
+        </div>
+      ) : null}
     </div>
   );
 }
