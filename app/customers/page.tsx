@@ -63,6 +63,8 @@ async function fetchJobCounts(supabase: ReturnType<typeof createClient>, profile
   return map;
 }
 
+type ViewMode = "table" | "cards";
+
 export default function CustomersPage() {
   const supabase = useMemo(() => createClient(), []);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -70,6 +72,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("cards");
 
   useEffect(() => {
     let active = true;
@@ -167,9 +170,35 @@ export default function CustomersPage() {
             />
           </div>
           {!loading && customers.length > 0 && (
-            <p style={{ fontSize: "12px", color: "#64748b", whiteSpace: "nowrap" as const }}>
-              Showing {filteredCustomers.length} of {customers.length}
-            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <div style={{ display: "flex", borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("cards")}
+                  style={{
+                    padding: "7px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer", border: "none",
+                    background: viewMode === "cards" ? "rgba(56,189,248,0.12)" : "rgba(255,255,255,0.02)",
+                    color: viewMode === "cards" ? "#38bdf8" : "#64748b",
+                  }}
+                >
+                  Cards
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("table")}
+                  style={{
+                    padding: "7px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer", border: "none",
+                    background: viewMode === "table" ? "rgba(56,189,248,0.12)" : "rgba(255,255,255,0.02)",
+                    color: viewMode === "table" ? "#38bdf8" : "#64748b",
+                  }}
+                >
+                  Table
+                </button>
+              </div>
+              <p style={{ fontSize: "12px", color: "#64748b", whiteSpace: "nowrap" as const }}>
+                Showing {filteredCustomers.length} of {customers.length}
+              </p>
+            </div>
           )}
         </div>
 
@@ -206,7 +235,77 @@ export default function CustomersPage() {
               </div>
             )}
 
-            {!loading && !error && filteredCustomers.length > 0 && (
+            {!loading && !error && filteredCustomers.length > 0 && viewMode === "cards" && (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "12px" }}>
+                {filteredCustomers.map((customer) => {
+                  const customerName = customer.customer_name?.trim() || "Untitled";
+                  const contactName = customer.contact_name?.trim() || "";
+                  const showContact = contactName && contactName.toLowerCase() !== customerName.toLowerCase();
+                  const email = customer.email?.trim() || "";
+                  const phone = customer.mobile?.trim() || customer.phone?.trim() || "";
+                  const jobs = email ? jobCounts.get(email.toLowerCase()) : undefined;
+                  const init = getInitials(customerName);
+
+                  return (
+                    <Link
+                      key={customer.id}
+                      href={`/customers/${customer.id}`}
+                      className="card"
+                      style={{ padding: "16px 18px", textDecoration: "none", display: "block", transition: "border-color 0.15s" }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                        <div style={{
+                          width: "40px", height: "40px", borderRadius: "50%", flexShrink: 0,
+                          background: email ? "rgba(56,189,248,0.1)" : "rgba(148,163,184,0.08)",
+                          border: email ? "1px solid rgba(56,189,248,0.2)" : "1px solid rgba(148,163,184,0.15)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "14px", fontWeight: 700,
+                          color: email ? "#38bdf8" : "#475569",
+                        }}>
+                          {init}
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <p style={{ fontSize: "15px", fontWeight: 600, color: "#f1f5f9", margin: "0 0 2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {customerName}
+                          </p>
+                          {showContact && (
+                            <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>{contactName}</p>
+                          )}
+                        </div>
+                        {jobs ? (
+                          <span style={{
+                            fontSize: "12px", fontWeight: 600, color: "#38bdf8",
+                            background: "rgba(56,189,248,0.08)", padding: "3px 10px", borderRadius: "999px",
+                            border: "1px solid rgba(56,189,248,0.15)", flexShrink: 0,
+                          }}>
+                            {jobs.count} job{jobs.count !== 1 ? "s" : ""}
+                          </span>
+                        ) : null}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        {email && (
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontSize: "12px", color: "#475569" }}>✉</span>
+                            <span style={{ fontSize: "13px", color: "#38bdf8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email}</span>
+                          </div>
+                        )}
+                        {phone && (
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span style={{ fontSize: "11px", color: "#475569" }}>📞</span>
+                            <span style={{ fontSize: "13px", color: "#e2e8f0", fontVariantNumeric: "tabular-nums" }}>{phone}</span>
+                          </div>
+                        )}
+                        {!email && !phone && (
+                          <span style={{ fontSize: "12px", color: "#475569" }}>No contact details</span>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+
+            {!loading && !error && filteredCustomers.length > 0 && viewMode === "table" && (
               <table className="data-table">
                 <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
                   <tr>

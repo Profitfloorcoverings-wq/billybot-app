@@ -59,6 +59,7 @@ export default function QuotesPage() {
   const [error, setError] = useState<string | null>(null);
   const [initialLastViewed, setInitialLastViewed] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
   const [invoicingQuoteId, setInvoicingQuoteId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -223,6 +224,30 @@ export default function QuotesPage() {
                 />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ display: "flex", borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("cards")}
+                    style={{
+                      padding: "7px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer", border: "none",
+                      background: viewMode === "cards" ? "rgba(56,189,248,0.12)" : "rgba(255,255,255,0.02)",
+                      color: viewMode === "cards" ? "#38bdf8" : "#64748b",
+                    }}
+                  >
+                    Cards
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("table")}
+                    style={{
+                      padding: "7px 12px", fontSize: "12px", fontWeight: 600, cursor: "pointer", border: "none",
+                      background: viewMode === "table" ? "rgba(56,189,248,0.12)" : "rgba(255,255,255,0.02)",
+                      color: viewMode === "table" ? "#38bdf8" : "#64748b",
+                    }}
+                  >
+                    Table
+                  </button>
+                </div>
                 <span style={{ fontSize: "12px", color: "#64748b", whiteSpace: "nowrap" }}>
                   {filteredQuotes.length} of {quotes.length}
                 </span>
@@ -243,8 +268,8 @@ export default function QuotesPage() {
                 <div style={{ fontSize: "24px", opacity: 0.3, marginBottom: "8px" }}>🔍</div>
                 <p style={{ color: "#64748b", fontSize: "14px" }}>No quotes match your search.</p>
               </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            ) : viewMode === "cards" ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "12px" }}>
                 {filteredQuotes.map((quote) => {
                   const isNew = unseenCutoff
                     ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
@@ -258,94 +283,197 @@ export default function QuotesPage() {
                   return (
                     <div
                       key={quote.id}
+                      className="card"
                       style={{
-                        display: "flex", alignItems: "center", gap: "14px",
-                        padding: "14px 16px", borderRadius: "12px",
-                        background: isNew ? "rgba(56,189,248,0.03)" : "rgba(255,255,255,0.02)",
-                        border: isNew ? "1px solid rgba(56,189,248,0.12)" : "1px solid rgba(255,255,255,0.05)",
-                        transition: "background 0.15s",
+                        padding: "16px 18px",
+                        border: isNew ? "1px solid rgba(56,189,248,0.12)" : undefined,
+                        background: isNew ? "rgba(56,189,248,0.03)" : undefined,
                       }}
                     >
-                      {/* Avatar */}
-                      <div style={{
-                        width: "40px", height: "40px", borderRadius: "50%", flexShrink: 0,
-                        background: bespoke ? "rgba(249,115,22,0.1)" : "rgba(56,189,248,0.1)",
-                        border: bespoke ? "1px solid rgba(249,115,22,0.2)" : "1px solid rgba(56,189,248,0.2)",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: "14px", fontWeight: 700,
-                        color: bespoke ? "#fb923c" : "#38bdf8",
-                      }}>
-                        {initials}
-                      </div>
-
-                      {/* Info */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "3px" }}>
-                          <span style={{
-                            fontFamily: "monospace", fontSize: "12px", padding: "2px 8px",
-                            borderRadius: "6px", background: "rgba(255,255,255,0.06)",
-                            border: "1px solid rgba(148,163,184,0.12)", color: "#94a3b8",
-                          }}>
-                            {quoteLabel}
-                          </span>
-                          {isNew && (
-                            <span style={{
-                              fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "999px",
-                              background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.25)",
-                              color: "#34d399", textTransform: "uppercase", letterSpacing: "0.06em",
-                            }}>
-                              New
-                            </span>
-                          )}
-                          {bespoke && (
-                            <span style={{
-                              fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "999px",
-                              background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.25)",
-                              color: "#fb923c", textTransform: "uppercase", letterSpacing: "0.06em",
-                            }}>
-                              Bespoke
-                            </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "12px" }}>
+                        <div style={{
+                          width: "40px", height: "40px", borderRadius: "50%", flexShrink: 0,
+                          background: bespoke ? "rgba(249,115,22,0.1)" : "rgba(56,189,248,0.1)",
+                          border: bespoke ? "1px solid rgba(249,115,22,0.2)" : "1px solid rgba(56,189,248,0.2)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "14px", fontWeight: 700,
+                          color: bespoke ? "#fb923c" : "#38bdf8",
+                        }}>
+                          {initials}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: "15px", fontWeight: 600, color: "#f1f5f9", margin: "0 0 2px" }}>{customerName}</p>
+                          {jobRef && (
+                            <p style={{ fontSize: "12px", color: "#64748b", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{jobRef}</p>
                           )}
                         </div>
-                        <span style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9" }}>{customerName}</span>
-                        {jobRef && (
-                          <span style={{ fontSize: "12px", color: "#64748b", display: "block", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "400px" }}>
-                            {jobRef}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap", marginBottom: "12px" }}>
+                        <span style={{
+                          fontFamily: "monospace", fontSize: "12px", padding: "2px 8px",
+                          borderRadius: "6px", background: "rgba(255,255,255,0.06)",
+                          border: "1px solid rgba(148,163,184,0.12)", color: "#94a3b8",
+                        }}>
+                          {quoteLabel}
+                        </span>
+                        {isNew && (
+                          <span style={{
+                            fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "999px",
+                            background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.25)",
+                            color: "#34d399", textTransform: "uppercase", letterSpacing: "0.06em",
+                          }}>
+                            New
+                          </span>
+                        )}
+                        {bespoke && (
+                          <span style={{
+                            fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "999px",
+                            background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.25)",
+                            color: "#fb923c", textTransform: "uppercase", letterSpacing: "0.06em",
+                          }}>
+                            Bespoke
                           </span>
                         )}
                       </div>
-
-                      {/* Time */}
-                      <span style={{ fontSize: "12px", color: "#475569", whiteSpace: "nowrap", flexShrink: 0 }}>
-                        {formatRelative(quote.created_at)}
-                      </span>
-
-                      {/* Actions */}
-                      <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          style={{ fontSize: "11px", padding: "5px 12px", borderRadius: "999px" }}
-                          disabled={invoicingQuoteId === String(quote.id)}
-                          onClick={() => handleCreateInvoice(String(quote.id))}
-                        >
-                          {invoicingQuoteId === String(quote.id) ? "Creating…" : "Invoice"}
-                        </button>
-                        {quote.pdf_url && (
-                          <Link
-                            href={quote.pdf_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="btn btn-primary"
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "12px", color: "#475569" }}>{formatRelative(quote.created_at)}</span>
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
                             style={{ fontSize: "11px", padding: "5px 12px", borderRadius: "999px" }}
+                            disabled={invoicingQuoteId === String(quote.id)}
+                            onClick={() => handleCreateInvoice(String(quote.id))}
                           >
-                            PDF
-                          </Link>
-                        )}
+                            {invoicingQuoteId === String(quote.id) ? "Creating…" : "Invoice"}
+                          </button>
+                          {quote.pdf_url && (
+                            <Link
+                              href={quote.pdf_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-primary"
+                              style={{ fontSize: "11px", padding: "5px 12px", borderRadius: "999px" }}
+                            >
+                              PDF
+                            </Link>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
+              </div>
+            ) : (
+              <div className="table-card scrollable-table">
+                <div style={{ position: "relative", width: "100%", maxHeight: "70vh", overflowY: "auto" }}>
+                  <table className="data-table">
+                    <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
+                      <tr>
+                        <th style={{ width: "260px" }}>Customer</th>
+                        <th>Reference</th>
+                        <th>Job</th>
+                        <th>Created</th>
+                        <th className="sticky-cell" style={{ textAlign: "right" }} aria-label="Actions" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredQuotes.map((quote) => {
+                        const isNew = unseenCutoff
+                          ? !!quote.created_at && Date.parse(quote.created_at) > unseenCutoff
+                          : true;
+                        const customerName = quote.customer_name?.trim() || "Unknown customer";
+                        const jobRef = quote.job_ref?.trim() || "";
+                        const quoteLabel = quote.quote_reference || `Quote ${quote.id}`;
+                        const bespoke = isBespoke(quote.quote);
+                        const initials = getInitials(customerName);
+
+                        return (
+                          <tr key={quote.id}>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                <div style={{
+                                  width: "36px", height: "36px", borderRadius: "50%", flexShrink: 0,
+                                  background: bespoke ? "rgba(249,115,22,0.1)" : "rgba(56,189,248,0.1)",
+                                  border: bespoke ? "1px solid rgba(249,115,22,0.2)" : "1px solid rgba(56,189,248,0.2)",
+                                  display: "flex", alignItems: "center", justifyContent: "center",
+                                  fontSize: "13px", fontWeight: 700,
+                                  color: bespoke ? "#fb923c" : "#38bdf8",
+                                }}>
+                                  {initials}
+                                </div>
+                                <span style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9" }}>{customerName}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                                <span style={{
+                                  fontFamily: "monospace", fontSize: "12px", padding: "2px 8px",
+                                  borderRadius: "6px", background: "rgba(255,255,255,0.06)",
+                                  border: "1px solid rgba(148,163,184,0.12)", color: "#94a3b8",
+                                }}>
+                                  {quoteLabel}
+                                </span>
+                                {isNew && (
+                                  <span style={{
+                                    fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "999px",
+                                    background: "rgba(52,211,153,0.12)", border: "1px solid rgba(52,211,153,0.25)",
+                                    color: "#34d399", textTransform: "uppercase",
+                                  }}>
+                                    New
+                                  </span>
+                                )}
+                                {bespoke && (
+                                  <span style={{
+                                    fontSize: "10px", fontWeight: 700, padding: "2px 7px", borderRadius: "999px",
+                                    background: "rgba(249,115,22,0.12)", border: "1px solid rgba(249,115,22,0.25)",
+                                    color: "#fb923c", textTransform: "uppercase",
+                                  }}>
+                                    Bespoke
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              {jobRef ? (
+                                <span style={{ fontSize: "13px", color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block", maxWidth: "300px" }}>{jobRef}</span>
+                              ) : (
+                                <span style={{ fontSize: "13px", color: "#475569" }}>—</span>
+                              )}
+                            </td>
+                            <td>
+                              <span style={{ fontSize: "12px", color: "#475569" }}>{formatRelative(quote.created_at)}</span>
+                            </td>
+                            <td className="sticky-cell">
+                              <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  style={{ fontSize: "11px", padding: "5px 12px", borderRadius: "999px" }}
+                                  disabled={invoicingQuoteId === String(quote.id)}
+                                  onClick={() => handleCreateInvoice(String(quote.id))}
+                                >
+                                  {invoicingQuoteId === String(quote.id) ? "Creating…" : "Invoice"}
+                                </button>
+                                {quote.pdf_url && (
+                                  <Link
+                                    href={quote.pdf_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="btn btn-primary"
+                                    style={{ fontSize: "11px", padding: "5px 12px", borderRadius: "999px" }}
+                                  >
+                                    PDF
+                                  </Link>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
