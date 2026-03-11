@@ -1394,6 +1394,11 @@ input[type=number].supplierPriceInput {
   }
 }
 
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+
 @media (max-width: 1024px) {
   .app-shell {
     flex-direction: column;

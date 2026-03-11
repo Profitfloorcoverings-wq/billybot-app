@@ -23,31 +23,36 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
 
   return (
     <div className="page-container">
-      <header style={{ marginBottom: "4px" }}>
+      <header style={{ marginBottom: "16px" }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
           <div>
-            <h1 className="section-title">Conversations</h1>
-            <p style={{ color: "#475569", fontSize: "13px", marginTop: "4px" }}>
-              General email threads that aren&apos;t linked to a specific job.
+            <h1 className="section-title" style={{ marginBottom: "4px" }}>Conversations</h1>
+            <p style={{ color: "#64748b", fontSize: "13px", margin: 0, lineHeight: 1.5 }}>
+              Email threads that aren&apos;t linked to a job. BillyBot drafts replies for you to review.
             </p>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             {needsActionCount > 0 && (
               <span style={{
-                display: "inline-flex", alignItems: "center", padding: "6px 14px",
+                display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 16px",
                 borderRadius: "999px", fontSize: "13px", fontWeight: 700,
-                background: "rgba(249,115,22,0.1)", color: "#fb923c",
+                background: "rgba(249,115,22,0.12)", color: "#fb923c",
                 border: "1px solid rgba(249,115,22,0.3)",
+                animation: "pulse-soft 2s ease-in-out infinite",
               }}>
-                {needsActionCount} needs reply
+                <span style={{
+                  width: "8px", height: "8px", borderRadius: "50%",
+                  background: "#fb923c",
+                }} />
+                {needsActionCount} {needsActionCount === 1 ? "needs" : "need"} your review
               </span>
             )}
             {conversations.length > 0 && (
               <span style={{
-                display: "inline-flex", alignItems: "center", padding: "6px 14px",
-                borderRadius: "999px", fontSize: "13px", fontWeight: 700,
-                background: "rgba(148,163,184,0.1)", color: "#94a3b8",
-                border: "1px solid rgba(148,163,184,0.25)",
+                display: "inline-flex", alignItems: "center", padding: "8px 16px",
+                borderRadius: "999px", fontSize: "13px", fontWeight: 600,
+                background: "rgba(148,163,184,0.08)", color: "#94a3b8",
+                border: "1px solid rgba(148,163,184,0.15)",
               }}>
                 {conversations.length} {conversations.length === 1 ? "thread" : "threads"}
               </span>

@@ -1154,24 +1154,114 @@ export default function PricingPage() {
     vatRegistered,
   ]);
 
+  const enabledServiceCount = Object.values(serviceToggles).filter(Boolean).length;
+  const filledMaterialCount = visibleMaterialFields.filter((f) => materialPrices[f.column]?.trim()).length;
+  const filledLabourCount = visibleLabourFields.filter((f) => labourPrices[f.column]?.trim()).length;
+  const totalFields = visibleMaterialFields.length + visibleLabourFields.length + visibleMarkupOptions.length;
+  const filledFields = filledMaterialCount + filledLabourCount + visibleMarkupOptions.filter((o) => markupState[o.valueColumn]?.value?.trim()).length;
+  const completionPercent = totalFields > 0 ? Math.round((filledFields / totalFields) * 100) : 0;
+
+  const [activeSection, setActiveSection] = useState("services");
+
+  const sections = [
+    { id: "services", label: "Services", icon: "⚙️" },
+    { id: "markups", label: "Markups", icon: "📊" },
+    { id: "materials", label: "Materials", icon: "🧱" },
+    { id: "labour", label: "Labour", icon: "👷" },
+    { id: "extras", label: "Extras", icon: "➕" },
+    { id: "rules", label: "Rules", icon: "📐" },
+    { id: "settings", label: "Settings", icon: "🔧" },
+  ];
+
+  function scrollToSection(sectionId: string) {
+    setActiveSection(sectionId);
+    const el = document.getElementById(`pricing-${sectionId}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   if (loading) {
     return (
-      <div className="page-container">
-        <p className="section-subtitle">Loading pricing settings...</p>
+      <div className="page-container" style={{ display: "flex", justifyContent: "center", paddingTop: "120px" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "32px", marginBottom: "12px", animation: "pulse-soft 1.5s ease-in-out infinite" }}>💰</div>
+          <p className="section-subtitle">Loading pricing settings...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="page-container">
-      <div className="section-header">
-        <div className="stack">
-          <h1 className="section-title">Pricing</h1>
-          <p className="section-subtitle">
-            Configure pricing, labour, and VAT preferences for your quotes.
-          </p>
+      {/* Header */}
+      <div style={{ marginBottom: "20px" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+          <div>
+            <h1 className="section-title" style={{ marginBottom: "4px" }}>Pricing</h1>
+            <p className="section-subtitle" style={{ margin: 0 }}>
+              Configure pricing, labour, and VAT preferences for your quotes.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            {/* Completion indicator */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: "10px",
+              padding: "8px 16px", borderRadius: "999px",
+              background: completionPercent === 100 ? "rgba(52,211,153,0.1)" : "rgba(56,189,248,0.08)",
+              border: completionPercent === 100 ? "1px solid rgba(52,211,153,0.25)" : "1px solid rgba(56,189,248,0.15)",
+            }}>
+              <div style={{
+                width: "60px", height: "6px", borderRadius: "3px",
+                background: "rgba(255,255,255,0.08)", overflow: "hidden",
+              }}>
+                <div style={{
+                  width: `${completionPercent}%`, height: "100%", borderRadius: "3px",
+                  background: completionPercent === 100 ? "#34d399" : "#38bdf8",
+                  transition: "width 0.3s ease",
+                }} />
+              </div>
+              <span style={{
+                fontSize: "12px", fontWeight: 700,
+                color: completionPercent === 100 ? "#34d399" : "#38bdf8",
+              }}>
+                {completionPercent}% set up
+              </span>
+            </div>
+            <span style={{
+              padding: "8px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600,
+              background: "rgba(148,163,184,0.08)", color: "#94a3b8",
+              border: "1px solid rgba(148,163,184,0.15)",
+            }}>
+              {enabledServiceCount} {enabledServiceCount === 1 ? "service" : "services"} active
+            </span>
+          </div>
         </div>
-        <div className="tag">Pricing settings</div>
+      </div>
+
+      {/* Section nav */}
+      <div style={{
+        display: "flex", gap: "4px", marginBottom: "20px", overflowX: "auto",
+        padding: "4px", borderRadius: "12px",
+        background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
+      }}>
+        {sections.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => scrollToSection(s.id)}
+            style={{
+              padding: "8px 14px", borderRadius: "8px", fontSize: "13px", fontWeight: 500,
+              background: activeSection === s.id ? "rgba(56,189,248,0.1)" : "transparent",
+              color: activeSection === s.id ? "#38bdf8" : "#94a3b8",
+              border: activeSection === s.id ? "1px solid rgba(56,189,248,0.2)" : "1px solid transparent",
+              cursor: "pointer", whiteSpace: "nowrap",
+              display: "flex", alignItems: "center", gap: "6px",
+              transition: "all 0.15s",
+            }}
+          >
+            <span style={{ fontSize: "14px" }}>{s.icon}</span>
+            {s.label}
+          </button>
+        ))}
       </div>
 
       {error ? (
@@ -1221,12 +1311,15 @@ export default function PricingPage() {
         </div>
       ) : null}
 
-      <div className="settings-grid">
+      <div className="settings-grid" id="pricing-services">
         <div className="card stack">
           <div className="settings-section-heading">
             <div className="stack">
-              <h3 className="section-title text-lg">Service options</h3>
-              <p className="section-subtitle">Toggle services on or off for quoting.</p>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "18px" }}>⚙️</span>
+                <h3 className="section-title text-lg">Service options</h3>
+              </div>
+              <p className="section-subtitle">Toggle which flooring services you offer. Only enabled services will show pricing fields below.</p>
             </div>
           </div>
           <div className="settings-tiles">
@@ -1247,13 +1340,15 @@ export default function PricingPage() {
           </div>
         </div>
 
-        <div className="card stack">
+        <div className="card stack" id="pricing-markups">
           <div className="settings-section-heading">
             <div className="stack">
-              <h3 className="section-title text-lg">Material markup settings</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "18px" }}>📊</span>
+                <h3 className="section-title text-lg">Material markup settings</h3>
+              </div>
               <p className="section-subtitle">
-                Set % or £ markup amounts to be applied to suppliers product prices for each
-                service.
+                Set % or £ markup to apply on top of supplier prices for each service type.
               </p>
             </div>
           </div>
@@ -1304,13 +1399,20 @@ export default function PricingPage() {
         </div>
       </div>
 
-      <div className="card stack">
+      <div className="card stack" id="pricing-materials">
         <div className="settings-section-heading">
           <div className="stack">
-            <h3 className="section-title text-lg">Base material prices</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "18px" }}>🧱</span>
+              <h3 className="section-title text-lg">Base material prices</h3>
+            </div>
             <p className="section-subtitle">
-              Enter your most commonly used base rate or mid-range price for each floor type.
-              These will be used when a product does not exist in your price lists.
+              Your fallback material rates per m². Used when a product isn&apos;t in your supplier price lists.
+              {visibleMaterialFields.length > 0 && (
+                <span style={{ color: "#38bdf8", fontWeight: 600 }}>
+                  {" "}{filledMaterialCount}/{visibleMaterialFields.length} set
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -1332,12 +1434,20 @@ export default function PricingPage() {
         )}
       </div>
 
-      <div className="card stack">
+      <div className="card stack" id="pricing-labour">
         <div className="settings-section-heading">
           <div className="stack">
-            <h3 className="section-title text-lg">Base labour prices</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "18px" }}>👷</span>
+              <h3 className="section-title text-lg">Base labour prices</h3>
+            </div>
             <p className="section-subtitle">
-              Enter your most commonly used labour rate for each floor type.
+              Your standard labour rates per m² for each flooring type.
+              {visibleLabourFields.length > 0 && (
+                <span style={{ color: "#38bdf8", fontWeight: 600 }}>
+                  {" "}{filledLabourCount}/{visibleLabourFields.length} set
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -1359,12 +1469,15 @@ export default function PricingPage() {
         )}
       </div>
 
-      <div className="card stack">
+      <div className="card stack" id="pricing-extras">
         <div className="settings-section-heading">
           <div className="stack">
-            <h3 className="section-title text-lg">Extras &amp; add-ons (Materials)</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "18px" }}>➕</span>
+              <h3 className="section-title text-lg">Extras &amp; add-ons (Materials)</h3>
+            </div>
             <p className="section-subtitle">
-              Configure global add-ons and advanced material pricing items.
+              Prices for adhesive, underlay, gripper, door bars, and other material add-ons.
             </p>
           </div>
         </div>
@@ -1389,9 +1502,12 @@ export default function PricingPage() {
       <div className="card stack">
         <div className="settings-section-heading">
           <div className="stack">
-            <h3 className="section-title text-lg">Extras (Labour)</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontSize: "18px" }}>🔨</span>
+              <h3 className="section-title text-lg">Extras (Labour)</h3>
+            </div>
             <p className="section-subtitle">
-              Configure labour add-ons for prep work and accessories.
+              Labour rates for prep work — ply boarding, latex, coving, uplift, and more.
             </p>
           </div>
         </div>
@@ -1413,12 +1529,15 @@ export default function PricingPage() {
         )}
       </div>
 
-      <div className="settings-grid">
+      <div className="settings-grid" id="pricing-rules">
         <div className="card stack">
           <div className="settings-section-heading">
             <div className="stack">
-              <h3 className="section-title text-lg">Small job rules</h3>
-              <p className="section-subtitle">Configure minimum charges and day rates.</p>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "18px" }}>📐</span>
+                <h3 className="section-title text-lg">Small job rules</h3>
+              </div>
+              <p className="section-subtitle">Set minimum charges so small jobs stay profitable.</p>
             </div>
           </div>
           <div className="settings-grid-compact">
@@ -1438,11 +1557,12 @@ export default function PricingPage() {
         <div className="card stack">
           <div className="settings-section-heading">
             <div className="stack">
-              <h3 className="section-title text-lg">Breakpoint rules</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "18px" }}>📏</span>
+                <h3 className="section-title text-lg">Breakpoint rules</h3>
+              </div>
               <p className="section-subtitle">
-                Provide rules to apply special logic for bigger or smaller jobs (e.g. for jobs
-                over 100m² charge 10% less on carpet tile materials and £2/m² less on
-                labour).
+                Adjust pricing based on job size. E.g. &quot;Over 100m² → 10% less on carpet tile materials&quot;.
               </p>
             </div>
           </div>
@@ -1698,11 +1818,11 @@ export default function PricingPage() {
         </div>
       </div>
 
-      <div className="settings-grid">
+      <div id="pricing-settings" className="settings-grid">
         <div className="card stack">
           <div className="settings-section-heading">
             <div className="stack">
-              <h3 className="section-title text-lg">VAT settings</h3>
+              <h3 className="section-title text-lg">🔧 VAT settings</h3>
               <p className="section-subtitle">Toggle VAT registration on or off.</p>
             </div>
             <Toggle
@@ -1717,7 +1837,7 @@ export default function PricingPage() {
         <div className="card stack">
           <div className="settings-section-heading">
             <div className="stack">
-              <h3 className="section-title text-lg">Labour display settings</h3>
+              <h3 className="section-title text-lg">🔧 Labour display settings</h3>
               <p className="section-subtitle">
                 Choose how labour items appear on the quote output.
               </p>
