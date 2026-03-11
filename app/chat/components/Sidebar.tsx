@@ -13,13 +13,14 @@ type NavItem = {
   href: string;
   watchQuotes?: boolean;
   watchConversations?: boolean;
+  watchJobs?: boolean;
   ownerManagerOnly?: boolean;
 };
 
 const navItems: NavItem[] = [
   { label: "Chat", href: "/chat" },
   { label: "Diary", href: "/diary" },
-  { label: "Jobs", href: "/jobs" },
+  { label: "Jobs", href: "/jobs", watchJobs: true },
   { label: "Conversations", href: "/conversations", watchConversations: true },
   { label: "Quotes", href: "/quotes", watchQuotes: true },
   { label: "Receipts", href: "/receipts" },
@@ -36,6 +37,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [hasNewQuote, setHasNewQuote] = useState(false);
   const [conversationCount, setConversationCount] = useState(0);
+  const [jobDraftCount, setJobDraftCount] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [hasApp, setHasApp] = useState(false);
@@ -45,8 +47,9 @@ export default function Sidebar() {
     try {
       const res = await fetch("/api/conversations/needs-action", { cache: "no-store" });
       if (!res.ok) return;
-      const data = (await res.json()) as { count?: number };
-      setConversationCount(data?.count ?? 0);
+      const data = (await res.json()) as { count?: number; conversationCount?: number; jobCount?: number };
+      setConversationCount(data?.conversationCount ?? data?.count ?? 0);
+      setJobDraftCount(data?.jobCount ?? 0);
     } catch {
       // ignore
     }
@@ -164,6 +167,7 @@ export default function Sidebar() {
             const active = pathname === item.href;
             const showNew = item.watchQuotes && hasNewQuote && pathname !== item.href;
             const showConvBadge = item.watchConversations && conversationCount > 0 && pathname !== item.href;
+            const showJobBadge = item.watchJobs && jobDraftCount > 0 && pathname !== item.href;
             return (
               <Link
                 key={item.href}
@@ -188,6 +192,14 @@ export default function Sidebar() {
                       aria-label={`${conversationCount} needs action`}
                     >
                       {conversationCount}
+                    </span>
+                  ) : null}
+                  {showJobBadge ? (
+                    <span
+                      className="sidebar-badge"
+                      aria-label={`${jobDraftCount} drafts ready`}
+                    >
+                      {jobDraftCount}
                     </span>
                   ) : null}
                 </span>

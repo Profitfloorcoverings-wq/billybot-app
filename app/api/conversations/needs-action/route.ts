@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const serviceClient = createEmailServiceClient();
 
   // Count conversation/enquiry jobs that have a pending draft reply
-  const { count, error } = await serviceClient
+  const { count: conversationCount, error: convError } = await serviceClient
     .from("jobs")
     .select("id", { count: "exact", head: true })
     .eq("client_id", user.id)
@@ -22,9 +22,23 @@ export async function GET(req: Request) {
     .not("outbound_email_body", "is", null)
     .neq("status", "merged");
 
-  if (error) {
+  // Count job-type drafts
+  const { count: jobCount, error: jobError } = await serviceClient
+    .from("jobs")
+    .select("id", { count: "exact", head: true })
+    .eq("client_id", user.id)
+    .eq("thread_type", "job")
+    .not("outbound_email_body", "is", null)
+    .neq("status", "merged");
+
+  if (convError || jobError) {
     return NextResponse.json({ error: "query_failed" }, { status: 500 });
   }
 
-  return NextResponse.json({ count: count ?? 0 });
+  const total = (conversationCount ?? 0) + (jobCount ?? 0);
+  return NextResponse.json({
+    count: total,
+    conversationCount: conversationCount ?? 0,
+    jobCount: jobCount ?? 0,
+  });
 }

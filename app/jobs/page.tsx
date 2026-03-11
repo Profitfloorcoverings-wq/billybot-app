@@ -35,6 +35,8 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     return !["completed", "archived", "lost", "merged"].includes(s);
   }).length;
 
+  const needsReplyCount = jobs.filter((j) => !!(j as Record<string, unknown>).outbound_email_body).length;
+
   return (
     <div className="page-container">
       <header style={{ marginBottom: "4px" }}>
@@ -49,6 +51,9 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
             <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               <StatBadge value={jobs.length} label="Total" color="#38bdf8" />
               <StatBadge value={activeCount} label="Active" color="#34d399" />
+              {needsReplyCount > 0 && (
+                <StatBadge value={needsReplyCount} label="Needs Reply" color="#fb923c" />
+              )}
               {(statusCounts["quoted"] ?? 0) > 0 && (
                 <StatBadge value={statusCounts["quoted"]!} label="Quoted" color="#a78bfa" />
               )}

@@ -17,6 +17,7 @@ type Job = {
   last_activity_at?: string | null;
   postcode?: string | null;
   thread_type?: string | null;
+  outbound_email_body?: string | null;
 };
 
 type StatusOption = {
@@ -50,14 +51,23 @@ export default function JobsList({
   const [search, setSearch] = useState(initialSearch);
 
   const filteredJobs = useMemo(() => {
-    if (!search.trim()) return jobs;
-    const query = search.toLowerCase();
-    return jobs.filter((job) => {
-      const title = job.title?.toLowerCase() || "";
-      const customer = job.customer_name?.toLowerCase() || "";
-      const email = job.customer_email?.toLowerCase() || "";
-      const postcode = job.postcode?.toLowerCase() || "";
-      return [title, customer, email, postcode].some((value) => value.includes(query));
+    let result = jobs;
+    if (search.trim()) {
+      const query = search.toLowerCase();
+      result = result.filter((job) => {
+        const title = job.title?.toLowerCase() || "";
+        const customer = job.customer_name?.toLowerCase() || "";
+        const email = job.customer_email?.toLowerCase() || "";
+        const postcode = job.postcode?.toLowerCase() || "";
+        return [title, customer, email, postcode].some((value) => value.includes(query));
+      });
+    }
+    // Sort: drafts first, then by last_activity_at
+    return [...result].sort((a, b) => {
+      const aDraft = a.outbound_email_body ? 1 : 0;
+      const bDraft = b.outbound_email_body ? 1 : 0;
+      if (aDraft !== bDraft) return bDraft - aDraft;
+      return (b.last_activity_at ?? "").localeCompare(a.last_activity_at ?? "");
     });
   }, [jobs, search]);
 
@@ -184,7 +194,19 @@ export default function JobsList({
                         </div>
                       </td>
                       <td>
-                        <JobStatusBadge status={job.status} />
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                          <JobStatusBadge status={job.status} />
+                          {job.outbound_email_body ? (
+                            <span style={{
+                              display: "inline-block", fontSize: "11px", fontWeight: 600,
+                              color: "#fb923c", background: "rgba(251,146,60,0.12)",
+                              border: "1px solid rgba(251,146,60,0.25)",
+                              borderRadius: "999px", padding: "2px 8px",
+                            }}>
+                              Draft ready
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td>
                         <span
