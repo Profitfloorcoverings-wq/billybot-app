@@ -40,6 +40,7 @@ export default function Sidebar() {
   const [jobDraftCount, setJobDraftCount] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [hasApp, setHasApp] = useState(false);
   const qrValue = "https://apps.apple.com/gb/app/billybot/id6758058400";
 
@@ -118,6 +119,7 @@ export default function Sidebar() {
       if (!isMounted) return;
 
       setIsAuthenticated(!!session?.user);
+      if (session?.user) setUserId(session.user.id);
 
       if (session?.user) {
         const { data: profile } = await supabase
@@ -159,7 +161,7 @@ export default function Sidebar() {
 
       {showNav ? (
         <nav className="sidebar-nav">
-          {navItems.map((item) => {
+          {[...navItems, ...(userId === process.env.NEXT_PUBLIC_ADMIN_USER_ID ? [{ label: "Admin", href: "/admin/content" }] : [])].map((item) => {
             // Hide Team link for non-owner/manager roles
             if (item.ownerManagerOnly && userRole !== "owner" && userRole !== "manager") {
               return null;
