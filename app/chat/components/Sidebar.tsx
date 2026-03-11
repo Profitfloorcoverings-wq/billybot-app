@@ -12,6 +12,7 @@ type NavItem = {
   label: string;
   href: string;
   watchQuotes?: boolean;
+  watchConversations?: boolean;
   ownerManagerOnly?: boolean;
 };
 
@@ -19,7 +20,7 @@ const navItems: NavItem[] = [
   { label: "Chat", href: "/chat" },
   { label: "Diary", href: "/diary" },
   { label: "Jobs", href: "/jobs" },
-  { label: "Conversations", href: "/conversations" },
+  { label: "Conversations", href: "/conversations", watchConversations: true },
   { label: "Quotes", href: "/quotes", watchQuotes: true },
   { label: "Receipts", href: "/receipts" },
   { label: "Suppliers", href: "/suppliers" },
@@ -34,10 +35,22 @@ const QUOTES_LAST_VIEWED_KEY = "quotes_last_viewed_at";
 export default function Sidebar() {
   const pathname = usePathname();
   const [hasNewQuote, setHasNewQuote] = useState(false);
+  const [conversationCount, setConversationCount] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [hasApp, setHasApp] = useState(false);
   const qrValue = "https://apps.apple.com/gb/app/billybot/id6758058400";
+
+  const checkConversationCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/conversations/needs-action", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { count?: number };
+      setConversationCount(data?.count ?? 0);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const checkLatestQuote = useCallback(async () => {
     try {
@@ -65,10 +78,20 @@ export default function Sidebar() {
   useEffect(() => {
     const timer = setTimeout(() => {
       void checkLatestQuote();
+      void checkConversationCount();
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [checkLatestQuote]);
+  }, [checkLatestQuote, checkConversationCount]);
+
+  useEffect(() => {
+    if (pathname === "/conversations") {
+      const timer = setTimeout(() => {
+        void checkConversationCount();
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [pathname, checkConversationCount]);
 
   useEffect(() => {
     if (pathname === "/quotes") {
@@ -140,6 +163,7 @@ export default function Sidebar() {
             }
             const active = pathname === item.href;
             const showNew = item.watchQuotes && hasNewQuote && pathname !== item.href;
+            const showConvBadge = item.watchConversations && conversationCount > 0 && pathname !== item.href;
             return (
               <Link
                 key={item.href}
@@ -158,6 +182,14 @@ export default function Sidebar() {
                 <span className="sidebar-link-inner">
                   <span>{item.label}</span>
                   {showNew ? <span className="sidebar-new-dot" aria-hidden="true" /> : null}
+                  {showConvBadge ? (
+                    <span
+                      className="sidebar-badge"
+                      aria-label={`${conversationCount} needs action`}
+                    >
+                      {conversationCount}
+                    </span>
+                  ) : null}
                 </span>
               </Link>
             );

@@ -19,6 +19,8 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
     redirect("/auth/login");
   }
 
+  const needsActionCount = conversations.filter((c) => !!(c as { outbound_email_body?: string | null }).outbound_email_body).length;
+
   return (
     <div className="page-container">
       <header style={{ marginBottom: "4px" }}>
@@ -29,16 +31,28 @@ export default async function ConversationsPage({ searchParams }: ConversationsP
               General email threads that aren&apos;t linked to a specific job.
             </p>
           </div>
-          {conversations.length > 0 && (
-            <span style={{
-              display: "inline-flex", alignItems: "center", padding: "6px 14px",
-              borderRadius: "999px", fontSize: "13px", fontWeight: 700,
-              background: "rgba(148,163,184,0.1)", color: "#94a3b8",
-              border: "1px solid rgba(148,163,184,0.25)",
-            }}>
-              {conversations.length} {conversations.length === 1 ? "thread" : "threads"}
-            </span>
-          )}
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            {needsActionCount > 0 && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", padding: "6px 14px",
+                borderRadius: "999px", fontSize: "13px", fontWeight: 700,
+                background: "rgba(249,115,22,0.1)", color: "#fb923c",
+                border: "1px solid rgba(249,115,22,0.3)",
+              }}>
+                {needsActionCount} needs reply
+              </span>
+            )}
+            {conversations.length > 0 && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", padding: "6px 14px",
+                borderRadius: "999px", fontSize: "13px", fontWeight: 700,
+                background: "rgba(148,163,184,0.1)", color: "#94a3b8",
+                border: "1px solid rgba(148,163,184,0.25)",
+              }}>
+                {conversations.length} {conversations.length === 1 ? "thread" : "threads"}
+              </span>
+            )}
+          </div>
         </div>
       </header>
 

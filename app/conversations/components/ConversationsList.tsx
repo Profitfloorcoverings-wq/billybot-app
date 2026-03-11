@@ -27,12 +27,23 @@ export default function ConversationsList({
   const [search, setSearch] = useState(initialSearch);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return conversations;
-    const q = search.toLowerCase();
-    return conversations.filter((c) =>
-      [c.title, c.customer_name, c.customer_email]
-        .some((v) => v?.toLowerCase().includes(q))
-    );
+    let list = conversations;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((c) =>
+        [c.title, c.customer_name, c.customer_email]
+          .some((v) => v?.toLowerCase().includes(q))
+      );
+    }
+    // Sort: drafts pending action first, then by activity
+    return [...list].sort((a, b) => {
+      const aDraft = a.outbound_email_body ? 1 : 0;
+      const bDraft = b.outbound_email_body ? 1 : 0;
+      if (aDraft !== bDraft) return bDraft - aDraft;
+      const aTime = a.last_activity_at ? new Date(a.last_activity_at).getTime() : 0;
+      const bTime = b.last_activity_at ? new Date(b.last_activity_at).getTime() : 0;
+      return bTime - aTime;
+    });
   }, [conversations, search]);
 
   if (conversationsError) {

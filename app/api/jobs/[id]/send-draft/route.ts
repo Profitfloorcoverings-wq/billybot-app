@@ -30,7 +30,7 @@ type EmailAccount = {
 type JobRecord = {
   id: string;
   client_id: string;
-  email_event_id: string | null;
+  last_inbound_email_event_id: string | null;
   outbound_email_subject: string | null;
   outbound_email_body: string | null;
 };
@@ -62,7 +62,7 @@ export async function POST(
   // Fetch job
   const { data: job, error: jobError } = await serviceClient
     .from("jobs")
-    .select("id, client_id, email_event_id, outbound_email_subject, outbound_email_body")
+    .select("id, client_id, last_inbound_email_event_id, outbound_email_subject, outbound_email_body")
     .eq("id", jobId)
     .eq("client_id", user.id)
     .maybeSingle<JobRecord>();
@@ -78,7 +78,7 @@ export async function POST(
     return NextResponse.json({ error: "no_draft_body" }, { status: 400 });
   }
 
-  if (!job.email_event_id) {
+  if (!job.last_inbound_email_event_id) {
     return NextResponse.json({ error: "no_email_event" }, { status: 400 });
   }
 
@@ -86,7 +86,7 @@ export async function POST(
   const { data: inbound, error: inboundError } = await serviceClient
     .from("email_events")
     .select("id, account_id, provider, provider_message_id, provider_thread_id, from_email, subject")
-    .eq("id", job.email_event_id)
+    .eq("id", job.last_inbound_email_event_id)
     .eq("client_id", user.id)
     .maybeSingle<InboundEmailEvent>();
 

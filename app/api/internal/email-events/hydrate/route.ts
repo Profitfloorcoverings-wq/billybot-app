@@ -41,6 +41,15 @@ type HydrateResult = {
   error?: string;
 };
 
+function parseEmailSender(raw: string): { name: string | null; email: string } {
+  const match = raw.match(/^"?([^"<]*?)"?\s*<([^>]+)>$/);
+  if (match) {
+    const name = match[1].trim() || null;
+    return { name, email: match[2].trim().toLowerCase() };
+  }
+  return { name: null, email: raw.trim().toLowerCase() };
+}
+
 function isAuthorized(request: NextRequest) {
   const expected = process.env.INTERNAL_JOBS_TOKEN;
   if (!expected) {
@@ -101,43 +110,102 @@ async function resolveJobId(
   clientId: string,
   conversationId: string,
   provider: "microsoft" | "google",
-  providerThreadId: string | null
+  providerThreadId: string | null,
+  payload: EmailPayload
 ) {
   if (!providerThreadId) return null;
 
-  const { data: existing, error } = await serviceClient
+  const sender = parseEmailSender(payload.from);
+
+  // Tier 1: Lookup by thread_id (existing behaviour + backfill)
+  const { data: existingByThread, error } = await serviceClient
     .from("jobs")
-    .select("id")
+    .select("id, customer_name, customer_email, title")
     .eq("client_id", clientId)
     .eq("provider", provider)
     .eq("provider_thread_id", providerThreadId)
-    .maybeSingle<{ id: string }>();
+    .neq("status", "merged")
+    .maybeSingle<{ id: string; customer_name: string | null; customer_email: string | null; title: string | null }>();
 
   if (error) {
     throw new Error("Failed to read jobs");
   }
 
-  if (existing?.id) {
-    return existing.id;
+  if (existingByThread?.id) {
+    // Backfill missing customer data from email sender
+    const backfill: Record<string, string> = {};
+    if (!existingByThread.customer_name && sender.name) backfill.customer_name = sender.name;
+    if (!existingByThread.customer_email && sender.email) backfill.customer_email = sender.email;
+    if (!existingByThread.title && payload.subject) backfill.title = payload.subject;
+
+    if (Object.keys(backfill).length > 0) {
+      await serviceClient.from("jobs").update(backfill).eq("id", existingByThread.id);
+    }
+    return existingByThread.id;
   }
 
-  const { data: inserted, error: insertError } = await serviceClient
-    .from("jobs")
-    .insert({
-      client_id: clientId,
-      conversation_id: conversationId,
-      provider,
-      provider_thread_id: providerThreadId,
-      created_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single<{ id: string }>();
+  // Tier 2: Lookup by customer_email — link existing job to this thread
+  if (sender.email) {
+    const { data: existingByEmail } = await serviceClient
+      .from("jobs")
+      .select("id")
+      .eq("client_id", clientId)
+      .eq("customer_email", sender.email)
+      .is("provider_thread_id", null)
+      .neq("status", "merged")
+      .order("last_activity_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle<{ id: string }>();
 
-  if (insertError || !inserted?.id) {
+    if (existingByEmail?.id) {
+      await serviceClient
+        .from("jobs")
+        .update({ provider_thread_id: providerThreadId, provider })
+        .eq("id", existingByEmail.id);
+      return existingByEmail.id;
+    }
+  }
+
+  // Tier 3: Create new job with full customer data
+  try {
+    const { data: inserted, error: insertError } = await serviceClient
+      .from("jobs")
+      .insert({
+        client_id: clientId,
+        conversation_id: conversationId,
+        provider,
+        provider_thread_id: providerThreadId,
+        customer_name: sender.name,
+        customer_email: sender.email || null,
+        title: payload.subject || null,
+        thread_type: "enquiry",
+        created_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single<{ id: string }>();
+
+    if (insertError) {
+      // Race condition: unique constraint violation — re-query
+      if (insertError.code === "23505") {
+        const { data: raceWinner } = await serviceClient
+          .from("jobs")
+          .select("id")
+          .eq("client_id", clientId)
+          .eq("provider", provider)
+          .eq("provider_thread_id", providerThreadId)
+          .neq("status", "merged")
+          .maybeSingle<{ id: string }>();
+        if (raceWinner?.id) return raceWinner.id;
+      }
+      throw new Error("Failed to create job");
+    }
+
+    return inserted?.id ?? null;
+  } catch (e) {
+    // Re-throw unless it's the race condition we already handled
+    if (e instanceof Error && e.message === "Failed to create job") throw e;
     throw new Error("Failed to create job");
   }
-
-  return inserted.id;
 }
 
 async function markEventProcessed(
@@ -275,7 +343,8 @@ export async function POST(request: NextRequest) {
         event.client_id,
         conversationId,
         event.provider,
-        providerThreadId
+        providerThreadId,
+        payload
       );
 
       const { data: existingMessage, error: existingError } =
@@ -340,7 +409,10 @@ export async function POST(request: NextRequest) {
       if (jobId) {
         const { error: jobUpdateError } = await serviceClient
           .from("jobs")
-          .update({ last_activity_at: receivedAt })
+          .update({
+            last_activity_at: receivedAt,
+            last_inbound_email_event_id: event.id,
+          })
           .eq("id", jobId);
 
         if (jobUpdateError) {
@@ -368,6 +440,7 @@ export async function POST(request: NextRequest) {
         },
         payload
       );
+
 
       results.push({ eventId: event.id, status: "processed" });
       processed += 1;

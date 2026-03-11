@@ -219,5 +219,56 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, total: results.length, results });
+  // Retry failed/stuck email events
+  let retryCount = 0;
+  let retryErrors = 0;
+
+  try {
+    const fiveMinutesAgo = new Date(now - 5 * 60 * 1000).toISOString();
+
+    // Find events that errored (under retry limit) or stuck in 'received' for 5+ min
+    const { data: retryEvents } = await serviceClient
+      .from("email_events")
+      .select("id, status, attempts")
+      .or(
+        `and(status.eq.error,or(attempts.is.null,attempts.lt.3)),and(status.eq.received,created_at.lt.${fiveMinutesAgo})`
+      )
+      .limit(50);
+
+    if (retryEvents && retryEvents.length > 0) {
+      const retryIds = retryEvents.map((e: { id: string }) => e.id);
+
+      const { error: resetError } = await serviceClient
+        .from("email_events")
+        .update({ status: "received" })
+        .in("id", retryIds);
+
+      if (resetError) {
+        retryErrors = retryIds.length;
+      } else {
+        retryCount = retryIds.length;
+
+        // Trigger hydrate to pick up the reset events
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL;
+        const internalToken = process.env.INTERNAL_JOBS_TOKEN;
+        if (appUrl && internalToken) {
+          fetch(`${appUrl}/api/internal/email-events/hydrate?limit=${retryCount}`, {
+            method: "POST",
+            headers: { "x-internal-token": internalToken },
+          }).catch(() => {
+            // Fire-and-forget — hydrate will pick them up on next run regardless
+          });
+        }
+      }
+    }
+  } catch {
+    // Don't let retry failures break the watchdog response
+  }
+
+  return NextResponse.json({
+    ok: true,
+    total: results.length,
+    results,
+    retry: { reset: retryCount, errors: retryErrors },
+  });
 }
