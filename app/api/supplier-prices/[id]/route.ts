@@ -169,3 +169,56 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return NextResponse.json(
+        { error: "Supabase environment variables are missing" },
+        { status: 500 }
+      );
+    }
+
+    const user = await getUserFromCookies();
+    const profileId = user?.id;
+
+    if (!profileId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { id } = await context.params;
+    if (!id) {
+      return NextResponse.json({ error: "Missing supplier price id" }, { status: 400 });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const { error, count } = await supabase
+      .from("supplier_prices")
+      .delete({ count: "exact" })
+      .eq("id", id)
+      .eq("client_id", profileId);
+
+    if (error) throw error;
+
+    if (!count) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ deleted: true });
+  } catch (err: unknown) {
+    console.error("SUPPLIER PRICE DELETE ERROR:", err);
+    return NextResponse.json(
+      {
+        error:
+          err && typeof err === "object" && "message" in err
+            ? String((err as { message?: string }).message)
+            : "Server error",
+      },
+      { status: 500 }
+    );
+  }
+}
