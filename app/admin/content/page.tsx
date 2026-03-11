@@ -347,8 +347,30 @@ export default function ContentQueuePage() {
                   <div style={{ fontSize: 12, color: "var(--accent1)", marginBottom: 12 }}>{p.hashtags}</div>
                 )}
 
-                {/* Visual prompt preview */}
-                {p.visual_prompt && (
+                {/* Generated image */}
+                {p.visual_url && (
+                  <div style={{ marginBottom: 12 }}>
+                    <img
+                      src={p.visual_url}
+                      alt="Generated visual"
+                      style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid var(--line)" }}
+                    />
+                  </div>
+                )}
+
+                {/* Video */}
+                {p.video_url && (
+                  <div style={{ marginBottom: 12 }}>
+                    <video
+                      src={p.video_url}
+                      controls
+                      style={{ width: "100%", maxWidth: 400, borderRadius: 8, border: "1px solid var(--line)" }}
+                    />
+                  </div>
+                )}
+
+                {/* Visual prompt preview (when no image yet) */}
+                {p.visual_prompt && !p.visual_url && (
                   <div style={{ fontSize: 11, color: "var(--muted)", background: "rgba(255,255,255,0.03)", padding: "8px 12px", borderRadius: 6, marginBottom: 12, borderLeft: "3px solid var(--brand1)" }}>
                     <strong>Visual idea:</strong> {p.visual_prompt}
                   </div>
@@ -438,6 +460,15 @@ export default function ContentQueuePage() {
                 cursor: "pointer",
               }}
             >
+              {p.visual_url ? (
+                <img src={p.visual_url} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
+              ) : p.video_url ? (
+                <div style={{ width: 40, height: 40, borderRadius: 6, background: "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>
+                  ▶
+                </div>
+              ) : (
+                <div style={{ width: 40, height: 40, borderRadius: 6, background: "rgba(255,255,255,0.04)", flexShrink: 0 }} />
+              )}
               <div style={{ minWidth: 36, textAlign: "center" }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent1)" }}>{PLATFORM_LABELS[p.platform]}</span>
                 <div style={{ fontSize: 9, color: "var(--muted)" }}>{p.account_type}</div>
@@ -547,7 +578,28 @@ export default function ContentQueuePage() {
             <label style={labelStyle}>Hashtags</label>
             <input value={editHashtags} onChange={(e) => setEditHashtags(e.target.value)} placeholder="#flooring #billybot" style={{ ...inputStyle, marginBottom: 12 }} />
 
-            {editPost.visual_prompt && (
+            {/* Image/video preview */}
+            {editPost.visual_url && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={labelStyle}>Generated Image</label>
+                <img
+                  src={editPost.visual_url}
+                  alt="Generated visual"
+                  style={{ width: "100%", maxWidth: 300, borderRadius: 8, border: "1px solid var(--line)" }}
+                />
+              </div>
+            )}
+            {editPost.video_url && (
+              <div style={{ marginBottom: 12 }}>
+                <label style={labelStyle}>Video</label>
+                <video
+                  src={editPost.video_url}
+                  controls
+                  style={{ width: "100%", maxWidth: 300, borderRadius: 8, border: "1px solid var(--line)" }}
+                />
+              </div>
+            )}
+            {editPost.visual_prompt && !editPost.visual_url && (
               <div style={{ fontSize: 11, color: "var(--muted)", background: "rgba(255,255,255,0.03)", padding: "8px 12px", borderRadius: 6, marginBottom: 12, borderLeft: "3px solid var(--brand1)" }}>
                 <strong>Visual idea:</strong> {editPost.visual_prompt}
               </div>

@@ -56,6 +56,8 @@ export async function POST(request: Request) {
     content_text: string;
     hashtags?: string;
     pillar?: string;
+    visual_prompt?: string;
+    visual_url?: string;
   }> = result.posts ?? [];
 
   if (posts.length === 0) {
@@ -70,6 +72,8 @@ export async function POST(request: Request) {
     content_text: p.content_text,
     hashtags: p.hashtags ?? null,
     pillar: p.pillar ?? null,
+    visual_prompt: p.visual_prompt ?? null,
+    visual_url: p.visual_url ?? null,
     status: "draft" as const,
   }));
 
