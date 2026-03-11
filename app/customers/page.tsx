@@ -16,6 +16,14 @@ type Customer = {
   email?: string | null;
 };
 
+type JobSummary = { customer_email: string; count: number; latest: string | null };
+
+function getInitials(name: string): string {
+  const parts = name.replace(/@.*$/, "").split(/[\s._-]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return (parts[0]?.[0] ?? "?").toUpperCase();
+}
+
 async function fetchCustomers(supabase: ReturnType<typeof createClient>, profileId: string) {
   const { data, error } = await supabase
     .from("customers")
@@ -27,9 +35,38 @@ async function fetchCustomers(supabase: ReturnType<typeof createClient>, profile
   return data || [];
 }
 
+async function fetchJobCounts(supabase: ReturnType<typeof createClient>, profileId: string): Promise<Map<string, JobSummary>> {
+  // Get job counts grouped by customer_email
+  const { data } = await supabase
+    .from("jobs")
+    .select("customer_email, last_activity_at")
+    .eq("client_id", profileId)
+    .not("customer_email", "is", null)
+    .neq("status", "merged");
+
+  const map = new Map<string, JobSummary>();
+  if (!data) return map;
+
+  for (const row of data) {
+    const email = (row.customer_email as string)?.toLowerCase();
+    if (!email) continue;
+    const existing = map.get(email);
+    if (existing) {
+      existing.count++;
+      if (row.last_activity_at && (!existing.latest || row.last_activity_at > existing.latest)) {
+        existing.latest = row.last_activity_at as string;
+      }
+    } else {
+      map.set(email, { customer_email: email, count: 1, latest: (row.last_activity_at as string) ?? null });
+    }
+  }
+  return map;
+}
+
 export default function CustomersPage() {
   const supabase = useMemo(() => createClient(), []);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [jobCounts, setJobCounts] = useState<Map<string, JobSummary>>(new Map());
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +86,14 @@ export default function CustomersPage() {
           throw new Error(userError?.message || "Unable to find your account");
         }
 
-        const data = await fetchCustomers(supabase, profileId);
-        if (active) setCustomers(data);
+        const [data, jobs] = await Promise.all([
+          fetchCustomers(supabase, profileId),
+          fetchJobCounts(supabase, profileId),
+        ]);
+        if (active) {
+          setCustomers(data);
+          setJobCounts(jobs);
+        }
       } catch (err: unknown) {
         if (active) setError((err as Error).message || "Unable to load customers");
       } finally {
@@ -74,29 +117,34 @@ export default function CustomersPage() {
         customer.email,
         customer.phone,
         customer.mobile,
+        customer.address,
       ];
       return fields.some((value) => value?.toLowerCase().includes(query));
     });
   }, [customers, search]);
 
+  const withEmail = customers.filter((c) => c.email?.trim()).length;
+  const withPhone = customers.filter((c) => c.phone?.trim() || c.mobile?.trim()).length;
+
   return (
     <div className="page-container">
       <header style={{ marginBottom: "4px" }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
           <div>
             <h1 className="section-title">Customers</h1>
-            <p style={{ color: "#475569", fontSize: "13px", marginTop: "4px" }}>
-              Keep every customer organised, searchable, and ready for your next job.
+            <p style={{ color: "#64748b", fontSize: "13px", marginTop: "4px" }}>
+              Your customer directory — searchable and always up to date.
             </p>
           </div>
-          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
             {!loading && customers.length > 0 && (
-              <div style={{ background: "rgba(56,189,248,0.08)", border: "1px solid rgba(56,189,248,0.15)", borderRadius: "10px", padding: "8px 16px", textAlign: "center" as const }}>
-                <p style={{ fontSize: "20px", fontWeight: 700, color: "#38bdf8", lineHeight: 1 }}>{customers.length}</p>
-                <p style={{ fontSize: "11px", color: "#475569", marginTop: "3px", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Total</p>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <StatBadge value={customers.length} label="Total" color="#38bdf8" />
+                <StatBadge value={withEmail} label="Email" color="#34d399" />
+                <StatBadge value={withPhone} label="Phone" color="#a78bfa" />
               </div>
             )}
-            <Link href="/customers/new" className="btn btn-primary">
+            <Link href="/customers/new" className="btn btn-primary" style={{ whiteSpace: "nowrap" }}>
               + Add Customer
             </Link>
           </div>
@@ -105,29 +153,34 @@ export default function CustomersPage() {
 
       <div className="card" style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: "16px" }}>
         {/* Search row */}
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
-          <div style={{ flex: 1, minWidth: "200px" }}>
-            <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" as const, color: "#475569", marginBottom: "8px" }}>
-              Search
-            </p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: "200px", position: "relative" }}>
+            <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "14px", color: "#475569", pointerEvents: "none" }}>
+              🔍
+            </span>
             <input
               className="chat-input"
-              style={{ width: "100%" }}
+              style={{ width: "100%", paddingLeft: "36px" }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, contact, phone, or email"
+              placeholder="Search by name, contact, phone, email, or address…"
             />
           </div>
           {!loading && customers.length > 0 && (
-            <p style={{ fontSize: "12px", color: "#475569", whiteSpace: "nowrap" as const }}>
-              {filteredCustomers.length} of {customers.length}
+            <p style={{ fontSize: "12px", color: "#64748b", whiteSpace: "nowrap" as const }}>
+              Showing {filteredCustomers.length} of {customers.length}
             </p>
           )}
         </div>
 
         <div className="table-card scrollable-table">
           <div style={{ position: "relative", width: "100%", maxHeight: "70vh", overflowY: "auto" }}>
-            {loading && <div className="empty-state">Loading customers…</div>}
+            {loading && (
+              <div className="empty-state" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+                <div style={{ fontSize: "28px", animation: "pulse-soft 1.5s ease-in-out infinite" }}>👥</div>
+                <span style={{ color: "#64748b", fontSize: "14px" }}>Loading customers…</span>
+              </div>
+            )}
             {error && !loading && (
               <div className="empty-state" style={{ color: "#fca5a5" }}>
                 {error}
@@ -135,12 +188,21 @@ export default function CustomersPage() {
             )}
 
             {!loading && !error && filteredCustomers.length === 0 && (
-              <div className="empty-state" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-                <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9" }}>No customers yet</h3>
-                <p style={{ color: "#475569", fontSize: "14px" }}>Add your first customer to get started.</p>
-                <Link href="/customers/new" className="btn btn-primary">
-                  + Add Customer
-                </Link>
+              <div className="empty-state" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "48px 24px" }}>
+                <div style={{ fontSize: "36px", opacity: 0.3 }}>👥</div>
+                <h3 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>
+                  {search.trim() ? "No customers match your search" : "No customers yet"}
+                </h3>
+                <p style={{ color: "#64748b", fontSize: "14px", margin: 0, textAlign: "center", maxWidth: "360px" }}>
+                  {search.trim()
+                    ? "Try a different search term or clear the search."
+                    : "Add your first customer to keep track of contacts, jobs, and quotes all in one place."}
+                </p>
+                {!search.trim() && (
+                  <Link href="/customers/new" className="btn btn-primary" style={{ marginTop: "4px" }}>
+                    + Add Customer
+                  </Link>
+                )}
               </div>
             )}
 
@@ -148,10 +210,11 @@ export default function CustomersPage() {
               <table className="data-table">
                 <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
                   <tr>
-                    <th>Name</th>
-                    <th>Email</th>
+                    <th style={{ width: "280px" }}>Customer</th>
+                    <th>Contact</th>
                     <th>Phone</th>
-                    <th className="sticky-cell" style={{ textAlign: "right" }} aria-label="Edit actions" />
+                    <th style={{ textAlign: "center" }}>Jobs</th>
+                    <th className="sticky-cell" style={{ textAlign: "right" }} aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -163,31 +226,102 @@ export default function CustomersPage() {
                       contactName.toLowerCase() !== customerName.toLowerCase();
                     const email = customer.email?.trim() || "";
                     const phone = customer.mobile?.trim() || customer.phone?.trim() || "";
+                    const jobs = email ? jobCounts.get(email.toLowerCase()) : undefined;
+                    const init = getInitials(customerName);
 
                     return (
-                      <tr key={customer.id}>
+                      <tr key={customer.id} style={{ cursor: "pointer" }} onClick={() => window.location.href = `/customers/${customer.id}`}>
                         <td>
-                          <p style={{ fontSize: "15px", fontWeight: 600, color: "#f1f5f9", marginBottom: showContact ? "3px" : 0 }}>
-                            {customerName}
-                          </p>
-                          {showContact ? (
-                            <p style={{ fontSize: "13px", color: "#64748b" }}>{contactName}</p>
-                          ) : null}
+                          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                            <div style={{
+                              width: "36px", height: "36px", borderRadius: "50%", flexShrink: 0,
+                              background: email ? "rgba(56,189,248,0.1)" : "rgba(148,163,184,0.08)",
+                              border: email ? "1px solid rgba(56,189,248,0.2)" : "1px solid rgba(148,163,184,0.15)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                              fontSize: "13px", fontWeight: 700,
+                              color: email ? "#38bdf8" : "#475569",
+                            }}>
+                              {init}
+                            </div>
+                            <div style={{ minWidth: 0 }}>
+                              <p style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {customerName}
+                              </p>
+                              {showContact && (
+                                <p style={{ fontSize: "12px", color: "#64748b", margin: "2px 0 0" }}>{contactName}</p>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td>
-                          <span style={{ fontSize: "13px", color: "#64748b", display: "block", maxWidth: "280px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }} title={email || undefined}>
-                            {email || "—"}
-                          </span>
+                          {email ? (
+                            <a
+                              href={`mailto:${email}`}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                fontSize: "13px", color: "#38bdf8", textDecoration: "none",
+                                display: "inline-flex", alignItems: "center", gap: "5px",
+                                maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                              }}
+                              title={`Email ${email}`}
+                            >
+                              <span style={{ fontSize: "12px" }}>✉</span> {email}
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: "13px", color: "#475569" }}>—</span>
+                          )}
                         </td>
                         <td>
-                          <span style={{ fontSize: "13px", color: "#64748b", fontVariantNumeric: "tabular-nums" }}>
-                            {phone || "—"}
-                          </span>
+                          {phone ? (
+                            <a
+                              href={`tel:${phone.replace(/\s/g, "")}`}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                fontSize: "13px", color: "#e2e8f0", textDecoration: "none",
+                                fontVariantNumeric: "tabular-nums",
+                                display: "inline-flex", alignItems: "center", gap: "5px",
+                              }}
+                              title={`Call ${phone}`}
+                            >
+                              <span style={{ fontSize: "11px" }}>📞</span> {phone}
+                            </a>
+                          ) : (
+                            <span style={{ fontSize: "13px", color: "#475569" }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          {jobs ? (
+                            <span style={{
+                              fontSize: "12px", fontWeight: 600, color: "#38bdf8",
+                              background: "rgba(56,189,248,0.08)", padding: "3px 10px", borderRadius: "999px",
+                              border: "1px solid rgba(56,189,248,0.15)",
+                            }}>
+                              {jobs.count}
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: "12px", color: "#475569" }}>0</span>
+                          )}
                         </td>
                         <td className="sticky-cell">
-                          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                            <Link href={`/customers/${customer.id}`} className="btn btn-secondary" style={{ fontSize: "12px", padding: "6px 14px", borderRadius: "999px" }}>
-                              Edit
+                          <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px" }}>
+                            {email && (
+                              <a
+                                href={`mailto:${email}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="btn btn-secondary"
+                                style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "999px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                                title="Send email"
+                              >
+                                ✉ Email
+                              </a>
+                            )}
+                            <Link
+                              href={`/customers/${customer.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="btn btn-secondary"
+                              style={{ fontSize: "12px", padding: "5px 12px", borderRadius: "999px" }}
+                            >
+                              View
                             </Link>
                           </div>
                         </td>
@@ -200,6 +334,19 @@ export default function CustomersPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function StatBadge({ value, label, color }: { value: number; label: string; color: string }) {
+  return (
+    <div style={{
+      background: `${color}11`, border: `1px solid ${color}26`,
+      borderRadius: "10px", padding: "6px 14px", textAlign: "center" as const,
+      minWidth: "56px",
+    }}>
+      <p style={{ fontSize: "18px", fontWeight: 700, color, lineHeight: 1 }}>{value}</p>
+      <p style={{ fontSize: "10px", color: "#64748b", marginTop: "2px", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>{label}</p>
     </div>
   );
 }
