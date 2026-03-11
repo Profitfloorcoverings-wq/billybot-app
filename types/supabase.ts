@@ -349,6 +349,86 @@ export type Database = {
         }
         Relationships: []
       }
+      content_queue: {
+        Row: {
+          account_type: string
+          client_id: string
+          content_text: string
+          created_at: string
+          engagement: Json | null
+          error_message: string | null
+          external_post_id: string | null
+          hashtags: string | null
+          id: string
+          media_urls: Json | null
+          pillar: string | null
+          platform: string
+          published_at: string | null
+          scheduled_for: string | null
+          source_context: Json | null
+          status: string
+          updated_at: string
+          video_url: string | null
+          visual_prompt: string | null
+          visual_template_id: string | null
+          visual_url: string | null
+        }
+        Insert: {
+          account_type?: string
+          client_id: string
+          content_text: string
+          created_at?: string
+          engagement?: Json | null
+          error_message?: string | null
+          external_post_id?: string | null
+          hashtags?: string | null
+          id?: string
+          media_urls?: Json | null
+          pillar?: string | null
+          platform: string
+          published_at?: string | null
+          scheduled_for?: string | null
+          source_context?: Json | null
+          status?: string
+          updated_at?: string
+          video_url?: string | null
+          visual_prompt?: string | null
+          visual_template_id?: string | null
+          visual_url?: string | null
+        }
+        Update: {
+          account_type?: string
+          client_id?: string
+          content_text?: string
+          created_at?: string
+          engagement?: Json | null
+          error_message?: string | null
+          external_post_id?: string | null
+          hashtags?: string | null
+          id?: string
+          media_urls?: Json | null
+          pillar?: string | null
+          platform?: string
+          published_at?: string | null
+          scheduled_for?: string | null
+          source_context?: Json | null
+          status?: string
+          updated_at?: string
+          video_url?: string | null
+          visual_prompt?: string | null
+          visual_template_id?: string | null
+          visual_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_queue_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           client_id: string | null
@@ -1220,6 +1300,59 @@ export type Database = {
           title?: string | null
         }
         Relationships: []
+      }
+      marketing_context: {
+        Row: {
+          active: boolean | null
+          category: string
+          client_id: string
+          content: string
+          created_at: string
+          id: string
+          last_used_at: string | null
+          priority: number | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+          use_count: number | null
+        }
+        Insert: {
+          active?: boolean | null
+          category: string
+          client_id: string
+          content: string
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          priority?: number | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          use_count?: number | null
+        }
+        Update: {
+          active?: boolean | null
+          category?: string
+          client_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          last_used_at?: string | null
+          priority?: number | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          use_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_context_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       memories: {
         Row: {
