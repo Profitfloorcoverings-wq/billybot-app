@@ -102,6 +102,7 @@ export type NormalizedAttachment = {
   size: number | null;
   url: string | null;
   path: string | null;
+  base64: string | null;
   sourceEmailId: string;
   receivedAt: string | null;
 };
@@ -220,8 +221,12 @@ function normalizeAttachment(
     pickString(raw, ["filename", "name", "fileName"]) || `Attachment ${index + 1}`;
   const mimeType = pickString(raw, ["mimeType", "mime_type", "contentType", "content_type", "type"]);
   const size = pickNumber(raw, ["size", "fileSize", "content_length"]);
-  const url = pickString(raw, ["url", "link", "download_url", "web_url"]);
+  const urlRaw = pickString(raw, ["url", "link", "download_url", "web_url"]);
   const path = pickString(raw, ["path", "storage_path", "storagePath"]);
+  const base64 = pickString(raw, ["base64", "data", "content"]);
+
+  // Build a data URL from base64 if no direct URL exists
+  const url = urlRaw ?? (base64 && mimeType ? `data:${mimeType};base64,${base64}` : null);
 
   return {
     id: `${sourceEmailId}-${index}-${name}`,
@@ -230,6 +235,7 @@ function normalizeAttachment(
     size,
     url,
     path,
+    base64,
     sourceEmailId,
     receivedAt,
   };

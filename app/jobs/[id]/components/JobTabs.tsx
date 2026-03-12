@@ -26,24 +26,100 @@ const TABS = ["overview", "areas", "estimator", "emails", "attachments", "files"
 
 type Tab = (typeof TABS)[number];
 
-function parseSummary(details?: string | null) {
+type DetailSection = {
+  heading: string;
+  icon: string;
+  fields: Array<[string, string]>;
+  notes: string[];
+  /** true when every field value signals missing/empty data */
+  empty: boolean;
+};
+
+/** Known section headings N8N writes into job_details */
+const SECTION_ICONS: Record<string, string> = {
+  customer: "👤",
+  "project overview": "📋",
+  "areas / rooms": "📐",
+  "areas/rooms": "📐",
+  "flooring type requested": "🏠",
+  "preparation / subfloor work": "🔧",
+  "preparation/subfloor work": "🔧",
+  "materials / products": "📦",
+  "materials/products": "📦",
+  "site details": "📍",
+  "special requirements": "⚠️",
+};
+
+const EMPTY_SIGNALS = [
+  "not mentioned", "not stated", "not provided", "no ", "none", "unknown", "n/a",
+];
+
+function isEmptyValue(v: string) {
+  const lower = v.toLowerCase().trim();
+  return !lower || EMPTY_SIGNALS.some((s) => lower.startsWith(s));
+}
+
+function looksLikeHeading(line: string) {
+  const lower = line.toLowerCase().replace(/[^a-z /]/g, "").trim();
+  return Object.keys(SECTION_ICONS).includes(lower);
+}
+
+function parseSummary(details?: string | null): { sections: DetailSection[] } {
   const value = details?.trim() || "";
-  if (!value) return { paragraphs: [] as string[], pairs: [] as Array<[string, string]> };
+  if (!value) return { sections: [] };
 
-  const lines = value.split(/\n+/).map((line) => line.trim()).filter(Boolean);
-  const pairs: Array<[string, string]> = [];
-  const paragraphs: string[] = [];
+  const lines = value.split(/\n/).map((l) => l.trimEnd());
 
-  for (const line of lines) {
-    const keyValueMatch = line.match(/^([^:]{2,40}):\s*(.+)$/);
-    if (keyValueMatch) {
-      pairs.push([keyValueMatch[1], keyValueMatch[2]]);
+  const sections: DetailSection[] = [];
+  let current: DetailSection | null = null;
+
+  for (const raw of lines) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+
+    // Detect section heading (standalone line matching known sections)
+    if (looksLikeHeading(trimmed)) {
+      const key = trimmed.toLowerCase().replace(/[^a-z /]/g, "").trim();
+      current = {
+        heading: trimmed,
+        icon: SECTION_ICONS[key] || "📄",
+        fields: [],
+        notes: [],
+        empty: false,
+      };
+      sections.push(current);
+      continue;
+    }
+
+    // Key: Value pair
+    const kvMatch = trimmed.match(/^([^:]{2,50}):\s*(.+)$/);
+    if (kvMatch && current) {
+      current.fields.push([kvMatch[1].trim(), kvMatch[2].trim()]);
+      continue;
+    }
+
+    // Strip leading JSON-like noise (braces, brackets, quotes, commas)
+    const cleaned = trimmed.replace(/^[{[\]}"',\s]+|[{[\]}"',\s]+$/g, "").trim();
+    if (!cleaned) continue;
+
+    // Add as note to current section, or create an ungrouped section
+    if (current) {
+      current.notes.push(cleaned);
     } else {
-      paragraphs.push(line);
+      current = { heading: "Summary", icon: "📄", fields: [], notes: [cleaned], empty: false };
+      sections.push(current);
     }
   }
 
-  return { pairs, paragraphs };
+  // Mark sections where all data is empty
+  for (const section of sections) {
+    const allFieldsEmpty = section.fields.length > 0 && section.fields.every(([, v]) => isEmptyValue(v));
+    const allNotesEmpty = section.notes.length > 0 && section.notes.every((n) => isEmptyValue(n));
+    const hasContent = section.fields.length > 0 || section.notes.length > 0;
+    section.empty = hasContent && allFieldsEmpty && (section.notes.length === 0 || allNotesEmpty);
+  }
+
+  return { sections };
 }
 
 function nextStep(job: JobPageData["job"]) {
@@ -71,7 +147,7 @@ export default function JobTabs({ data }: { data: JobPageData }) {
   const [signatures, setSignatures] = useState<RamsSignature[]>([]);
   const [sending, setSending] = useState(false);
   const [sendToast, setSendToast] = useState<string | null>(null);
-  const summary = useMemo(() => parseSummary(data.job.job_details), [data.job.job_details]);
+  const { sections } = useMemo(() => parseSummary(data.job.job_details), [data.job.job_details]);
 
   useEffect(() => {
     if (tab !== "documents") return;
@@ -233,40 +309,83 @@ export default function JobTabs({ data }: { data: JobPageData }) {
             </div>
           ) : null}
 
-          {/* Job summary (key-value pairs from job_details) */}
-          <section className="card" style={{ padding: "18px 20px" }}>
-            <div style={{ marginBottom: "14px" }}>
-              <h3 style={{ fontSize: "15px", fontWeight: 700, color: "#f1f5f9", margin: "0 0 4px" }}>Job summary</h3>
-              <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>Details extracted from job notes</p>
-            </div>
-            {summary.pairs.length ? (
-              <dl style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "10px", margin: 0 }}>
-                {summary.pairs.map(([key, value]) => (
-                  <div key={key} style={{
-                    background: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(148,163,184,0.1)",
-                    borderRadius: "10px",
-                    padding: "10px 12px",
-                  }}>
-                    <dt style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "4px" }}>
-                      {key}
-                    </dt>
-                    <dd style={{ fontSize: "14px", color: "#e2e8f0", margin: 0, fontWeight: 500 }}>{value}</dd>
+          {/* Job summary — structured sections */}
+          {sections.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {sections.map((section, si) => (
+                <section
+                  key={`${section.heading}-${si}`}
+                  className="card"
+                  style={{
+                    padding: "16px 20px",
+                    opacity: section.empty ? 0.5 : 1,
+                  }}
+                >
+                  {/* Section header */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: section.fields.length || section.notes.length ? "12px" : "0" }}>
+                    <span style={{ fontSize: "16px" }}>{section.icon}</span>
+                    <h3 style={{ fontSize: "14px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>
+                      {section.heading}
+                    </h3>
+                    {section.empty && (
+                      <span style={{
+                        fontSize: "10px", fontWeight: 700, padding: "2px 8px",
+                        borderRadius: "999px", background: "rgba(251,191,36,0.1)",
+                        color: "#fbbf24", border: "1px solid rgba(251,191,36,0.2)",
+                      }}>
+                        NEEDS INFO
+                      </span>
+                    )}
                   </div>
-                ))}
-              </dl>
-            ) : null}
-            {summary.paragraphs.length ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: summary.pairs.length ? "14px" : "0" }}>
-                {summary.paragraphs.map((line, index) => (
-                  <p key={`${line}-${index}`} style={{ fontSize: "14px", color: "#cbd5e1", margin: 0, lineHeight: 1.6 }}>{line}</p>
-                ))}
-              </div>
-            ) : null}
-            {!summary.paragraphs.length && !summary.pairs.length ? (
+
+                  {/* Key-value fields */}
+                  {section.fields.length > 0 && (
+                    <dl style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "8px", margin: 0 }}>
+                      {section.fields.map(([key, val], fi) => {
+                        const missing = isEmptyValue(val);
+                        return (
+                          <div key={`${key}-${fi}`} style={{
+                            background: missing ? "rgba(251,191,36,0.04)" : "rgba(255,255,255,0.03)",
+                            border: `1px solid ${missing ? "rgba(251,191,36,0.15)" : "rgba(148,163,184,0.08)"}`,
+                            borderRadius: "10px",
+                            padding: "8px 12px",
+                          }}>
+                            <dt style={{ fontSize: "10px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "3px" }}>
+                              {key}
+                            </dt>
+                            <dd style={{
+                              fontSize: "13px",
+                              color: missing ? "#fbbf24" : "#e2e8f0",
+                              fontWeight: missing ? 500 : 500,
+                              fontStyle: missing ? "italic" : "normal",
+                              margin: 0,
+                            }}>
+                              {missing ? "Missing" : val}
+                            </dd>
+                          </div>
+                        );
+                      })}
+                    </dl>
+                  )}
+
+                  {/* Notes / free text */}
+                  {section.notes.length > 0 && (
+                    <div style={{ marginTop: section.fields.length > 0 ? "10px" : "0", display: "flex", flexDirection: "column", gap: "4px" }}>
+                      {section.notes.map((note, ni) => (
+                        <p key={`n-${ni}`} style={{ fontSize: "13px", color: "#cbd5e1", margin: 0, lineHeight: 1.5 }}>
+                          {note}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+          ) : (
+            <section className="card" style={{ padding: "18px 20px" }}>
               <p style={{ fontSize: "14px", color: "#64748b", margin: 0 }}>No job summary captured yet.</p>
-            ) : null}
-          </section>
+            </section>
+          )}
         </div>
       ) : null}
 

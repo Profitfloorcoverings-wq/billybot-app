@@ -76,8 +76,9 @@ export async function getJobsForCurrentTenant(statusValue = "all"): Promise<Jobs
     .from("jobs")
     .select(JOB_SELECT)
     .eq("client_id", user.id)
-    .eq("thread_type", "job")
-    .order("last_activity_at", { ascending: false });
+    .not("thread_type", "in", '("conversation","enquiry")')
+    .order("last_activity_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
 
   if (statusValue !== "all") {
     const normalized = normalizeStatus(statusValue);

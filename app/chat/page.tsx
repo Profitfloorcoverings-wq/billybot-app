@@ -683,15 +683,17 @@ function ChatPageContent() {
     }
 
     if (m.type === "quote_builder" && conversationId) {
-      const initialLines = (() => {
+      const { lines: initialLines, generated } = (() => {
         try {
-          const parsed = JSON.parse(m.content) as LineItem[];
-          return Array.isArray(parsed) ? parsed : [];
+          const parsed = JSON.parse(m.content) as LineItem[] | { lines: LineItem[]; generated?: boolean };
+          if (Array.isArray(parsed)) return { lines: parsed, generated: false };
+          if (parsed && Array.isArray(parsed.lines)) return { lines: parsed.lines, generated: !!parsed.generated };
+          return { lines: [], generated: false };
         } catch {
-          return [];
+          return { lines: [], generated: false };
         }
       })();
-      return <QuoteBuilderCard conversationId={conversationId} initialLines={initialLines} />;
+      return <QuoteBuilderCard conversationId={conversationId} messageId={String(m.id)} initialLines={initialLines} initialDone={generated} />;
     }
 
     if (m.type === "invoice_builder" && conversationId) {

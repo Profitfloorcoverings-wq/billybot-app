@@ -33,7 +33,9 @@ type MidRangeProduct = {
 
 type Props = {
   conversationId: string;
+  messageId?: string;
   initialLines?: LineItem[];
+  initialDone?: boolean;
 };
 
 const TYPE_OPTIONS: { value: LineItemType; label: string }[] = [
@@ -230,12 +232,12 @@ function ProductPicker({
 
 /* ── Main Component ── */
 
-export default function QuoteBuilderCard({ conversationId, initialLines = [] }: Props) {
+export default function QuoteBuilderCard({ conversationId, messageId, initialLines = [], initialDone = false }: Props) {
   const [lines, setLines] = useState<LineItem[]>(
     initialLines.length > 0 ? initialLines : [emptyLine()]
   );
   const [generating, setGenerating] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState(initialDone);
   const [error, setError] = useState<string | null>(null);
 
   // Product picker state
@@ -302,7 +304,11 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
       const res = await fetch("/api/quotes/custom", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversation_id: conversationId, lines }),
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          lines,
+          message_id: messageId ?? undefined,
+        }),
       });
 
       if (!res.ok) {
@@ -365,7 +371,6 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
       borderRadius: "16px",
       border: "1px solid rgba(249,115,22,0.3)",
       background: "rgba(13,21,39,0.97)",
-      overflow: "hidden",
     }}>
       {/* Header */}
       <div style={{
@@ -375,6 +380,7 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
         alignItems: "center",
         gap: "10px",
         background: "rgba(249,115,22,0.07)",
+        borderRadius: "16px 16px 0 0",
       }}>
         <span style={{ fontSize: "16px" }}>🔧</span>
         <div>
@@ -394,6 +400,7 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
         gap: "6px",
         padding: "8px 12px 4px",
         borderBottom: "1px solid rgba(255,255,255,0.05)",
+        minWidth: "440px",
       }}>
         {["Type", "Description", "Qty", "Unit", "£ / unit", ""].map((h, i) => (
           <span key={i} style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#475569" }}>
@@ -403,7 +410,7 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
       </div>
 
       {/* Lines */}
-      <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: "6px" }}>
+      <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: "6px", overflowX: "auto" }}>
         {lines.map((line) => (
           <div
             key={line.id}
@@ -412,6 +419,7 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
               gridTemplateColumns: "90px 1fr 64px 72px 80px 28px",
               gap: "6px",
               alignItems: "center",
+              minWidth: "440px",
             }}
           >
             {/* Type */}
@@ -510,7 +518,7 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
       }}>
         <button
           type="button"
-          onClick={addLine}
+          onClick={(e) => { e.stopPropagation(); addLine(); }}
           style={{
             background: "none",
             border: "1px dashed rgba(255,255,255,0.15)",
@@ -520,6 +528,8 @@ export default function QuoteBuilderCard({ conversationId, initialLines = [] }: 
             padding: "7px 14px",
             cursor: "pointer",
             transition: "border-color 0.15s, color 0.15s",
+            position: "relative",
+            zIndex: 2,
           }}
           onMouseEnter={(e) => {
             (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(249,115,22,0.4)";

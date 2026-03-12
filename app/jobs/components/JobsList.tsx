@@ -15,6 +15,7 @@ type Job = {
   customer_phone?: string | null;
   status?: string | null;
   last_activity_at?: string | null;
+  created_at?: string | null;
   postcode?: string | null;
   thread_type?: string | null;
   outbound_email_body?: string | null;
@@ -67,7 +68,9 @@ export default function JobsList({
       const aDraft = a.outbound_email_body ? 1 : 0;
       const bDraft = b.outbound_email_body ? 1 : 0;
       if (aDraft !== bDraft) return bDraft - aDraft;
-      return (b.last_activity_at ?? "").localeCompare(a.last_activity_at ?? "");
+      const aTime = a.last_activity_at ?? a.created_at ?? "";
+      const bTime = b.last_activity_at ?? b.created_at ?? "";
+      return bTime.localeCompare(aTime);
     });
   }, [jobs, search]);
 

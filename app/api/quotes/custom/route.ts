@@ -23,6 +23,7 @@ type RequestBody = {
   conversation_id: string;
   lines: LineItem[];
   job_id?: string;
+  message_id?: string;
 };
 
 export async function POST(req: Request) {
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
     }
 
     const body = (await req.json()) as RequestBody;
-    const { conversation_id, lines, job_id } = body;
+    const { conversation_id, lines, job_id, message_id } = body;
 
     if (!conversation_id || !Array.isArray(lines) || lines.length === 0) {
       return NextResponse.json({ error: "Missing conversation_id or lines" }, { status: 400 });
@@ -98,6 +99,16 @@ export async function POST(req: Request) {
         .limit(1)
         .maybeSingle();
       jobData = jobResult.data;
+    }
+
+    // Persist the current lines + generated flag back to the quote_builder message
+    // so the card shows the correct lines and stays in "done" state on reload
+    if (message_id) {
+      await supabase
+        .from("messages")
+        .update({ content: JSON.stringify({ lines, generated: true }) })
+        .eq("id", message_id)
+        .eq("conversation_id", conversation_id);
     }
 
     // POST to N8N custom quote workflow
