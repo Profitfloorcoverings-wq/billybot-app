@@ -2,12 +2,17 @@
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/client";
 import InviteForm from "@/app/team/components/InviteForm";
 import TeamMemberList from "@/app/team/components/TeamMemberList";
+import HelpSection from "@/app/requests/HelpSection";
 import type { TeamInvite, TeamMember } from "@/types/team";
+
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
 
 type ClientProfile = {
   business_name: string;
@@ -61,6 +66,10 @@ type PlanConfig = {
   annualLabel: string;
   bullets: string[];
 };
+
+/* ------------------------------------------------------------------ */
+/*  Constants                                                          */
+/* ------------------------------------------------------------------ */
 
 const EMPTY_PROFILE: ClientProfile = {
   business_name: "",
@@ -166,6 +175,26 @@ const BILLING_LABELS: Record<BillingCycle, string> = {
   annual: "Annual",
 };
 
+/* ------------------------------------------------------------------ */
+/*  Tab config                                                         */
+/* ------------------------------------------------------------------ */
+
+const TABS = ["profile", "billing", "integrations", "team", "security", "support"] as const;
+type AccountTab = (typeof TABS)[number];
+
+const TAB_LABELS: Record<AccountTab, string> = {
+  profile: "Profile",
+  billing: "Billing",
+  integrations: "Integrations",
+  team: "Team",
+  security: "Security",
+  support: "Support",
+};
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
 type StatusBadge = {
   label: string;
   bg: string;
@@ -234,10 +263,28 @@ function getConnectionStatusLabel(status?: EmailConnectionStatus | null): Status
   }
 }
 
+/* ------------------------------------------------------------------ */
+/*  Main component                                                     */
+/* ------------------------------------------------------------------ */
+
 export default function AccountPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
 
+  /* --- Tab from URL query (?tab=billing) --- */
+  const initialTab = (searchParams.get("tab") as AccountTab) || "profile";
+  const [tab, setTab] = useState<AccountTab>(TABS.includes(initialTab) ? initialTab : "profile");
+
+  const switchTab = useCallback((t: AccountTab) => {
+    setTab(t);
+    const url = new URL(window.location.href);
+    if (t === "profile") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", t);
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [router]);
+
+  /* --- State: profile --- */
   const [profile, setProfile] = useState<ClientProfile>(EMPTY_PROFILE);
   const [userEmail, setUserEmail] = useState<string>("");
   const [authProvider, setAuthProvider] = useState<string | null>(null);
@@ -247,12 +294,18 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loadingPortal, setLoadingPortal] = useState(false);
+
+  /* --- State: accounting --- */
   const [accountingSystem, setAccountingSystem] = useState<string | null>(null);
   const [accountingStatusLoaded, setAccountingStatusLoaded] = useState(false);
+
+  /* --- State: email --- */
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [emailAccountsLoading, setEmailAccountsLoading] = useState(true);
   const [emailAccountsError, setEmailAccountsError] = useState<string | null>(null);
   const [emailActionTarget, setEmailActionTarget] = useState<string | null>(null);
+
+  /* --- State: billing --- */
   const [stripeStatus, setStripeStatus] = useState<string | null>(null);
   const [stripePlanTier, setStripePlanTier] = useState<string | null>(null);
   const [stripePlanBilling, setStripePlanBilling] = useState<string | null>(null);
@@ -264,19 +317,23 @@ export default function AccountPage() {
   const [billingError, setBillingError] = useState<string | null>(null);
   const [billingSuccess, setBillingSuccess] = useState<string | null>(null);
   const [showPlanOptions, setShowPlanOptions] = useState(false);
+
+  /* --- State: password --- */
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+  /* --- State: team --- */
   const [userRole, setUserRole] = useState<string | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [teamInvites, setTeamInvites] = useState<TeamInvite[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
 
-  // Invoice settings
+  /* --- State: invoice settings --- */
   const [invoiceVatNumber, setInvoiceVatNumber] = useState("");
   const [invoiceCompanyReg, setInvoiceCompanyReg] = useState("");
   const [invoiceBankName, setInvoiceBankName] = useState("");
@@ -287,6 +344,16 @@ export default function AccountPage() {
   const [invoiceSaving, setInvoiceSaving] = useState(false);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [invoiceSuccess, setInvoiceSuccess] = useState<string | null>(null);
+
+  /* --- State: requests --- */
+  const [requestText, setRequestText] = useState("");
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
+
+  /* ------------------------------------------------------------------ */
+  /*  Data loading                                                       */
+  /* ------------------------------------------------------------------ */
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -350,7 +417,6 @@ export default function AccountPage() {
         is_onboarded: clientData.is_onboarded ?? false,
       });
 
-      // Invoice settings
       const cd = clientData as Record<string, unknown>;
       setInvoiceVatNumber((cd.invoice_vat_number as string) ?? "");
       setInvoiceCompanyReg((cd.invoice_company_reg as string) ?? "");
@@ -384,9 +450,10 @@ export default function AccountPage() {
       setBillingSuccess("Subscription updated successfully.");
       setBillingError(null);
       url.searchParams.delete("billing");
-      router.replace(url.pathname);
+      switchTab("billing");
+      router.replace(url.pathname + "?tab=billing");
     }
-  }, [loadProfile, router]);
+  }, [loadProfile, router, switchTab]);
 
   async function loadEmailAccounts() {
     setEmailAccountsLoading(true);
@@ -434,6 +501,10 @@ export default function AccountPage() {
       void loadTeamData();
     }
   }, [userRole, loadTeamData]);
+
+  /* ------------------------------------------------------------------ */
+  /*  Handlers                                                           */
+  /* ------------------------------------------------------------------ */
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -692,6 +763,54 @@ export default function AccountPage() {
     }
   }
 
+  async function handleRequestSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRequestError(null);
+    setRequestSuccess(null);
+
+    const message = requestText.trim();
+    if (!message) {
+      setRequestError("Please enter a request before submitting.");
+      return;
+    }
+
+    setRequestSubmitting(true);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        setRequestError("Unable to verify your session. Please sign in again.");
+        return;
+      }
+
+      const { error: insertError } = await supabase.from("requests").insert({
+        user_id: user.id,
+        message,
+      });
+
+      if (insertError) throw insertError;
+
+      setRequestSuccess("Request submitted. Thank you.");
+      setRequestText("");
+    } catch (err) {
+      setRequestError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to submit request. Please try again."
+      );
+    } finally {
+      setRequestSubmitting(false);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Derived                                                            */
+  /* ------------------------------------------------------------------ */
+
   const isSageConnected = accountingSystem === "sage";
   const isXeroConnected = accountingSystem === "xero";
   const isQuickBooksConnected = accountingSystem === "quickbooks";
@@ -721,9 +840,16 @@ export default function AccountPage() {
     return missing;
   });
 
+  const showTeamTab = userRole === "owner" || userRole === "manager";
+  const visibleTabs = TABS.filter((t) => t !== "team" || showTeamTab);
+
+  /* ------------------------------------------------------------------ */
+  /*  Render                                                             */
+  /* ------------------------------------------------------------------ */
+
   return (
     <div className="page-container">
-      {/* ── Page header ─────────────────────────────────────────────── */}
+      {/* ── Page header ── */}
       <header style={{ marginBottom: "4px" }}>
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
           <div>
@@ -738,673 +864,527 @@ export default function AccountPage() {
         </div>
       </header>
 
-      {/* ── Identity card ───────────────────────────────────────────── */}
-      <div className="card" style={{ padding: "24px 28px" }}>
-        <div style={{ marginBottom: "16px" }}>
-          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Your account</h2>
-          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Login identity and account status.</p>
-        </div>
-
-        {loading && <p style={{ fontSize: "14px", color: "#64748b" }}>Loading account…</p>}
-
-        {error && (
-          <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
-            {error}
-          </p>
-        )}
-
-        {!loading && !error && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div>
-              <span style={{
-                display: "inline-flex", alignItems: "center", padding: "4px 10px",
-                borderRadius: "999px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.04em",
-                background: profile.is_onboarded ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.05)",
-                color: profile.is_onboarded ? "#34d399" : "rgba(255,255,255,0.5)",
-                border: `1px solid ${profile.is_onboarded ? "rgba(52,211,153,0.25)" : "rgba(255,255,255,0.08)"}`,
-              }}>
-                {profile.is_onboarded ? "Onboarded" : "Not onboarded"}
-              </span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", margin: 0 }}>Email</p>
-                <p style={{ fontSize: "15px", fontWeight: 600, color: "#f1f5f9", margin: 0 }}>{userEmail || "—"}</p>
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", margin: 0 }}>User ID</p>
-                <p style={{ fontSize: "12px", fontFamily: "ui-monospace, 'SF Mono', monospace", color: "#94a3b8", wordBreak: "break-all", margin: 0 }}>{userId}</p>
-              </div>
-            </div>
-          </div>
-        )}
+      {/* ── Tab bar ── */}
+      <div style={{
+        display: "flex", gap: "4px", borderBottom: "1px solid rgba(148,163,184,0.1)",
+        paddingBottom: "0", flexWrap: "wrap", marginBottom: "24px",
+      }}>
+        {visibleTabs.map((t) => {
+          const active = tab === t;
+          return (
+            <button
+              type="button"
+              key={t}
+              onClick={() => switchTab(t)}
+              style={{
+                padding: "10px 16px",
+                fontSize: "13px",
+                fontWeight: active ? 700 : 500,
+                color: active ? "#f1f5f9" : "#64748b",
+                background: "transparent",
+                border: "none",
+                borderBottom: active ? "2px solid #38bdf8" : "2px solid transparent",
+                cursor: "pointer",
+                marginBottom: "-1px",
+                transition: "color 0.15s ease",
+              }}
+            >
+              {TAB_LABELS[t]}
+            </button>
+          );
+        })}
       </div>
 
-      {/* ── Business Information ─────────────────────────────────────── */}
-      <div className="card" style={{ padding: "24px 28px" }}>
-        <div style={{ marginBottom: "20px" }}>
-          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Business Information</h2>
-          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Update the details used across your quotes.</p>
-        </div>
-
-        {!loading && !error ? (
-          <form onSubmit={handleSubmit} className="form-stack">
-            {success && (
-              <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
-                {success}
-              </p>
-            )}
-
-            <div className="form-row">
-              <div className="form-field">
-                <label className="form-label" htmlFor="business_name">Business name</label>
-                <input
-                  id="business_name"
-                  className="chat-input"
-                  value={profile.business_name}
-                  onChange={(e) => updateField("business_name", e.target.value)}
-                  required
-                  disabled={saving || loading}
-                />
-              </div>
-              <div className="form-field">
-                <label className="form-label" htmlFor="contact_name">Contact name</label>
-                <input
-                  id="contact_name"
-                  className="chat-input"
-                  value={profile.contact_name}
-                  onChange={(e) => updateField("contact_name", e.target.value)}
-                  required
-                  disabled={saving || loading}
-                />
-              </div>
+      {/* ================================================================ */}
+      {/*  PROFILE TAB                                                     */}
+      {/* ================================================================ */}
+      {tab === "profile" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* Identity card */}
+          <div className="card" style={{ padding: "24px 28px" }}>
+            <div style={{ marginBottom: "16px" }}>
+              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Your account</h2>
+              <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Login identity and account status.</p>
             </div>
 
-            <div className="form-row">
-              <div className="form-field">
-                <label className="form-label" htmlFor="phone">Phone</label>
-                <input
-                  id="phone"
-                  className="chat-input"
-                  value={profile.phone}
-                  onChange={(e) => updateField("phone", e.target.value)}
-                  required
-                  disabled={saving || loading}
-                />
-              </div>
-              <div className="form-field">
-                <label className="form-label" htmlFor="country">Country</label>
-                <input
-                  id="country"
-                  className="chat-input"
-                  value={profile.country}
-                  onChange={(e) => updateField("country", e.target.value)}
-                  required
-                  disabled={saving || loading}
-                />
-              </div>
-            </div>
+            {loading && <p style={{ fontSize: "14px", color: "#64748b" }}>Loading account…</p>}
 
-            <div className="form-field">
-              <label className="form-label" htmlFor="address_line1">Address line 1</label>
-              <input
-                id="address_line1"
-                className="chat-input"
-                value={profile.address_line1}
-                onChange={(e) => updateField("address_line1", e.target.value)}
-                required
-                disabled={saving || loading}
-              />
-            </div>
-
-            <div className="form-field">
-              <label className="form-label" htmlFor="address_line2">Address line 2</label>
-              <input
-                id="address_line2"
-                className="chat-input"
-                value={profile.address_line2 ?? ""}
-                onChange={(e) => updateField("address_line2", e.target.value)}
-                disabled={saving || loading}
-              />
-            </div>
-
-            <div className="form-row">
-              <div className="form-field">
-                <label className="form-label" htmlFor="city">City</label>
-                <input
-                  id="city"
-                  className="chat-input"
-                  value={profile.city}
-                  onChange={(e) => updateField("city", e.target.value)}
-                  required
-                  disabled={saving || loading}
-                />
-              </div>
-              <div className="form-field">
-                <label className="form-label" htmlFor="postcode">Postcode</label>
-                <input
-                  id="postcode"
-                  className="chat-input"
-                  value={profile.postcode}
-                  onChange={(e) => updateField("postcode", e.target.value)}
-                  required
-                  disabled={saving || loading}
-                />
-              </div>
-            </div>
-
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary" disabled={saving || loading}>
-                {saving ? "Saving…" : "Save changes"}
-              </button>
-            </div>
-          </form>
-        ) : null}
-      </div>
-
-      {/* ── Invoice Settings ──────────────────────────────────────── */}
-      <div className="card" style={{ padding: "24px 28px" }}>
-        <div style={{ marginBottom: "20px" }}>
-          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Invoice Settings</h2>
-          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>These details appear on your PDF invoices.</p>
-        </div>
-
-        {!loading && !error ? (
-          <form onSubmit={handleInvoiceSettingsSave} className="form-stack">
-            {invoiceSuccess && (
-              <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
-                {invoiceSuccess}
-              </p>
-            )}
-            {invoiceError && (
+            {error && (
               <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
-                {invoiceError}
+                {error}
               </p>
             )}
 
-            <div className="form-row">
-              <div className="form-field">
-                <label className="form-label" htmlFor="invoice_vat_number">VAT number</label>
-                <input
-                  id="invoice_vat_number"
-                  className="chat-input"
-                  value={invoiceVatNumber}
-                  onChange={(e) => setInvoiceVatNumber(e.target.value)}
-                  placeholder="e.g. GB 123 4567 89"
-                  disabled={invoiceSaving || loading}
-                />
-              </div>
-              <div className="form-field">
-                <label className="form-label" htmlFor="invoice_company_reg">Company reg number</label>
-                <input
-                  id="invoice_company_reg"
-                  className="chat-input"
-                  value={invoiceCompanyReg}
-                  onChange={(e) => setInvoiceCompanyReg(e.target.value)}
-                  placeholder="e.g. 12345678"
-                  disabled={invoiceSaving || loading}
-                />
-              </div>
-            </div>
+            {!loading && !error && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div>
+                  <span style={{
+                    display: "inline-flex", alignItems: "center", padding: "4px 10px",
+                    borderRadius: "999px", fontSize: "11px", fontWeight: 700, letterSpacing: "0.04em",
+                    background: profile.is_onboarded ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.05)",
+                    color: profile.is_onboarded ? "#34d399" : "rgba(255,255,255,0.5)",
+                    border: `1px solid ${profile.is_onboarded ? "rgba(52,211,153,0.25)" : "rgba(255,255,255,0.08)"}`,
+                  }}>
+                    {profile.is_onboarded ? "Onboarded" : "Not onboarded"}
+                  </span>
+                </div>
 
-            <div className="form-row">
-              <div className="form-field">
-                <label className="form-label" htmlFor="invoice_bank_name">Bank name</label>
-                <input
-                  id="invoice_bank_name"
-                  className="chat-input"
-                  value={invoiceBankName}
-                  onChange={(e) => setInvoiceBankName(e.target.value)}
-                  placeholder="e.g. Barclays"
-                  disabled={invoiceSaving || loading}
-                />
-              </div>
-              <div className="form-field">
-                <label className="form-label" htmlFor="invoice_sort_code">Sort code</label>
-                <input
-                  id="invoice_sort_code"
-                  className="chat-input"
-                  value={invoiceSortCode}
-                  onChange={(e) => setInvoiceSortCode(e.target.value)}
-                  placeholder="e.g. 20-00-00"
-                  disabled={invoiceSaving || loading}
-                />
-              </div>
-            </div>
-
-            <div className="form-field">
-              <label className="form-label" htmlFor="invoice_account_number">Account number</label>
-              <input
-                id="invoice_account_number"
-                className="chat-input"
-                value={invoiceAccountNumber}
-                onChange={(e) => setInvoiceAccountNumber(e.target.value)}
-                placeholder="e.g. 12345678"
-                disabled={invoiceSaving || loading}
-              />
-            </div>
-
-            <div className="form-field">
-              <label className="form-label" htmlFor="invoice_payment_terms">Payment terms</label>
-              <input
-                id="invoice_payment_terms"
-                className="chat-input"
-                value={invoicePaymentTerms}
-                onChange={(e) => setInvoicePaymentTerms(e.target.value)}
-                placeholder="Payment due within 30 days"
-                disabled={invoiceSaving || loading}
-              />
-            </div>
-
-            <div className="form-field">
-              <label className="form-label" htmlFor="invoice_notes">Invoice footer notes</label>
-              <textarea
-                id="invoice_notes"
-                className="chat-input"
-                value={invoiceNotes}
-                onChange={(e) => setInvoiceNotes(e.target.value)}
-                placeholder="e.g. Thank you for your business"
-                rows={3}
-                style={{ resize: "vertical", minHeight: "60px" }}
-                disabled={invoiceSaving || loading}
-              />
-            </div>
-
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary" disabled={invoiceSaving || loading}>
-                {invoiceSaving ? "Saving…" : "Save invoice settings"}
-              </button>
-            </div>
-          </form>
-        ) : null}
-      </div>
-
-      {/* ── Integrations ────────────────────────────────────────────── */}
-      <div className="card" style={{ padding: "24px 28px" }}>
-        <div style={{ marginBottom: "20px" }}>
-          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Integrations</h2>
-          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
-            Connect your accounting software and email inbox.
-          </p>
-        </div>
-
-        {/* Accounting */}
-        <div style={{ marginBottom: "24px" }}>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "12px" }}>
-            Accounting
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {providerConfigs.map((provider) => (
-              <div key={provider.key} className="linked-account-badge">
-                <div className="linked-account-badge-left">
-                  <div className="linked-account-badge-text">
-                    <p className="linked-account-badge-title">{provider.label}</p>
-                    <p className="linked-account-badge-sub">
-                      {!accountingStatusLoaded ? "Loading…" : provider.connected ? "Connected" : "Not connected"}
-                    </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", margin: 0 }}>Email</p>
+                    <p style={{ fontSize: "15px", fontWeight: 600, color: "#f1f5f9", margin: 0 }}>{userEmail || "—"}</p>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", margin: 0 }}>User ID</p>
+                    <p style={{ fontSize: "12px", fontFamily: "ui-monospace, 'SF Mono', monospace", color: "#94a3b8", wordBreak: "break-all", margin: 0 }}>{userId}</p>
                   </div>
                 </div>
-                <button
-                  className="btn btn-primary"
-                  disabled={!accountingStatusLoaded || provider.connected}
-                  onClick={() => handleConnect(provider.key)}
-                >
-                  {!accountingStatusLoaded ? "Loading…" : provider.connected ? "Connected" : "Connect"}
-                </button>
               </div>
-            ))}
+            )}
+          </div>
+
+          {/* Business Information */}
+          <div className="card" style={{ padding: "24px 28px" }}>
+            <div style={{ marginBottom: "20px" }}>
+              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Business Information</h2>
+              <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Update the details used across your quotes.</p>
+            </div>
+
+            {!loading && !error ? (
+              <form onSubmit={handleSubmit} className="form-stack">
+                {success && (
+                  <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+                    {success}
+                  </p>
+                )}
+
+                <div className="form-row">
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="business_name">Business name</label>
+                    <input id="business_name" className="chat-input" value={profile.business_name} onChange={(e) => updateField("business_name", e.target.value)} required disabled={saving || loading} />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="contact_name">Contact name</label>
+                    <input id="contact_name" className="chat-input" value={profile.contact_name} onChange={(e) => updateField("contact_name", e.target.value)} required disabled={saving || loading} />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="phone">Phone</label>
+                    <input id="phone" className="chat-input" value={profile.phone} onChange={(e) => updateField("phone", e.target.value)} required disabled={saving || loading} />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="country">Country</label>
+                    <input id="country" className="chat-input" value={profile.country} onChange={(e) => updateField("country", e.target.value)} required disabled={saving || loading} />
+                  </div>
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label" htmlFor="address_line1">Address line 1</label>
+                  <input id="address_line1" className="chat-input" value={profile.address_line1} onChange={(e) => updateField("address_line1", e.target.value)} required disabled={saving || loading} />
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label" htmlFor="address_line2">Address line 2</label>
+                  <input id="address_line2" className="chat-input" value={profile.address_line2 ?? ""} onChange={(e) => updateField("address_line2", e.target.value)} disabled={saving || loading} />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="city">City</label>
+                    <input id="city" className="chat-input" value={profile.city} onChange={(e) => updateField("city", e.target.value)} required disabled={saving || loading} />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="postcode">Postcode</label>
+                    <input id="postcode" className="chat-input" value={profile.postcode} onChange={(e) => updateField("postcode", e.target.value)} required disabled={saving || loading} />
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={saving || loading}>
+                    {saving ? "Saving…" : "Save changes"}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </div>
+
+          {/* Invoice Settings */}
+          <div className="card" style={{ padding: "24px 28px" }}>
+            <div style={{ marginBottom: "20px" }}>
+              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Invoice Settings</h2>
+              <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>These details appear on your PDF invoices.</p>
+            </div>
+
+            {!loading && !error ? (
+              <form onSubmit={handleInvoiceSettingsSave} className="form-stack">
+                {invoiceSuccess && (
+                  <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+                    {invoiceSuccess}
+                  </p>
+                )}
+                {invoiceError && (
+                  <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+                    {invoiceError}
+                  </p>
+                )}
+
+                <div className="form-row">
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="invoice_vat_number">VAT number</label>
+                    <input id="invoice_vat_number" className="chat-input" value={invoiceVatNumber} onChange={(e) => setInvoiceVatNumber(e.target.value)} placeholder="e.g. GB 123 4567 89" disabled={invoiceSaving || loading} />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="invoice_company_reg">Company reg number</label>
+                    <input id="invoice_company_reg" className="chat-input" value={invoiceCompanyReg} onChange={(e) => setInvoiceCompanyReg(e.target.value)} placeholder="e.g. 12345678" disabled={invoiceSaving || loading} />
+                  </div>
+                </div>
+
+                <div className="form-row">
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="invoice_bank_name">Bank name</label>
+                    <input id="invoice_bank_name" className="chat-input" value={invoiceBankName} onChange={(e) => setInvoiceBankName(e.target.value)} placeholder="e.g. Barclays" disabled={invoiceSaving || loading} />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label" htmlFor="invoice_sort_code">Sort code</label>
+                    <input id="invoice_sort_code" className="chat-input" value={invoiceSortCode} onChange={(e) => setInvoiceSortCode(e.target.value)} placeholder="e.g. 20-00-00" disabled={invoiceSaving || loading} />
+                  </div>
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label" htmlFor="invoice_account_number">Account number</label>
+                  <input id="invoice_account_number" className="chat-input" value={invoiceAccountNumber} onChange={(e) => setInvoiceAccountNumber(e.target.value)} placeholder="e.g. 12345678" disabled={invoiceSaving || loading} />
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label" htmlFor="invoice_payment_terms">Payment terms</label>
+                  <input id="invoice_payment_terms" className="chat-input" value={invoicePaymentTerms} onChange={(e) => setInvoicePaymentTerms(e.target.value)} placeholder="Payment due within 30 days" disabled={invoiceSaving || loading} />
+                </div>
+
+                <div className="form-field">
+                  <label className="form-label" htmlFor="invoice_notes">Invoice footer notes</label>
+                  <textarea id="invoice_notes" className="chat-input" value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)} placeholder="e.g. Thank you for your business" rows={3} style={{ resize: "vertical", minHeight: "60px" }} disabled={invoiceSaving || loading} />
+                </div>
+
+                <div className="form-actions">
+                  <button type="submit" className="btn btn-primary" disabled={invoiceSaving || loading}>
+                    {invoiceSaving ? "Saving…" : "Save invoice settings"}
+                  </button>
+                </div>
+              </form>
+            ) : null}
+          </div>
+
+          {/* Legal */}
+          <div className="card" style={{ padding: "24px 28px" }}>
+            <div style={{ marginBottom: "16px" }}>
+              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Legal</h2>
+              <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Important documents for using BillyBot.</p>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <Link
+                href="/legal/terms"
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                <span style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9" }}>Terms of Service</span>
+                <span style={{ fontSize: "13px", color: "#64748b" }}>View →</span>
+              </Link>
+              <Link
+                href="/legal/privacy"
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0" }}
+              >
+                <span style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9" }}>Privacy Policy</span>
+                <span style={{ fontSize: "13px", color: "#64748b" }}>View →</span>
+              </Link>
+            </div>
           </div>
         </div>
+      ) : null}
 
-        <div style={{ height: "1px", background: "rgba(148,163,184,0.1)", marginBottom: "24px" }} />
+      {/* ================================================================ */}
+      {/*  BILLING TAB                                                     */}
+      {/* ================================================================ */}
+      {tab === "billing" ? (
+        <div className="card" style={{ padding: "24px 28px" }}>
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Plan &amp; Billing</h2>
+            <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Choose a plan or manage your subscription.</p>
+          </div>
 
-        {/* Email */}
-        <div>
-          <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "12px" }}>
-            Email
-          </p>
-
-          {emailAccountsLoading && (
-            <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "12px" }}>Loading email accounts…</p>
-          )}
-          {emailAccountsError && (
-            <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", marginBottom: "12px" }}>
-              {emailAccountsError}
+          {billingSuccess && (
+            <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px" }}>
+              {billingSuccess}
             </p>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {[
-              { key: "google" as const, label: "Gmail", account: googleAccount },
-              { key: "microsoft" as const, label: "Outlook", account: microsoftAccount },
-            ].map(({ key, label, account }) => {
-              const connected = isConnected(account);
-              const emailStatusBadge = getConnectionStatusLabel(account?.email_connection_status);
-              const isActionLoading = emailActionTarget === key || emailAccountsLoading;
-              const needsReconnect =
-                account?.email_connection_status === "needs_reconnect" ||
-                account?.email_connection_status === "refresh_failed" ||
-                account?.email_connection_status === "provider_revoked" ||
-                account?.email_connection_status === "watch_expired" ||
-                account?.email_connection_status === "subscription_expired";
+          {isSubscriber && !showPlanOptions ? (
+            <div className="subscription-summary" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", padding: "4px 10px",
+                  borderRadius: "999px", fontSize: "11px", fontWeight: 700,
+                  background: statusBadge.bg, color: statusBadge.text, border: `1px solid ${statusBadge.border}`,
+                }}>
+                  {statusBadge.label}
+                </span>
+                <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>
+                  {planLabel} · {billingLabel}
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                <button onClick={handleManageBilling} disabled={loadingPortal} className="btn btn-primary">
+                  {loadingPortal ? "Loading…" : "Manage subscription"}
+                </button>
+                <button className="btn btn-secondary" onClick={() => setShowPlanOptions(true)} disabled={loadingPortal}>
+                  Change plan
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                <span style={{
+                  display: "inline-flex", alignItems: "center", padding: "4px 10px",
+                  borderRadius: "999px", fontSize: "11px", fontWeight: 700,
+                  background: statusBadge.bg, color: statusBadge.text, border: `1px solid ${statusBadge.border}`,
+                }}>
+                  {statusBadge.label}
+                </span>
+                {isSubscriber && (
+                  <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>
+                    Current plan: {planLabel} ({billingLabel})
+                  </span>
+                )}
+              </div>
 
-              return (
-                <div key={key} className="linked-account-badge">
+              <div className="billing-toggle" role="group" aria-label="Billing cycle">
+                <button className={`billing-toggle-btn ${billingCycle === "monthly" ? "is-active" : ""}`} onClick={() => setBillingCycle("monthly")} disabled={!!billingActionTarget} type="button">
+                  Monthly
+                </button>
+                <button className={`billing-toggle-btn ${billingCycle === "annual" ? "is-active" : ""}`} onClick={() => setBillingCycle("annual")} disabled={!!billingActionTarget} type="button">
+                  <span>Annual</span>
+                  <span className="billing-toggle-badge">Save 2 months</span>
+                </button>
+              </div>
+
+              <div className="pricing-grid">
+                {PLAN_CONFIGS.map((plan) => {
+                  const actionKey = `${plan.key}-${billingCycle}`;
+                  const isWorking = billingActionTarget === actionKey;
+                  const cyclePriceIds = getCyclePriceIds(plan);
+                  const activePriceId = billingCycle === "monthly" ? cyclePriceIds.monthly : cyclePriceIds.annual;
+                  const isPlanAvailable = Boolean(activePriceId);
+                  const isPopular = plan.key === "pro";
+
+                  return (
+                    <div key={plan.key} className={`pricing-card ${isPopular ? "is-popular" : ""}`}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+                          <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>{plan.name}</h3>
+                          {isPopular && (
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", padding: "3px 8px",
+                              borderRadius: "999px", fontSize: "10px", fontWeight: 700,
+                              background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)",
+                              border: "1px solid rgba(255,255,255,0.12)",
+                            }}>
+                              Most popular
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>{plan.tagline}</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                          <p className="pricing-card-price">
+                            {billingCycle === "monthly" ? plan.monthlyLabel : plan.annualLabel}
+                          </p>
+                          <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: 0 }}>
+                            {billingCycle === "monthly" ? "Billed monthly" : "Billed annually"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <ul className="pricing-card-list">
+                        {plan.bullets.map((bullet) => (
+                          <li key={bullet}>{bullet}</li>
+                        ))}
+                      </ul>
+
+                      <div className="pricing-card-cta" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <button className="btn btn-primary" onClick={() => void handleStartSubscription(plan)} disabled={!!billingActionTarget || !isPlanAvailable}>
+                          {isWorking ? "Working…" : "Start subscription"}
+                        </button>
+                        {!isPlanAvailable && (
+                          <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
+                            Plan unavailable (billing not configured)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+                <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>Cancel anytime · No contract</p>
+                {isSubscriber && (
+                  <button className="btn btn-secondary" onClick={() => setShowPlanOptions(false)} type="button">
+                    Hide plans
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {process.env.NODE_ENV !== "production" && (
+            <p className="billing-debug" style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "16px" }}>
+              Debug — stripe_status: {stripeStatus ?? "null"}, stripe_plan_tier: {stripePlanTier ?? "null"},
+              stripe_plan_billing: {stripePlanBilling ?? "null"}, stripe_subscription_id: {stripeSubscriptionId ?? "null"},
+              stripe_price_id: {stripePriceId ?? "null"}, stripe_id: {stripeId ?? "null"}, missing price_ids:{" "}
+              {missingPriceIds.length ? missingPriceIds.join(", ") : "none"}
+            </p>
+          )}
+
+          {billingError && (
+            <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", marginTop: "12px" }}>
+              {billingError}
+            </p>
+          )}
+        </div>
+      ) : null}
+
+      {/* ================================================================ */}
+      {/*  INTEGRATIONS TAB                                                */}
+      {/* ================================================================ */}
+      {tab === "integrations" ? (
+        <div className="card" style={{ padding: "24px 28px" }}>
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Integrations</h2>
+            <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
+              Connect your accounting software and email inbox.
+            </p>
+          </div>
+
+          {/* Accounting */}
+          <div style={{ marginBottom: "24px" }}>
+            <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "12px" }}>
+              Accounting
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {providerConfigs.map((provider) => (
+                <div key={provider.key} className="linked-account-badge">
                   <div className="linked-account-badge-left">
                     <div className="linked-account-badge-text">
-                      <p className="linked-account-badge-title">{label}</p>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "4px" }}>
-                        <span
-                          aria-live="polite"
-                          style={{
-                            display: "inline-flex", alignItems: "center", padding: "3px 8px",
-                            borderRadius: "999px", fontSize: "11px", fontWeight: 700,
-                            background: emailStatusBadge.bg, color: emailStatusBadge.text,
-                            border: `1px solid ${emailStatusBadge.border}`,
-                          }}
-                        >
-                          {emailStatusBadge.label}
-                        </span>
-                        {connected && account?.email_address && (
-                          <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)", margin: 0 }}>
-                            {account.email_address}
-                          </p>
-                        )}
-                        {!connected && account?.last_error && (
-                          <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
-                            {account.last_error.slice(0, 140)}
-                          </p>
-                        )}
-                      </div>
+                      <p className="linked-account-badge-title">{provider.label}</p>
+                      <p className="linked-account-badge-sub">
+                        {!accountingStatusLoaded ? "Loading…" : provider.connected ? "Connected" : "Not connected"}
+                      </p>
                     </div>
                   </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    {(!connected || needsReconnect) && (
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => handleEmailConnect(key)}
-                        disabled={isActionLoading}
-                      >
-                        {isActionLoading
-                          ? "Working…"
-                          : key === "google"
-                          ? connected ? "Reconnect Gmail" : "Connect Gmail"
-                          : connected ? "Reconnect Outlook" : "Connect Outlook"}
-                      </button>
-                    )}
-                    {connected && (
-                      <button
-                        className="btn btn-secondary"
-                        onClick={() => handleEmailDisconnect(key, account?.id)}
-                        disabled={isActionLoading}
-                      >
-                        {isActionLoading ? "Working…" : "Disconnect"}
-                      </button>
-                    )}
-                  </div>
+                  <button
+                    className="btn btn-primary"
+                    disabled={!accountingStatusLoaded || provider.connected}
+                    onClick={() => handleConnect(provider.key)}
+                  >
+                    {!accountingStatusLoaded ? "Loading…" : provider.connected ? "Connected" : "Connect"}
+                  </button>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Plan & Billing ───────────────────────────────────────────── */}
-      <div className="card" style={{ padding: "24px 28px" }}>
-        <div style={{ marginBottom: "20px" }}>
-          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Plan &amp; Billing</h2>
-          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Choose a plan or manage your subscription.</p>
-        </div>
-
-        {billingSuccess && (
-          <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", marginBottom: "16px" }}>
-            {billingSuccess}
-          </p>
-        )}
-
-        {isSubscriber && !showPlanOptions ? (
-          <div className="subscription-summary" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <span style={{
-                display: "inline-flex", alignItems: "center", padding: "4px 10px",
-                borderRadius: "999px", fontSize: "11px", fontWeight: 700,
-                background: statusBadge.bg, color: statusBadge.text, border: `1px solid ${statusBadge.border}`,
-              }}>
-                {statusBadge.label}
-              </span>
-              <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>
-                {planLabel} · {billingLabel}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <button onClick={handleManageBilling} disabled={loadingPortal} className="btn btn-primary">
-                {loadingPortal ? "Loading…" : "Manage subscription"}
-              </button>
-              <button className="btn btn-secondary" onClick={() => setShowPlanOptions(true)} disabled={loadingPortal}>
-                Change plan
-              </button>
+              ))}
             </div>
           </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-              <span style={{
-                display: "inline-flex", alignItems: "center", padding: "4px 10px",
-                borderRadius: "999px", fontSize: "11px", fontWeight: 700,
-                background: statusBadge.bg, color: statusBadge.text, border: `1px solid ${statusBadge.border}`,
-              }}>
-                {statusBadge.label}
-              </span>
-              {isSubscriber && (
-                <span style={{ fontSize: "14px", color: "rgba(255,255,255,0.7)" }}>
-                  Current plan: {planLabel} ({billingLabel})
-                </span>
-              )}
-            </div>
 
-            <div className="billing-toggle" role="group" aria-label="Billing cycle">
-              <button
-                className={`billing-toggle-btn ${billingCycle === "monthly" ? "is-active" : ""}`}
-                onClick={() => setBillingCycle("monthly")}
-                disabled={!!billingActionTarget}
-                type="button"
-              >
-                Monthly
-              </button>
-              <button
-                className={`billing-toggle-btn ${billingCycle === "annual" ? "is-active" : ""}`}
-                onClick={() => setBillingCycle("annual")}
-                disabled={!!billingActionTarget}
-                type="button"
-              >
-                <span>Annual</span>
-                <span className="billing-toggle-badge">Save 2 months</span>
-              </button>
-            </div>
+          <div style={{ height: "1px", background: "rgba(148,163,184,0.1)", marginBottom: "24px" }} />
 
-            <div className="pricing-grid">
-              {PLAN_CONFIGS.map((plan) => {
-                const actionKey = `${plan.key}-${billingCycle}`;
-                const isWorking = billingActionTarget === actionKey;
-                const cyclePriceIds = getCyclePriceIds(plan);
-                const activePriceId = billingCycle === "monthly" ? cyclePriceIds.monthly : cyclePriceIds.annual;
-                const isPlanAvailable = Boolean(activePriceId);
-                const isPopular = plan.key === "pro";
+          {/* Email */}
+          <div>
+            <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "12px" }}>
+              Email
+            </p>
+
+            {emailAccountsLoading && (
+              <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "12px" }}>Loading email accounts…</p>
+            )}
+            {emailAccountsError && (
+              <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", marginBottom: "12px" }}>
+                {emailAccountsError}
+              </p>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {[
+                { key: "google" as const, label: "Gmail", account: googleAccount },
+                { key: "microsoft" as const, label: "Outlook", account: microsoftAccount },
+              ].map(({ key, label, account }) => {
+                const connected = isConnected(account);
+                const emailStatusBadge = getConnectionStatusLabel(account?.email_connection_status);
+                const isActionLoading = emailActionTarget === key || emailAccountsLoading;
+                const needsReconnect =
+                  account?.email_connection_status === "needs_reconnect" ||
+                  account?.email_connection_status === "refresh_failed" ||
+                  account?.email_connection_status === "provider_revoked" ||
+                  account?.email_connection_status === "watch_expired" ||
+                  account?.email_connection_status === "subscription_expired";
 
                 return (
-                  <div key={plan.key} className={`pricing-card ${isPopular ? "is-popular" : ""}`}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
-                        <h3 style={{ fontSize: "18px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>{plan.name}</h3>
-                        {isPopular && (
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", padding: "3px 8px",
-                            borderRadius: "999px", fontSize: "10px", fontWeight: 700,
-                            background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)",
-                            border: "1px solid rgba(255,255,255,0.12)",
-                          }}>
-                            Most popular
+                  <div key={key} className="linked-account-badge">
+                    <div className="linked-account-badge-left">
+                      <div className="linked-account-badge-text">
+                        <p className="linked-account-badge-title">{label}</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "4px" }}>
+                          <span
+                            aria-live="polite"
+                            style={{
+                              display: "inline-flex", alignItems: "center", padding: "3px 8px",
+                              borderRadius: "999px", fontSize: "11px", fontWeight: 700,
+                              background: emailStatusBadge.bg, color: emailStatusBadge.text,
+                              border: `1px solid ${emailStatusBadge.border}`,
+                            }}
+                          >
+                            {emailStatusBadge.label}
                           </span>
-                        )}
-                      </div>
-                      <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>{plan.tagline}</p>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                        <p className="pricing-card-price">
-                          {billingCycle === "monthly" ? plan.monthlyLabel : plan.annualLabel}
-                        </p>
-                        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.5)", margin: 0 }}>
-                          {billingCycle === "monthly" ? "Billed monthly" : "Billed annually"}
-                        </p>
+                          {connected && account?.email_address && (
+                            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)", margin: 0 }}>
+                              {account.email_address}
+                            </p>
+                          )}
+                          {!connected && account?.last_error && (
+                            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
+                              {account.last_error.slice(0, 140)}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    <ul className="pricing-card-list">
-                      {plan.bullets.map((bullet) => (
-                        <li key={bullet}>{bullet}</li>
-                      ))}
-                    </ul>
-
-                    <div className="pricing-card-cta" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      <button
-                        className="btn btn-primary"
-                        onClick={() => void handleStartSubscription(plan)}
-                        disabled={!!billingActionTarget || !isPlanAvailable}
-                      >
-                        {isWorking ? "Working…" : "Start subscription"}
-                      </button>
-                      {!isPlanAvailable && (
-                        <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
-                          Plan unavailable (billing not configured)
-                        </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      {(!connected || needsReconnect) && (
+                        <button className="btn btn-primary" onClick={() => handleEmailConnect(key)} disabled={isActionLoading}>
+                          {isActionLoading
+                            ? "Working…"
+                            : key === "google"
+                            ? connected ? "Reconnect Gmail" : "Connect Gmail"
+                            : connected ? "Reconnect Outlook" : "Connect Outlook"}
+                        </button>
+                      )}
+                      {connected && (
+                        <button className="btn btn-secondary" onClick={() => handleEmailDisconnect(key, account?.id)} disabled={isActionLoading}>
+                          {isActionLoading ? "Working…" : "Disconnect"}
+                        </button>
                       )}
                     </div>
                   </div>
                 );
               })}
             </div>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
-              <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>Cancel anytime · No contract</p>
-              {isSubscriber && (
-                <button className="btn btn-secondary" onClick={() => setShowPlanOptions(false)} type="button">
-                  Hide plans
-                </button>
-              )}
-            </div>
           </div>
-        )}
-
-        {process.env.NODE_ENV !== "production" && (
-          <p className="billing-debug" style={{ fontSize: "12px", color: "rgba(255,255,255,0.4)", marginTop: "16px" }}>
-            Debug — stripe_status: {stripeStatus ?? "null"}, stripe_plan_tier: {stripePlanTier ?? "null"},
-            stripe_plan_billing: {stripePlanBilling ?? "null"}, stripe_subscription_id: {stripeSubscriptionId ?? "null"},
-            stripe_price_id: {stripePriceId ?? "null"}, stripe_id: {stripeId ?? "null"}, missing price_ids:{" "}
-            {missingPriceIds.length ? missingPriceIds.join(", ") : "none"}
-          </p>
-        )}
-
-        {billingError && (
-          <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", marginTop: "12px" }}>
-            {billingError}
-          </p>
-        )}
-      </div>
-
-      {/* ── Password & Security ──────────────────────────────────────── */}
-      <div className="card" style={{ padding: "24px 28px" }}>
-        <div style={{ marginBottom: "20px" }}>
-          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Password &amp; Security</h2>
-          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Change your password to keep your account secure.</p>
         </div>
+      ) : null}
 
-        <form onSubmit={handleChangePassword} className="form-stack">
-          {authProvider === "email" ? (
-            <div className="form-field">
-              <label className="form-label" htmlFor="current_password">Current password (optional)</label>
-              <input
-                id="current_password"
-                type="password"
-                className="chat-input"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                autoComplete="current-password"
-                disabled={passwordSaving}
-              />
-              <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
-                For extra security, enter your current password to confirm.
-              </p>
-            </div>
-          ) : (
-            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", margin: 0 }}>
-              You signed in with Google/Microsoft. Set a password to enable email + password login too.
-            </p>
-          )}
-
-          <div className="form-row">
-            <div className="form-field">
-              <label className="form-label" htmlFor="new_password">New password</label>
-              <input
-                id="new_password"
-                type="password"
-                className="chat-input"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                autoComplete="new-password"
-                required
-                minLength={8}
-                disabled={passwordSaving}
-              />
-            </div>
-            <div className="form-field">
-              <label className="form-label" htmlFor="confirm_new_password">Confirm new password</label>
-              <input
-                id="confirm_new_password"
-                type="password"
-                className="chat-input"
-                value={confirmNewPassword}
-                onChange={(e) => setConfirmNewPassword(e.target.value)}
-                autoComplete="new-password"
-                required
-                minLength={8}
-                disabled={passwordSaving}
-              />
-            </div>
-          </div>
-
-          {authProvider === "email" && !userEmail && (
-            <p style={{ fontSize: "13px", color: "#f87171", margin: 0 }}>
-              Can&apos;t load your email — refresh and try again.
-            </p>
-          )}
-
-          {passwordError && (
-            <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
-              {passwordError}
-            </p>
-          )}
-
-          {passwordSuccess && (
-            <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
-              {passwordSuccess}
-            </p>
-          )}
-
-          <div className="form-actions">
-            <button
-              className="btn btn-primary"
-              type="submit"
-              disabled={passwordSaving || (authProvider === "email" && !userEmail)}
-            >
-              {passwordSaving ? "Updating…" : "Change password"}
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* ── Team ────────────────────────────────────────────────────── */}
-      {(userRole === "owner" || userRole === "manager") ? (
+      {/* ================================================================ */}
+      {/*  TEAM TAB                                                        */}
+      {/* ================================================================ */}
+      {tab === "team" && showTeamTab ? (
         <div className="card" style={{ padding: "24px 28px" }}>
           <div style={{ marginBottom: "20px" }}>
             <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Team</h2>
@@ -1454,30 +1434,119 @@ export default function AccountPage() {
         </div>
       ) : null}
 
-      {/* ── Legal ───────────────────────────────────────────────────── */}
-      <div className="card" style={{ padding: "24px 28px" }}>
-        <div style={{ marginBottom: "16px" }}>
-          <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Legal</h2>
-          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Important documents for using BillyBot.</p>
-        </div>
+      {/* ================================================================ */}
+      {/*  SECURITY TAB                                                    */}
+      {/* ================================================================ */}
+      {tab === "security" ? (
+        <div className="card" style={{ padding: "24px 28px" }}>
+          <div style={{ marginBottom: "20px" }}>
+            <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Password &amp; Security</h2>
+            <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>Change your password to keep your account secure.</p>
+          </div>
 
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <Link
-            href="/legal/terms"
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-          >
-            <span style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9" }}>Terms of Service</span>
-            <span style={{ fontSize: "13px", color: "#64748b" }}>View →</span>
-          </Link>
-          <Link
-            href="/legal/privacy"
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0" }}
-          >
-            <span style={{ fontSize: "14px", fontWeight: 600, color: "#f1f5f9" }}>Privacy Policy</span>
-            <span style={{ fontSize: "13px", color: "#64748b" }}>View →</span>
-          </Link>
+          <form onSubmit={handleChangePassword} className="form-stack">
+            {authProvider === "email" ? (
+              <div className="form-field">
+                <label className="form-label" htmlFor="current_password">Current password (optional)</label>
+                <input id="current_password" type="password" className="chat-input" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} autoComplete="current-password" disabled={passwordSaving} />
+                <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: 0 }}>
+                  For extra security, enter your current password to confirm.
+                </p>
+              </div>
+            ) : (
+              <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)", margin: 0 }}>
+                You signed in with Google/Microsoft. Set a password to enable email + password login too.
+              </p>
+            )}
+
+            <div className="form-row">
+              <div className="form-field">
+                <label className="form-label" htmlFor="new_password">New password</label>
+                <input id="new_password" type="password" className="chat-input" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} autoComplete="new-password" required minLength={8} disabled={passwordSaving} />
+              </div>
+              <div className="form-field">
+                <label className="form-label" htmlFor="confirm_new_password">Confirm new password</label>
+                <input id="confirm_new_password" type="password" className="chat-input" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} autoComplete="new-password" required minLength={8} disabled={passwordSaving} />
+              </div>
+            </div>
+
+            {authProvider === "email" && !userEmail && (
+              <p style={{ fontSize: "13px", color: "#f87171", margin: 0 }}>
+                Can&apos;t load your email — refresh and try again.
+              </p>
+            )}
+
+            {passwordError && (
+              <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+                {passwordError}
+              </p>
+            )}
+
+            {passwordSuccess && (
+              <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+                {passwordSuccess}
+              </p>
+            )}
+
+            <div className="form-actions">
+              <button className="btn btn-primary" type="submit" disabled={passwordSaving || (authProvider === "email" && !userEmail)}>
+                {passwordSaving ? "Updating…" : "Change password"}
+              </button>
+            </div>
+          </form>
         </div>
-      </div>
+      ) : null}
+
+      {/* ================================================================ */}
+      {/*  SUPPORT TAB                                                     */}
+      {/* ================================================================ */}
+      {tab === "support" ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* Feature requests */}
+          <div className="card" style={{ padding: "24px 28px" }}>
+            <div style={{ marginBottom: "16px" }}>
+              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "#f1f5f9", margin: 0 }}>Feature Requests</h2>
+              <p style={{ fontSize: "13px", color: "#64748b", marginTop: "4px" }}>
+                Tell us what you&apos;d like BillyBot to improve or add next.
+              </p>
+            </div>
+
+            <form className="form-stack" onSubmit={handleRequestSubmit}>
+              <div className="form-field">
+                <textarea
+                  className="chat-input"
+                  placeholder="Describe your request…"
+                  value={requestText}
+                  onChange={(e) => setRequestText(e.target.value)}
+                  rows={4}
+                  style={{ resize: "vertical", minHeight: "100px" }}
+                />
+              </div>
+
+              {requestError && (
+                <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+                  {requestError}
+                </p>
+              )}
+
+              {requestSuccess && (
+                <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", margin: 0 }}>
+                  {requestSuccess}
+                </p>
+              )}
+
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary" disabled={requestSubmitting}>
+                  {requestSubmitting ? "Submitting…" : "Submit request"}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Help / support */}
+          <HelpSection />
+        </div>
+      ) : null}
     </div>
   );
 }
