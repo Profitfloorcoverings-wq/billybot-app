@@ -2,7 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 import { createClient } from "@/utils/supabase/client";
 import InviteForm from "@/app/team/components/InviteForm";
@@ -269,12 +269,15 @@ function getConnectionStatusLabel(status?: EmailConnectionStatus | null): Status
 
 export default function AccountPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
 
   /* --- Tab from URL query (?tab=billing) --- */
-  const initialTab = (searchParams.get("tab") as AccountTab) || "profile";
-  const [tab, setTab] = useState<AccountTab>(TABS.includes(initialTab) ? initialTab : "profile");
+  const [tab, setTab] = useState<AccountTab>(() => {
+    if (typeof window === "undefined") return "profile";
+    const params = new URLSearchParams(window.location.search);
+    const t = params.get("tab") as AccountTab;
+    return t && TABS.includes(t) ? t : "profile";
+  });
 
   const switchTab = useCallback((t: AccountTab) => {
     setTab(t);
