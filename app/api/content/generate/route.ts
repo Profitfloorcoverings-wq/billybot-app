@@ -69,7 +69,7 @@ export async function POST(request: Request) {
   const storagePath = posts[0]?.visual_storage_path;
   if (storagePath) {
     const { data: signedData } = await supabaseAdmin.storage
-      .from("job-files")
+      .from("job_files")
       .createSignedUrl(storagePath, 365 * 24 * 3600); // 1 year
     visualUrl = signedData?.signedUrl ?? null;
   }

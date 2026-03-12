@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const { error: uploadErr } = await supabaseAdmin.storage
-    .from("job-files")
+    .from("job_files")
     .upload(storagePath, buffer, { contentType: file.type, upsert: false });
 
   if (uploadErr) {
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
   // Get signed URL (long-lived for N8N processing)
   const { data: signedData } = await supabaseAdmin.storage
-    .from("job-files")
+    .from("job_files")
     .createSignedUrl(storagePath, 7 * 24 * 3600); // 7 days
 
   const videoUrl = signedData?.signedUrl ?? "";
