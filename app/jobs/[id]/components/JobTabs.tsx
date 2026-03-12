@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import AreasPanel from "./AreasPanel";
 import AttachmentsGallery from "./AttachmentsGallery";
 import EmailThread from "./EmailThread";
+import EstimatorPanel from "./EstimatorPanel";
 import JobFilesPanel from "./JobFilesPanel";
 import OutboundDraftPanel from "./OutboundDraftPanel";
 import ReceiptsPanel from "./ReceiptsPanel";
@@ -21,7 +22,7 @@ type RamsSignature = {
   signed_at: string | null;
 };
 
-const TABS = ["overview", "areas", "emails", "attachments", "files", "receipts", "documents", "updates"] as const;
+const TABS = ["overview", "areas", "estimator", "emails", "attachments", "files", "receipts", "documents", "updates"] as const;
 
 type Tab = (typeof TABS)[number];
 
@@ -282,6 +283,7 @@ export default function JobTabs({ data }: { data: JobPageData }) {
         </div>
       ) : null}
       {tab === "areas" ? <AreasPanel jobId={data.job.id} /> : null}
+      {tab === "estimator" ? <EstimatorPanel jobId={data.job.id} /> : null}
       {tab === "attachments" ? <AttachmentsGallery attachments={data.attachments} /> : null}
       {tab === "files" ? <JobFilesPanel jobId={data.job.id} /> : null}
       {tab === "receipts" ? <ReceiptsPanel jobId={data.job.id} /> : null}
