@@ -363,7 +363,7 @@ export default function AccountPage() {
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
 
   /* --- State: voice profile --- */
-  const [vpStatus, setVpStatus] = useState<"none" | "generating" | "ready" | "error">("none");
+  const [vpStatus, setVpStatus] = useState<"none" | "generating" | "ready" | "error" | "insufficient_emails">("none");
   const [vpText, setVpText] = useState<string>("");
   const [vpEditText, setVpEditText] = useState<string>("");
   const [vpGeneratedAt, setVpGeneratedAt] = useState<string | null>(null);
@@ -544,7 +544,7 @@ export default function AccountPage() {
         } | null;
       };
       const d = json.data;
-      setVpStatus((d?.voice_profile_status as "none" | "generating" | "ready" | "error") ?? "none");
+      setVpStatus((d?.voice_profile_status as "none" | "generating" | "ready" | "error" | "insufficient_emails") ?? "none");
       setVpText(d?.voice_profile ?? "");
       setVpEditText(d?.voice_profile ?? "");
       setVpGeneratedAt(d?.voice_profile_generated_at ?? null);
@@ -1028,6 +1028,8 @@ export default function AccountPage() {
         return { label: vpGeneratedAt ? `Ready (updated ${getDaysAgoLabel(vpGeneratedAt)})` : "Ready", bg: "rgba(52,211,153,0.12)", text: "#34d399", border: "rgba(52,211,153,0.25)" };
       case "generating":
         return { label: "Generating...", bg: "rgba(251,191,36,0.12)", text: "#fbbf24", border: "rgba(251,191,36,0.25)" };
+      case "insufficient_emails":
+        return { label: "Needs more emails", bg: "rgba(251,191,36,0.12)", text: "#fbbf24", border: "rgba(251,191,36,0.25)" };
       case "error":
         return { label: "Error", bg: "rgba(248,113,113,0.12)", text: "#f87171", border: "rgba(248,113,113,0.25)" };
       default:
@@ -1869,7 +1871,7 @@ export default function AccountPage() {
                       <button
                         className="btn btn-primary"
                         onClick={handleVpRegenerate}
-                        disabled={vpRegenerating || vpStatus === "generating"}
+                        disabled={vpRegenerating || vpStatus === "generating" || vpStatus === "insufficient_emails"}
                       >
                         {vpRegenerating || vpStatus === "generating" ? "Generating..." : "Regenerate"}
                       </button>
