@@ -27,6 +27,7 @@ const navItems: NavItem[] = [
   { label: "Suppliers", href: "/suppliers" },
   { label: "Customers", href: "/customers" },
   { label: "Pricing", href: "/pricing" },
+  { label: "Content", href: "/content" },
   { label: "Account", href: "/account" },
 ];
 

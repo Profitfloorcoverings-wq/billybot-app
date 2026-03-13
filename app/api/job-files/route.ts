@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
     if (!jobId) return NextResponse.json({ error: "job_id required" }, { status: 400 });
 
-    const validCategories = ["floor_plan", "site_photo", "cutting_plan", "document"];
+    const validCategories = ["floor_plan", "site_photo", "cutting_plan", "document", "showcase"];
     if (!validCategories.includes(fileCategory)) {
       return NextResponse.json({ error: "Invalid file_category" }, { status: 400 });
     }
@@ -127,6 +127,31 @@ export async function POST(request: Request) {
         .createSignedUrl(storagePath, 3600);
 
       uploaded.push({ ...row, signed_url: signedUrl?.signedUrl ?? null });
+    }
+
+    // Fire N8N webhook for showcase photos to auto-generate social posts
+    if (fileCategory === "showcase" && uploaded.length > 0) {
+      const webhookUrl = process.env.N8N_SOCIAL_POSTS_WEBHOOK_URL;
+      if (webhookUrl) {
+        const fileUrls = uploaded
+          .map((f) => (f as { signed_url?: string }).signed_url)
+          .filter(Boolean);
+
+        fetch(webhookUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-BillyBot-Secret": process.env.N8N_SHARED_SECRET ?? "",
+          },
+          body: JSON.stringify({
+            profile_id: user.id,
+            job_id: jobId,
+            file_urls: fileUrls,
+          }),
+        }).catch((err) => {
+          console.error("[job-files] N8N social posts webhook failed", err);
+        });
+      }
     }
 
     return NextResponse.json({ files: uploaded });

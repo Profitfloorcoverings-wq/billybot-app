@@ -1,4 +1,5 @@
 import { unstable_noStore } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { createServerClient } from "@/utils/supabase/server";
@@ -6,6 +7,9 @@ import { createServerClient } from "@/utils/supabase/server";
 export default async function PostOnboardPage() {
   unstable_noStore();
   const supabase = await createServerClient();
+  const h = await headers();
+  const ua = h.get("user-agent") ?? "";
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -41,6 +45,10 @@ export default async function PostOnboardPage() {
 
   if (!hasAcceptedTerms) {
     redirect("/account/accept-terms");
+  }
+
+  if (isMobile) {
+    redirect("/get-the-app");
   }
 
   redirect("/chat");

@@ -263,6 +263,14 @@ function getConnectionStatusLabel(status?: EmailConnectionStatus | null): Status
   }
 }
 
+function getDaysAgoLabel(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return "today";
+  if (days === 1) return "1 day ago";
+  return `${days} days ago`;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Main component                                                     */
 /* ------------------------------------------------------------------ */
@@ -354,6 +362,35 @@ export default function AccountPage() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
 
+  /* --- State: voice profile --- */
+  const [vpStatus, setVpStatus] = useState<"none" | "generating" | "ready" | "error">("none");
+  const [vpText, setVpText] = useState<string>("");
+  const [vpEditText, setVpEditText] = useState<string>("");
+  const [vpGeneratedAt, setVpGeneratedAt] = useState<string | null>(null);
+  const [vpEmailCount, setVpEmailCount] = useState<number | null>(null);
+  const [vpManualOverride, setVpManualOverride] = useState(false);
+  const [vpLoading, setVpLoading] = useState(true);
+  const [vpEditing, setVpEditing] = useState(false);
+  const [vpSaving, setVpSaving] = useState(false);
+  const [vpRegenerating, setVpRegenerating] = useState(false);
+  const [vpExpanded, setVpExpanded] = useState(false);
+  const [vpError, setVpError] = useState<string | null>(null);
+  const [vpSuccess, setVpSuccess] = useState<string | null>(null);
+
+  /* --- State: social accounts --- */
+  const [socialAccounts, setSocialAccounts] = useState<Array<{
+    id: string;
+    platform: string;
+    platform_page_name: string | null;
+    status: string;
+    effective_status: string;
+    last_post_at: string | null;
+  }>>([]);
+  const [socialLoading, setSocialLoading] = useState(true);
+  const [socialError, setSocialError] = useState<string | null>(null);
+  const [socialActionTarget, setSocialActionTarget] = useState<string | null>(null);
+  const [socialAutoPost, setSocialAutoPost] = useState(false);
+
   /* ------------------------------------------------------------------ */
   /*  Data loading                                                       */
   /* ------------------------------------------------------------------ */
@@ -428,6 +465,14 @@ export default function AccountPage() {
       setInvoiceAccountNumber((cd.invoice_account_number as string) ?? "");
       setInvoicePaymentTerms((cd.invoice_payment_terms as string) ?? "Payment due within 30 days");
       setInvoiceNotes((cd.invoice_notes as string) ?? "");
+
+      // Fetch social_auto_post separately (column may not be in generated types yet)
+      const { data: autoPostData } = await supabase
+        .from("clients")
+        .select("id" as string)
+        .eq("id", userData.user.id)
+        .maybeSingle();
+      setSocialAutoPost(!!(autoPostData as Record<string, unknown> | null)?.social_auto_post);
     } catch (err) {
       setError(
         err && typeof err === "object" && "message" in err
@@ -481,6 +526,108 @@ export default function AccountPage() {
   useEffect(() => {
     void loadEmailAccounts();
   }, []);
+
+  /* --- Load voice profile --- */
+  const loadVoiceProfile = useCallback(async () => {
+    setVpLoading(true);
+    setVpError(null);
+    try {
+      const res = await fetch("/api/voice-profile");
+      if (!res.ok) throw new Error("Unable to load voice profile");
+      const json = (await res.json()) as {
+        data?: {
+          voice_profile?: string | null;
+          voice_profile_status?: string | null;
+          voice_profile_generated_at?: string | null;
+          voice_profile_email_count?: number | null;
+          voice_profile_manual_override?: boolean | null;
+        } | null;
+      };
+      const d = json.data;
+      setVpStatus((d?.voice_profile_status as "none" | "generating" | "ready" | "error") ?? "none");
+      setVpText(d?.voice_profile ?? "");
+      setVpEditText(d?.voice_profile ?? "");
+      setVpGeneratedAt(d?.voice_profile_generated_at ?? null);
+      setVpEmailCount(d?.voice_profile_email_count ?? null);
+      setVpManualOverride(d?.voice_profile_manual_override ?? false);
+    } catch (err) {
+      setVpError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to load voice profile"
+      );
+    } finally {
+      setVpLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadVoiceProfile();
+  }, [loadVoiceProfile]);
+
+  /* --- Load social accounts --- */
+  const loadSocialAccounts = useCallback(async () => {
+    setSocialLoading(true);
+    setSocialError(null);
+    try {
+      const res = await fetch("/api/social/accounts");
+      if (!res.ok) throw new Error("Unable to load social accounts");
+      const data = (await res.json()) as { data?: typeof socialAccounts };
+      setSocialAccounts(data?.data ?? []);
+    } catch (err) {
+      setSocialError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to load social accounts"
+      );
+    } finally {
+      setSocialLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSocialAccounts();
+  }, [loadSocialAccounts]);
+
+  function handleSocialConnect(platform: "facebook" | "linkedin") {
+    window.location.href = `/api/social/${platform}/start`;
+  }
+
+  async function handleSocialDisconnect(accountId: string) {
+    setSocialActionTarget(accountId);
+    try {
+      const res = await fetch("/api/social/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_id: accountId }),
+      });
+      if (!res.ok) throw new Error("Unable to disconnect account");
+      await loadSocialAccounts();
+    } catch (err) {
+      setSocialError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to disconnect account"
+      );
+    } finally {
+      setSocialActionTarget(null);
+    }
+  }
+
+  async function handleAutoPostToggle() {
+    const newValue = !socialAutoPost;
+    setSocialAutoPost(newValue);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return;
+      await supabase
+        .from("clients")
+        .update({ social_auto_post: newValue } as Record<string, unknown>)
+        .eq("id", userData.user.id);
+    } catch {
+      setSocialAutoPost(!newValue); // revert on error
+    }
+  }
 
   const loadTeamData = useCallback(async () => {
     setTeamLoading(true);
@@ -807,6 +954,84 @@ export default function AccountPage() {
       );
     } finally {
       setRequestSubmitting(false);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Voice profile handlers                                             */
+  /* ------------------------------------------------------------------ */
+
+  async function handleVpRegenerate() {
+    setVpRegenerating(true);
+    setVpError(null);
+    setVpSuccess(null);
+    try {
+      const res = await fetch("/api/voice-profile/generate", { method: "POST" });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error ?? "Unable to regenerate voice profile");
+      }
+      setVpStatus("generating");
+      setVpManualOverride(false);
+      setVpSuccess("Voice profile generation started. This may take a minute.");
+    } catch (err) {
+      setVpError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to regenerate voice profile"
+      );
+    } finally {
+      setVpRegenerating(false);
+    }
+  }
+
+  async function handleVpSave() {
+    const trimmed = vpEditText.trim();
+    if (!trimmed) {
+      setVpError("Voice profile cannot be empty.");
+      return;
+    }
+    setVpSaving(true);
+    setVpError(null);
+    setVpSuccess(null);
+    try {
+      const res = await fetch("/api/voice-profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voice_profile: trimmed }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        data?: { voice_profile?: string; voice_profile_manual_override?: boolean };
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(json.error ?? "Unable to save voice profile");
+      }
+      setVpText(json.data?.voice_profile ?? trimmed);
+      setVpManualOverride(true);
+      setVpEditing(false);
+      setVpSuccess("Voice profile saved.");
+    } catch (err) {
+      setVpError(
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message?: string }).message)
+          : "Unable to save voice profile"
+      );
+    } finally {
+      setVpSaving(false);
+    }
+  }
+
+  function getVpStatusBadge(): StatusBadge {
+    switch (vpStatus) {
+      case "ready":
+        return { label: vpGeneratedAt ? `Ready (updated ${getDaysAgoLabel(vpGeneratedAt)})` : "Ready", bg: "rgba(52,211,153,0.12)", text: "#34d399", border: "rgba(52,211,153,0.25)" };
+      case "generating":
+        return { label: "Generating...", bg: "rgba(251,191,36,0.12)", text: "#fbbf24", border: "rgba(251,191,36,0.25)" };
+      case "error":
+        return { label: "Error", bg: "rgba(248,113,113,0.12)", text: "#f87171", border: "rgba(248,113,113,0.25)" };
+      default:
+        return { label: "Not generated", bg: "rgba(255,255,255,0.05)", text: "rgba(255,255,255,0.5)", border: "rgba(255,255,255,0.08)" };
     }
   }
 
@@ -1380,6 +1605,280 @@ export default function AccountPage() {
                 );
               })}
             </div>
+          </div>
+
+          <div style={{ height: "1px", background: "rgba(148,163,184,0.1)", margin: "24px 0" }} />
+
+          {/* Social Media */}
+          <div style={{ marginBottom: "24px" }}>
+            <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "12px" }}>
+              Social Media
+            </p>
+            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: "0 0 12px 0" }}>
+              Connect your social accounts to auto-generate posts from showcase photos.
+            </p>
+
+            {socialLoading && (
+              <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "12px" }}>Loading social accounts...</p>
+            )}
+            {socialError && (
+              <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", marginBottom: "12px" }}>
+                {socialError}
+              </p>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {[
+                { platform: "facebook" as const, label: "Facebook / Instagram" },
+                { platform: "linkedin" as const, label: "LinkedIn" },
+              ].map(({ platform, label }) => {
+                const accounts = socialAccounts.filter((a) =>
+                  platform === "facebook"
+                    ? a.platform === "facebook" || a.platform === "instagram"
+                    : a.platform === platform
+                );
+                const connected = accounts.some((a) => a.effective_status === "connected");
+                const needsReauth = accounts.some((a) => a.effective_status === "needs_reauth");
+                const pageNames = accounts
+                  .filter((a) => a.platform_page_name)
+                  .map((a) => a.platform_page_name)
+                  .join(", ");
+
+                const statusBadge = connected
+                  ? { label: "Connected", bg: "rgba(52,211,153,0.12)", text: "#34d399", border: "rgba(52,211,153,0.25)" }
+                  : needsReauth
+                  ? { label: "Reconnect required", bg: "rgba(248,113,113,0.12)", text: "#f87171", border: "rgba(248,113,113,0.25)" }
+                  : { label: "Not connected", bg: "rgba(255,255,255,0.05)", text: "rgba(255,255,255,0.5)", border: "rgba(255,255,255,0.08)" };
+
+                const isActionLoading = accounts.some((a) => socialActionTarget === a.id) || socialLoading;
+
+                return (
+                  <div key={platform} className="linked-account-badge">
+                    <div className="linked-account-badge-left">
+                      <div className="linked-account-badge-text">
+                        <p className="linked-account-badge-title">{label}</p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "4px" }}>
+                          <span
+                            style={{
+                              display: "inline-flex", alignItems: "center", padding: "3px 8px",
+                              borderRadius: "999px", fontSize: "11px", fontWeight: 700,
+                              background: statusBadge.bg, color: statusBadge.text,
+                              border: `1px solid ${statusBadge.border}`,
+                            }}
+                          >
+                            {statusBadge.label}
+                          </span>
+                          {connected && pageNames && (
+                            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.7)", margin: 0 }}>
+                              {pageNames}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      {(!connected || needsReauth) && (
+                        <button
+                          className="btn btn-primary"
+                          onClick={() => handleSocialConnect(platform)}
+                          disabled={isActionLoading}
+                        >
+                          {isActionLoading ? "Working..." : connected ? `Reconnect ${label}` : `Connect ${label}`}
+                        </button>
+                      )}
+                      {connected && accounts.length > 0 && (
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => {
+                            const fbAccount = accounts.find((a) => a.platform === platform || (platform === "facebook" && a.platform === "facebook"));
+                            if (fbAccount) void handleSocialDisconnect(fbAccount.id);
+                          }}
+                          disabled={isActionLoading}
+                        >
+                          {isActionLoading ? "Working..." : "Disconnect"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Auto-post toggle */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              marginTop: "16px", padding: "12px 16px",
+              background: "rgba(255,255,255,0.03)", border: "1px solid rgba(148,163,184,0.1)",
+              borderRadius: "10px",
+            }}>
+              <div>
+                <p style={{ fontSize: "13px", fontWeight: 600, color: "#e2e8f0", margin: 0 }}>Auto-post</p>
+                <p style={{ fontSize: "12px", color: "#64748b", margin: "2px 0 0" }}>
+                  Skip approval queue — publish showcase posts automatically
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleAutoPostToggle()}
+                style={{
+                  width: "44px", height: "24px", borderRadius: "12px", border: "none",
+                  background: socialAutoPost ? "#34d399" : "rgba(148,163,184,0.2)",
+                  position: "relative", cursor: "pointer", transition: "background 0.2s",
+                  flexShrink: 0,
+                }}
+              >
+                <span style={{
+                  position: "absolute", top: "2px",
+                  left: socialAutoPost ? "22px" : "2px",
+                  width: "20px", height: "20px", borderRadius: "50%",
+                  background: "#fff", transition: "left 0.2s",
+                }} />
+              </button>
+            </div>
+          </div>
+
+          <div style={{ height: "1px", background: "rgba(148,163,184,0.1)", margin: "24px 0" }} />
+
+          {/* Voice Profile */}
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
+              <p style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.07em", margin: 0 }}>
+                Voice Profile
+              </p>
+              {!vpLoading && (
+                <span
+                  style={{
+                    display: "inline-flex", alignItems: "center", padding: "3px 8px",
+                    borderRadius: "999px", fontSize: "11px", fontWeight: 700,
+                    background: getVpStatusBadge().bg, color: getVpStatusBadge().text,
+                    border: `1px solid ${getVpStatusBadge().border}`,
+                    ...(vpStatus === "generating" ? { animation: "pulse 2s ease-in-out infinite" } : {}),
+                  }}
+                >
+                  {getVpStatusBadge().label}
+                </span>
+              )}
+              {vpManualOverride && vpStatus === "ready" && (
+                <span style={{ fontSize: "11px", color: "#94a3b8", fontStyle: "italic" }}>
+                  (manually edited)
+                </span>
+              )}
+            </div>
+
+            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: "0 0 12px 0" }}>
+              BillyBot learns your email style from your sent emails. Need at least 10 sent emails to generate.
+            </p>
+
+            {vpLoading && (
+              <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "12px" }}>Loading voice profile...</p>
+            )}
+
+            {vpError && (
+              <p style={{ fontSize: "13px", color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "10px", padding: "10px 14px", marginBottom: "12px" }}>
+                {vpError}
+              </p>
+            )}
+
+            {vpSuccess && (
+              <p style={{ fontSize: "13px", color: "#34d399", background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)", borderRadius: "10px", padding: "10px 14px", marginBottom: "12px" }}>
+                {vpSuccess}
+              </p>
+            )}
+
+            {!vpLoading && (
+              <>
+                {/* Voice profile text area */}
+                <div style={{ marginBottom: "12px" }}>
+                  {vpEditing ? (
+                    <textarea
+                      className="chat-input"
+                      value={vpEditText}
+                      onChange={(e) => setVpEditText(e.target.value)}
+                      rows={10}
+                      style={{ resize: "vertical", minHeight: "120px", fontSize: "13px", lineHeight: "1.6" }}
+                      disabled={vpSaving}
+                    />
+                  ) : (
+                    <div
+                      onClick={() => { if (vpText && vpText.length > 300) setVpExpanded((v) => !v); }}
+                      style={{
+                        background: "rgba(255,255,255,0.03)",
+                        border: "1px solid rgba(148,163,184,0.1)",
+                        borderRadius: "10px",
+                        padding: "12px 16px",
+                        fontSize: "13px",
+                        color: vpText ? "#cbd5e1" : "#64748b",
+                        lineHeight: "1.6",
+                        whiteSpace: "pre-wrap",
+                        maxHeight: !vpExpanded && vpText && vpText.length > 300 ? "120px" : "none",
+                        overflow: "hidden",
+                        cursor: vpText && vpText.length > 300 ? "pointer" : "default",
+                        transition: "max-height 0.3s ease",
+                        position: "relative",
+                      }}
+                    >
+                      {vpText || "No voice profile yet"}
+                      {!vpExpanded && vpText && vpText.length > 300 && (
+                        <div style={{
+                          position: "absolute", bottom: 0, left: 0, right: 0, height: "40px",
+                          background: "linear-gradient(transparent, rgba(15,23,42,0.95))",
+                          display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "4px",
+                        }}>
+                          <span style={{ fontSize: "11px", color: "#38bdf8", fontWeight: 600 }}>Click to expand</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {vpEmailCount !== null && vpEmailCount > 0 && (
+                  <p style={{ fontSize: "11px", color: "#64748b", margin: "0 0 12px 0" }}>
+                    Generated from {vpEmailCount} sent email{vpEmailCount !== 1 ? "s" : ""}
+                  </p>
+                )}
+
+                {/* Buttons */}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  {!vpEditing ? (
+                    <>
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleVpRegenerate}
+                        disabled={vpRegenerating || vpStatus === "generating"}
+                      >
+                        {vpRegenerating || vpStatus === "generating" ? "Generating..." : "Regenerate"}
+                      </button>
+                      {vpText && (
+                        <button
+                          className="btn btn-secondary"
+                          onClick={() => { setVpEditText(vpText); setVpEditing(true); setVpError(null); setVpSuccess(null); }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        className="btn btn-primary"
+                        onClick={handleVpSave}
+                        disabled={vpSaving}
+                      >
+                        {vpSaving ? "Saving..." : "Save"}
+                      </button>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => { setVpEditing(false); setVpEditText(vpText); setVpError(null); }}
+                        disabled={vpSaving}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : null}

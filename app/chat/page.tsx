@@ -23,6 +23,7 @@ import QuoteBuilderCard from "./components/QuoteBuilderCard";
 import type { LineItem } from "./components/QuoteBuilderCard";
 import InvoiceBuilderCard from "./components/InvoiceBuilderCard";
 import EmailDraftCard from "./components/EmailDraftCard";
+import TeamMessageCard from "./components/TeamMessageCard";
 
 type Message = {
   id: number | string;
@@ -729,6 +730,11 @@ function ChatPageContent() {
     if (m.type === "email_draft") {
       const data = (() => { try { return JSON.parse(m.content); } catch { return null; } })();
       if (data?.job_id) return <EmailDraftCard data={data} />;
+    }
+
+    if (m.type === "team_message") {
+      const tmData = (() => { try { return JSON.parse(m.content); } catch { return null; } })();
+      if (tmData?.sender_name) return <TeamMessageCard data={tmData} />;
     }
 
     if (m.type === "diary_confirmation") {

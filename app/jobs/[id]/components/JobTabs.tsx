@@ -147,6 +147,8 @@ export default function JobTabs({ data }: { data: JobPageData }) {
   const [signatures, setSignatures] = useState<RamsSignature[]>([]);
   const [sending, setSending] = useState(false);
   const [sendToast, setSendToast] = useState<string | null>(null);
+  const [reanalysing, setReanalysing] = useState(false);
+  const [reanalyseResult, setReanalyseResult] = useState<string | null>(null);
   const { sections } = useMemo(() => parseSummary(data.job.job_details), [data.job.job_details]);
 
   useEffect(() => {
@@ -189,6 +191,30 @@ export default function JobTabs({ data }: { data: JobPageData }) {
     if (!/\d+(\.\d+)?\s?m/.test((data.job.job_details || "").toLowerCase())) list.push("Measurements");
     return list;
   }, [data.job.customer_phone, data.job.job_details, data.job.site_address]);
+
+  const hasEmailAttachments = data.attachments.length > 0;
+
+  async function handleReanalyse() {
+    setReanalysing(true);
+    setReanalyseResult(null);
+    try {
+      const res = await fetch(`/api/jobs/${data.job.id}/reanalyse`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setReanalyseResult(`Sent ${json.attachmentCount} attachment(s) for re-analysis. Areas will appear shortly.`);
+      } else {
+        const json = await res.json().catch(() => ({ error: "Unknown error" }));
+        setReanalyseResult(json.error || "Re-analysis failed");
+      }
+    } catch {
+      setReanalyseResult("Failed to reach server");
+    } finally {
+      setReanalysing(false);
+      setTimeout(() => setReanalyseResult(null), 6000);
+    }
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -300,12 +326,72 @@ export default function JobTabs({ data }: { data: JobPageData }) {
               borderRadius: "12px",
               padding: "12px 16px",
             }}>
-              <p style={{ fontSize: "12px", fontWeight: 700, color: "#fbbf24", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                Missing info
-              </p>
-              <p style={{ fontSize: "13px", color: "#fcd34d", margin: 0 }}>
-                {missing.join(" · ")} — update before quoting.
-              </p>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                <div>
+                  <p style={{ fontSize: "12px", fontWeight: 700, color: "#fbbf24", margin: "0 0 6px", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Missing info
+                  </p>
+                  <p style={{ fontSize: "13px", color: "#fcd34d", margin: 0 }}>
+                    {missing.join(" · ")} — update before quoting.
+                  </p>
+                </div>
+                {hasEmailAttachments ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleReanalyse()}
+                    disabled={reanalysing}
+                    style={{
+                      padding: "8px 14px",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      background: reanalysing ? "rgba(249,115,22,0.2)" : "rgba(249,115,22,0.9)",
+                      color: reanalysing ? "#94a3b8" : "#fff",
+                      border: "none",
+                      cursor: reanalysing ? "not-allowed" : "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {reanalysing ? "Analysing…" : "Re-analyse attachments"}
+                  </button>
+                ) : null}
+              </div>
+              {reanalyseResult ? (
+                <p style={{ fontSize: "12px", color: "#38bdf8", margin: "8px 0 0" }}>{reanalyseResult}</p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Re-analyse button when no missing info but attachments exist */}
+          {!missing.length && hasEmailAttachments ? (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}>
+              <button
+                type="button"
+                onClick={() => void handleReanalyse()}
+                disabled={reanalysing}
+                style={{
+                  padding: "8px 14px",
+                  borderRadius: "8px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  background: reanalysing ? "rgba(249,115,22,0.15)" : "rgba(249,115,22,0.1)",
+                  color: reanalysing ? "#94a3b8" : "#f97316",
+                  border: "1px solid rgba(249,115,22,0.25)",
+                  cursor: reanalysing ? "not-allowed" : "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {reanalysing ? "Analysing…" : "Re-analyse attachments"}
+              </button>
+              {reanalyseResult ? (
+                <span style={{ fontSize: "12px", color: "#38bdf8" }}>{reanalyseResult}</span>
+              ) : null}
             </div>
           ) : null}
 

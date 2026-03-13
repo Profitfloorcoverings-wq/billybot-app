@@ -215,6 +215,12 @@ export type Database = {
           updated_at: string | null
           use_v2_quoting: boolean | null
           user_role: string
+          voice_examples: Json | null
+          voice_profile: string | null
+          voice_profile_email_count: number | null
+          voice_profile_generated_at: string | null
+          voice_profile_manual_override: boolean | null
+          voice_profile_status: string | null
         }
         Insert: {
           accounting_system?: string | null
@@ -266,6 +272,12 @@ export type Database = {
           updated_at?: string | null
           use_v2_quoting?: boolean | null
           user_role?: string
+          voice_examples?: Json | null
+          voice_profile?: string | null
+          voice_profile_email_count?: number | null
+          voice_profile_generated_at?: string | null
+          voice_profile_manual_override?: boolean | null
+          voice_profile_status?: string | null
         }
         Update: {
           accounting_system?: string | null
@@ -317,6 +329,12 @@ export type Database = {
           updated_at?: string | null
           use_v2_quoting?: boolean | null
           user_role?: string
+          voice_examples?: Json | null
+          voice_profile?: string | null
+          voice_profile_email_count?: number | null
+          voice_profile_generated_at?: string | null
+          voice_profile_manual_override?: boolean | null
+          voice_profile_status?: string | null
         }
         Relationships: [
           {

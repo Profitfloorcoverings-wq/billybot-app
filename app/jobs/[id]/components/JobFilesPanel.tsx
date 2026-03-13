@@ -34,6 +34,7 @@ const CATEGORY_STYLES: Record<string, { bg: string; border: string; color: strin
   site_photo: { bg: "rgba(34,197,94,0.12)", border: "rgba(34,197,94,0.3)", color: "#22c55e", label: "Site Photo" },
   cutting_plan: { bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.3)", color: "#f97316", label: "Cutting Plan" },
   document: { bg: "rgba(148,163,184,0.12)", border: "rgba(148,163,184,0.3)", color: "#94a3b8", label: "Document" },
+  showcase: { bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.3)", color: "#a855f7", label: "Showcase" },
 };
 
 function formatBytes(bytes: number | null): string {
@@ -316,6 +317,7 @@ export default function JobFilesPanel({ jobId }: { jobId: string }) {
           <option value="floor_plan">Floor Plan</option>
           <option value="site_photo">Site Photo</option>
           <option value="cutting_plan">Cutting Plan</option>
+          <option value="showcase">Showcase</option>
         </select>
 
         <input
