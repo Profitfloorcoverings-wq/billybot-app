@@ -32,16 +32,18 @@ export async function POST() {
       );
     }
 
-    fetch(webhookUrl, {
+    const webhookRes = await fetch(webhookUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-BillyBot-Secret": process.env.N8N_SHARED_SECRET ?? "",
       },
       body: JSON.stringify({ profile_id: userId }),
-    }).catch((err) =>
-      console.error("N8N voice profile webhook error:", err)
-    );
+    });
+
+    if (!webhookRes.ok) {
+      console.error("N8N voice profile webhook failed:", webhookRes.status, await webhookRes.text().catch(() => ""));
+    }
 
     return NextResponse.json({ status: "generating" });
   } catch (err: unknown) {
