@@ -565,6 +565,13 @@ export default function AccountPage() {
     void loadVoiceProfile();
   }, [loadVoiceProfile]);
 
+  // Poll for voice profile status when generating
+  useEffect(() => {
+    if (vpStatus !== "generating") return;
+    const interval = setInterval(() => { void loadVoiceProfile(); }, 5000);
+    return () => clearInterval(interval);
+  }, [vpStatus, loadVoiceProfile]);
+
   /* --- Load social accounts --- */
   const loadSocialAccounts = useCallback(async () => {
     setSocialLoading(true);
@@ -1793,7 +1800,7 @@ export default function AccountPage() {
             </div>
 
             <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.45)", margin: "0 0 12px 0" }}>
-              BillyBot learns your email style from your sent emails. Need at least 10 sent emails to generate.
+              BillyBot learns your email style from your sent emails so replies sound like you. Need at least 5 sent emails to generate.
             </p>
 
             {vpLoading && (
@@ -1845,13 +1852,19 @@ export default function AccountPage() {
                       }}
                     >
                       {vpText || "No voice profile yet"}
-                      {!vpExpanded && vpText && vpText.length > 300 && (
+                      {vpText && vpText.length > 300 && (
                         <div style={{
-                          position: "absolute", bottom: 0, left: 0, right: 0, height: "40px",
-                          background: "linear-gradient(transparent, rgba(15,23,42,0.95))",
-                          display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: "4px",
+                          position: vpExpanded ? "relative" : "absolute",
+                          bottom: 0, left: 0, right: 0,
+                          height: vpExpanded ? "auto" : "40px",
+                          background: vpExpanded ? "none" : "linear-gradient(transparent, rgba(15,23,42,0.95))",
+                          display: "flex", alignItems: "flex-end", justifyContent: "center",
+                          paddingBottom: vpExpanded ? "0" : "4px",
+                          paddingTop: vpExpanded ? "8px" : "0",
                         }}>
-                          <span style={{ fontSize: "11px", color: "#38bdf8", fontWeight: 600 }}>Click to expand</span>
+                          <span style={{ fontSize: "11px", color: "#38bdf8", fontWeight: 600 }}>
+                            {vpExpanded ? "Click to collapse" : "Click to expand"}
+                          </span>
                         </div>
                       )}
                     </div>
