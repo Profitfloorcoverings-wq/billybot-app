@@ -544,12 +544,18 @@ export default function AccountPage() {
         } | null;
       };
       const d = json.data;
-      setVpStatus((d?.voice_profile_status as "none" | "generating" | "ready" | "error" | "insufficient_emails") ?? "none");
+      const newStatus = (d?.voice_profile_status as "none" | "generating" | "ready" | "error" | "insufficient_emails") ?? "none";
+      setVpStatus(newStatus);
       setVpText(d?.voice_profile ?? "");
       setVpEditText(d?.voice_profile ?? "");
       setVpGeneratedAt(d?.voice_profile_generated_at ?? null);
       setVpEmailCount(d?.voice_profile_email_count ?? null);
       setVpManualOverride(d?.voice_profile_manual_override ?? false);
+      // Clear transient banners when generation completes
+      if (newStatus !== "generating") {
+        setVpSuccess(null);
+        setVpRegenerating(false);
+      }
     } catch (err) {
       setVpError(
         err && typeof err === "object" && "message" in err
