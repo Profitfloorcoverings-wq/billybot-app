@@ -1629,9 +1629,33 @@ export default function AccountPage() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
               {[
-                { platform: "facebook" as const, label: "Facebook / Instagram" },
-                { platform: "linkedin" as const, label: "LinkedIn" },
-              ].map(({ platform, label }) => {
+                { platform: "facebook" as const, label: "Facebook / Instagram", comingSoon: false },
+                { platform: "linkedin" as const, label: "LinkedIn", comingSoon: true },
+              ].map(({ platform, label, comingSoon }) => {
+                if (comingSoon) {
+                  return (
+                    <div key={platform} className="linked-account-badge">
+                      <div className="linked-account-badge-left">
+                        <div className="linked-account-badge-text">
+                          <p className="linked-account-badge-title">{label}</p>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "4px" }}>
+                            <span
+                              style={{
+                                display: "inline-flex", alignItems: "center", padding: "3px 8px",
+                                borderRadius: "999px", fontSize: "11px", fontWeight: 700,
+                                background: "rgba(56,189,248,0.12)", color: "#38bdf8",
+                                border: "1px solid rgba(56,189,248,0.25)",
+                              }}
+                            >
+                              Coming Soon
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 const accounts = socialAccounts.filter((a) =>
                   platform === "facebook"
                     ? a.platform === "facebook" || a.platform === "instagram"
